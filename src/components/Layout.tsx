@@ -11,7 +11,7 @@ const Layout = () => {
       case "/connections":
         return "Connections";
       case "/reports":
-        return "Reports";
+        return "Artificial Intelligence Reports";
       default:
         return "Dashboard";
     }
