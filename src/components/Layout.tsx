@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Users, Link2, FileText, Settings, Bell, User } from "lucide-react";
+import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Layout = () => {
@@ -11,21 +11,31 @@ const Layout = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-taxops-navy border-r border-border flex flex-col">
-        {/* Logo */}
-        <div className="p-6 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-taxops-orange rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">TO</span>
+      {/* AI-driven sidebar */}
+      <aside className="w-72 bg-glass-bg/95 backdrop-blur-xl border-r border-glass-border shadow-glass flex flex-col">
+        {/* Premium Logo */}
+        <div className="p-8 border-b border-glass-border">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center shadow-glow">
+                <Bot className="w-6 h-6 text-white" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center animate-glow-pulse">
+                <Sparkles className="w-2 h-2 text-white" />
+              </div>
             </div>
-            <span className="text-white text-xl font-bold">TaxOps</span>
+            <div>
+              <span className="text-2xl font-bold bg-gradient-to-r from-white to-taxops-gray-light bg-clip-text text-transparent">
+                TAXOPS
+              </span>
+              <p className="text-xs text-taxops-gray-light mt-1">AI-Powered Tax Automation</p>
+            </div>
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-4">
-          <div className="space-y-2">
+        {/* Navigation with glow effects */}
+        <nav className="flex-1 p-6">
+          <div className="space-y-3">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -33,15 +43,27 @@ const Layout = () => {
                   key={item.to}
                   to={item.to}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    `group relative flex items-center gap-4 px-6 py-4 rounded-xl text-sm font-semibold transition-all duration-300 overflow-hidden border border-transparent ${
                       isActive
-                        ? "bg-taxops-orange text-white"
-                        : "text-muted-foreground hover:text-white hover:bg-secondary/50"
+                        ? "bg-gradient-to-r from-primary/20 to-primary/10 text-primary border-primary/30 shadow-glow"
+                        : "text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 hover:border-glass-border"
                     }`
                   }
                 >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
+                  {({ isActive }) => (
+                    <>
+                      {/* Glow effect overlay */}
+                      <div className={`absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 transition-opacity duration-300 ${isActive ? 'opacity-100' : 'group-hover:opacity-100'}`} />
+                      
+                      <Icon className={`relative z-10 w-5 h-5 transition-all duration-300 ${isActive ? "text-primary" : "group-hover:scale-110"}`} />
+                      <span className="relative z-10">{item.label}</span>
+                      
+                      {/* Active indicator */}
+                      {isActive && (
+                        <div className="absolute right-4 w-2 h-2 bg-primary rounded-full animate-glow-pulse" />
+                      )}
+                    </>
+                  )}
                 </NavLink>
               );
             })}
@@ -49,47 +71,52 @@ const Layout = () => {
         </nav>
 
         {/* Bottom section */}
-        <div className="p-4 border-t border-border">
+        <div className="p-6 border-t border-glass-border">
           <Button
             variant="ghost"
-            className="w-full justify-start gap-3 text-muted-foreground hover:text-white"
+            className="w-full justify-start gap-4 px-6 py-4 text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 transition-all duration-300 group"
           >
-            <Settings className="w-5 h-5" />
-            Settings
+            <Settings className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span className="font-medium">Settings</span>
           </Button>
         </div>
       </aside>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col">
-        {/* Top header */}
-        <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6">
+        {/* Enhanced top header */}
+        <header className="h-20 bg-glass-bg/30 backdrop-blur-sm border-b border-glass-border flex items-center justify-between px-8">
           <div className="flex items-center gap-4">
-            <h1 className="text-xl font-semibold text-foreground">TaxOps Dashboard</h1>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-taxops-gray-light bg-clip-text text-transparent">
+              AI Tax Dashboard
+            </h1>
           </div>
           
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-taxops-error rounded-full text-xs flex items-center justify-center text-white">
+          <div className="flex items-center gap-6">
+            <Button variant="ghost" size="icon" className="relative hover:bg-glass-bg/50 transition-all duration-300 group">
+              <Bell className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-taxops-error rounded-full text-xs flex items-center justify-center text-white animate-glow-pulse">
                 3
               </span>
             </Button>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4 p-3 bg-glass-bg/30 rounded-xl border border-glass-border hover:border-primary/30 transition-all duration-300 group">
               <div className="text-right">
-                <p className="text-sm font-medium text-foreground">Tax Ops</p>
-                <p className="text-xs text-muted-foreground">TaxOps</p>
+                <p className="text-sm font-semibold text-white group-hover:text-primary transition-colors">Admin User</p>
+                <p className="text-xs text-taxops-gray-light">admin@taxops.ai</p>
               </div>
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-primary-foreground" />
+              <div className="relative">
+                <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center">
+                  <User className="w-5 h-5 text-white" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-taxops-success rounded-full border-2 border-background" />
               </div>
             </div>
           </div>
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 p-8 overflow-auto">
           <Outlet />
         </main>
       </div>

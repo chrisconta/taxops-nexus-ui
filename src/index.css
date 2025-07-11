@@ -8,55 +8,56 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Dark theme - Navy to black backgrounds */
-    --background: 220 20% 8%;
+    /* AI-driven brand identity - Deep dark theme (#0D1117 to #121212) */
+    --background: 220 15% 7%;
     --foreground: 210 40% 98%;
 
-    --card: 220 20% 10%;
+    --card: 220 15% 9%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 220 20% 12%;
+    --popover: 220 15% 10%;
     --popover-foreground: 210 40% 98%;
 
     /* Bright blue primary (#3A86FF) */
-    --primary: 217 100% 61%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 217 100% 62%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 20% 14%;
+    --secondary: 220 15% 12%;
     --secondary-foreground: 210 40% 88%;
 
-    --muted: 220 20% 12%;
-    --muted-foreground: 215.4 16.3% 56.9%;
+    --muted: 220 15% 11%;
+    --muted-foreground: 215 16% 57%;
 
-    --accent: 217 100% 61%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 217 100% 62%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 220 20% 18%;
-    --input: 220 20% 15%;
-    --ring: 217 100% 61%;
+    --border: 220 15% 15%;
+    --input: 220 15% 12%;
+    --ring: 217 100% 62%;
 
     --radius: 0.75rem;
 
-    /* Custom TAXOPS colors */
-    --taxops-orange: 25 95% 55%;
-    --taxops-blue: 217 100% 61%;
-    --taxops-navy: 220 30% 6%;
-    --taxops-gray: 220 14% 96%;
+    /* AI-driven TAXOPS brand colors */
+    --taxops-primary: 217 100% 62%;
     --taxops-success: 142 76% 36%;
     --taxops-warning: 38 92% 50%;
     --taxops-error: 0 84% 60%;
+    --taxops-gray-light: 215 16% 57%;
+    --taxops-gray-dark: 220 15% 20%;
 
-    /* Glassmorphism effects */
-    --glass-bg: 220 20% 12% / 0.8;
-    --glass-border: 220 20% 25% / 0.2;
-    --glass-shadow: 0 8px 32px hsl(220 20% 4% / 0.37);
+    /* Advanced glassmorphism effects */
+    --glass-bg: 220 15% 10% / 0.85;
+    --glass-border: 217 100% 62% / 0.1;
+    --glass-shadow: 0 8px 32px hsl(220 15% 2% / 0.4);
+    --glass-glow: 0 0 20px hsl(217 100% 62% / 0.3);
 
-    /* Transitions */
+    /* Smooth animations and transitions */
     --transition-all: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-colors: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+    --transition-glow: box-shadow 0.3s ease-in-out, border-color 0.3s ease-in-out;
+    --transition-lift: transform 0.2s ease-out, box-shadow 0.2s ease-out;
 
     --sidebar-background: 0 0% 98%;
 

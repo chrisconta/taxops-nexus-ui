@@ -63,13 +63,12 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				},
 				taxops: {
-					orange: 'hsl(var(--taxops-orange))',
-					blue: 'hsl(var(--taxops-blue))',
-					navy: 'hsl(var(--taxops-navy))',
-					gray: 'hsl(var(--taxops-gray))',
+					primary: 'hsl(var(--taxops-primary))',
 					success: 'hsl(var(--taxops-success))',
 					warning: 'hsl(var(--taxops-warning))',
-					error: 'hsl(var(--taxops-error))'
+					error: 'hsl(var(--taxops-error))',
+					'gray-light': 'hsl(var(--taxops-gray-light))',
+					'gray-dark': 'hsl(var(--taxops-gray-dark))'
 				},
 				glass: {
 					bg: 'hsl(var(--glass-bg))',
@@ -83,25 +82,37 @@ export default {
 			},
 			keyframes: {
 				'accordion-down': {
-					from: {
-						height: '0'
-					},
-					to: {
-						height: 'var(--radix-accordion-content-height)'
-					}
+					from: { height: '0' },
+					to: { height: 'var(--radix-accordion-content-height)' }
 				},
 				'accordion-up': {
-					from: {
-						height: 'var(--radix-accordion-content-height)'
-					},
-					to: {
-						height: '0'
-					}
+					from: { height: 'var(--radix-accordion-content-height)' },
+					to: { height: '0' }
+				},
+				'glow-pulse': {
+					'0%, 100%': { boxShadow: '0 0 20px hsl(217 100% 62% / 0.3)' },
+					'50%': { boxShadow: '0 0 30px hsl(217 100% 62% / 0.5)' }
+				},
+				'float': {
+					'0%, 100%': { transform: 'translateY(0px)' },
+					'50%': { transform: 'translateY(-4px)' }
+				},
+				'slide-up': {
+					'0%': { transform: 'translateY(10px)', opacity: '0' },
+					'100%': { transform: 'translateY(0px)', opacity: '1' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
+				'float': 'float 3s ease-in-out infinite',
+				'slide-up': 'slide-up 0.3s ease-out'
+			},
+			boxShadow: {
+				'glass': 'var(--glass-shadow)',
+				'glow': 'var(--glass-glow)',
+				'glow-lg': '0 0 40px hsl(217 100% 62% / 0.4)'
 			}
 		}
 	},

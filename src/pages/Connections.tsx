@@ -60,8 +60,10 @@ const Connections = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-foreground">Connections</h1>
-        <p className="text-lg text-muted-foreground">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-taxops-gray-light bg-clip-text text-transparent">
+          Connections
+        </h1>
+        <p className="text-lg text-taxops-gray-light">
           Choose a connection type to generate your report
         </p>
       </div>
@@ -75,12 +77,12 @@ const Connections = () => {
           return (
             <Card
               key={connection.id}
-              className={`group relative p-6 bg-card/50 backdrop-blur border-glass-border transition-all duration-300 cursor-pointer
+              className={`group relative p-6 bg-glass-bg/50 backdrop-blur-sm border-glass-border transition-all duration-300 cursor-pointer overflow-hidden
                 ${isAvailable 
-                  ? "hover:bg-card/80 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/20" 
+                  ? "hover:bg-glass-bg/70 hover:border-primary/50 hover:shadow-glow hover:-translate-y-1" 
                   : "opacity-60 cursor-not-allowed"
                 }
-                ${selectedConnection === connection.id ? "border-primary shadow-lg shadow-primary/20" : ""}
+                ${selectedConnection === connection.id ? "border-primary shadow-glow" : ""}
               `}
               onClick={() => isAvailable && handleConnectionClick(connection.id)}
             >
