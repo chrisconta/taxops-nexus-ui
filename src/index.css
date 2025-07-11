@@ -8,35 +8,55 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Dark theme - Navy to black backgrounds */
+    --background: 220 20% 8%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 220 20% 10%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 220 20% 12%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
+    /* Bright blue primary (#3A86FF) */
+    --primary: 217 100% 61%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 220 20% 14%;
+    --secondary-foreground: 210 40% 88%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 20% 12%;
+    --muted-foreground: 215.4 16.3% 56.9%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 217 100% 61%;
+    --accent-foreground: 210 40% 98%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 220 20% 18%;
+    --input: 220 20% 15%;
+    --ring: 217 100% 61%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* Custom TAXOPS colors */
+    --taxops-orange: 25 95% 55%;
+    --taxops-blue: 217 100% 61%;
+    --taxops-navy: 220 30% 6%;
+    --taxops-gray: 220 14% 96%;
+    --taxops-success: 142 76% 36%;
+    --taxops-warning: 38 92% 50%;
+    --taxops-error: 0 84% 60%;
+
+    /* Glassmorphism effects */
+    --glass-bg: 220 20% 12% / 0.8;
+    --glass-border: 220 20% 25% / 0.2;
+    --glass-shadow: 0 8px 32px hsl(220 20% 4% / 0.37);
+
+    /* Transitions */
+    --transition-all: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-colors: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
 
     --sidebar-background: 0 0% 98%;
 

@@ -61,6 +61,19 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				taxops: {
+					orange: 'hsl(var(--taxops-orange))',
+					blue: 'hsl(var(--taxops-blue))',
+					navy: 'hsl(var(--taxops-navy))',
+					gray: 'hsl(var(--taxops-gray))',
+					success: 'hsl(var(--taxops-success))',
+					warning: 'hsl(var(--taxops-warning))',
+					error: 'hsl(var(--taxops-error))'
+				},
+				glass: {
+					bg: 'hsl(var(--glass-bg))',
+					border: 'hsl(var(--glass-border))'
 				}
 			},
 			borderRadius: {
