@@ -176,7 +176,7 @@ const Reports = () => {
 
         {/* Assistant Tab */}
         <TabsContent value="assistant" className="flex-1 flex flex-col mt-6">
-          <Card className="flex-1 bg-glass-bg/50 backdrop-blur-xl border-glass-border shadow-glass overflow-hidden flex flex-col">
+          <Card className="h-[600px] bg-glass-bg/50 backdrop-blur-xl border-glass-border shadow-glass overflow-hidden flex flex-col">
             {/* Chat Header */}
             <div className="p-6 border-b border-glass-border bg-gradient-to-r from-primary/10 to-primary/5">
               <div className="flex items-center space-x-4">
