@@ -158,7 +158,7 @@ const Clients = () => {
             >
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
-                  <p className="text-sm text-taxops-gray-light">{metric.title}</p>
+                  <p className="text-sm text-taxops-gray-light">Invalid Credentials</p>
                   <p className="text-3xl font-bold text-white">{metric.value}</p>
                   <p className={`text-sm ${metric.change.startsWith('+') ? 'text-taxops-success' : 'text-taxops-error'}`}>
                     {metric.change} from last month
