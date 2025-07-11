@@ -24,7 +24,7 @@ const Layout = () => {
       case "/connections":
         return "Connect and manage financial service integrations";
       case "/reports":
-        return "View and generate comprehensive reports";
+        return "Generate tax and financial reports from your data sources using generative AI";
       default:
         return "Welcome to TaxOps";
     }
