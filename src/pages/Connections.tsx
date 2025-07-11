@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowRight, Info, Download, Bot, Globe, Upload, Zap } from "lucide-react";
+import { ArrowRight, Info, Building, BookOpen, Briefcase, Check, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,51 +10,194 @@ import {
 } from "@/components/ui/tooltip";
 
 const connectionTypes = [
+  // Bookkeeping Software
   {
-    id: "xml-auto",
-    title: "Download XML Automatically",
-    description: "Automated XML download from SAT",
-    icon: Download,
-    status: "available",
+    id: "quickbooks",
+    title: "QuickBooks",
+    description: "Connect your QuickBooks account to import transactions, reports, and tax data.",
+    icon: BookOpen,
+    category: "bookkeeping",
+    status: "connected",
   },
   {
-    id: "xml-bot",
-    title: "Download XML via Web Bot",
-    description: "Use web automation to download XML files",
-    icon: Bot,
-    status: "available",
+    id: "xero",
+    title: "Xero",
+    description: "Sync Xero to access invoices, expenses, and financial summaries.",
+    icon: BookOpen,
+    category: "bookkeeping",
+    status: "not-connected",
   },
   {
-    id: "xml-service",
-    title: "Download XML via Web Service",
-    description: "Connect directly to SAT web services",
-    icon: Globe,
-    status: "available",
+    id: "sage",
+    title: "Sage 50cloud",
+    description: "Integrate Sage to pull ledger and balance sheet data.",
+    icon: BookOpen,
+    category: "bookkeeping",
+    status: "not-connected",
   },
   {
-    id: "bulk-upload",
-    title: "Bulk Upload (.zip)",
-    description: "Upload multiple XML files at once",
-    icon: Upload,
-    status: "available",
+    id: "freshbooks",
+    title: "FreshBooks",
+    description: "Access billing, payments, and income reports through FreshBooks.",
+    icon: BookOpen,
+    category: "bookkeeping",
+    status: "not-connected",
+  },
+  {
+    id: "wave",
+    title: "Wave Accounting",
+    description: "Connect Wave to retrieve categorized income and expense records.",
+    icon: BookOpen,
+    category: "bookkeeping",
+    status: "not-connected",
+  },
+  
+  // ERP Systems
+  {
+    id: "sap",
+    title: "SAP ERP",
+    description: "Link SAP ERP to analyze enterprise-level financials and compliance data.",
+    icon: Briefcase,
+    category: "erp",
+    status: "not-connected",
+  },
+  {
+    id: "oracle",
+    title: "Oracle ERP Cloud",
+    description: "Pull accounting and reporting data from Oracle ERP.",
+    icon: Briefcase,
+    category: "erp",
+    status: "not-connected",
+  },
+  {
+    id: "dynamics",
+    title: "Microsoft Dynamics 365",
+    description: "Sync Dynamics 365 to automate financial workflows and tax analysis.",
+    icon: Briefcase,
+    category: "erp",
+    status: "not-connected",
   },
   {
     id: "netsuite",
-    title: "NetSuite Integration",
-    description: "Connect to your NetSuite instance",
-    icon: Zap,
+    title: "NetSuite",
+    description: "Connect to NetSuite to retrieve corporate financial reports.",
+    icon: Briefcase,
+    category: "erp",
     status: "coming-soon",
   },
+  {
+    id: "infor",
+    title: "Infor ERP",
+    description: "Import structured financials from Infor ERP into your reports.",
+    icon: Briefcase,
+    category: "erp",
+    status: "not-connected",
+  },
+  
+  // Banks
+  {
+    id: "chase",
+    title: "JPMorgan Chase",
+    description: "Securely connect Chase bank feeds to retrieve transaction history.",
+    icon: Building,
+    category: "banks",
+    status: "connected",
+  },
+  {
+    id: "bofa",
+    title: "Bank of America",
+    description: "Access statement data and account transactions from BofA.",
+    icon: Building,
+    category: "banks",
+    status: "not-connected",
+  },
+  {
+    id: "wells",
+    title: "Wells Fargo",
+    description: "Integrate Wells Fargo banking activity for reporting.",
+    icon: Building,
+    category: "banks",
+    status: "not-connected",
+  },
+  {
+    id: "citi",
+    title: "Citibank (Citigroup)",
+    description: "Connect Citibank accounts to import deposit and payment details.",
+    icon: Building,
+    category: "banks",
+    status: "not-connected",
+  },
+  {
+    id: "usbank",
+    title: "U.S. Bank",
+    description: "Pull U.S. Bank statements and transaction flows.",
+    icon: Building,
+    category: "banks",
+    status: "not-connected",
+  },
+  {
+    id: "mercury",
+    title: "Mercury",
+    description: "Sync startup-friendly bank feeds from Mercury for report generation.",
+    icon: Building,
+    category: "banks",
+    status: "not-connected",
+  },
+  {
+    id: "brex",
+    title: "Brex",
+    description: "Connect Brex financial data and smart cards for business analysis.",
+    icon: Building,
+    category: "banks",
+    status: "not-connected",
+  },
+];
+
+const categories = [
+  { id: "all", label: "All", icon: null },
+  { id: "bookkeeping", label: "Bookkeeping", icon: BookOpen },
+  { id: "erp", label: "ERP", icon: Briefcase },
+  { id: "banks", label: "Banks", icon: Building },
 ];
 
 const Connections = () => {
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<string>("all");
 
   const handleConnectionClick = (connectionId: string) => {
     setSelectedConnection(connectionId);
-    // In a real app, this would navigate to a configuration page
     console.log(`Configuring connection: ${connectionId}`);
   };
+
+  const filteredConnections = connectionTypes.filter(connection => 
+    activeFilter === "all" || connection.category === activeFilter
+  );
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "connected":
+        return (
+          <div className="flex items-center gap-1 text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">
+            <Check className="w-3 h-3" />
+            Connected
+          </div>
+        );
+      case "coming-soon":
+        return (
+          <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">
+            Coming Soon
+          </span>
+        );
+      default:
+        return (
+          <span className="text-xs bg-gray-500/20 text-gray-400 px-2 py-1 rounded-full">
+            Not Connected
+          </span>
+        );
+    }
+  };
+
+  const isClickable = (status: string) => status !== "coming-soon";
 
   return (
     <div className="space-y-6">
@@ -64,81 +207,85 @@ const Connections = () => {
           Connections
         </h1>
         <p className="text-lg text-taxops-gray-light">
-          Choose a connection type to generate your report
+          Connect your financial systems to generate comprehensive reports
         </p>
+      </div>
+
+      {/* Filter Controls */}
+      <div className="flex flex-wrap gap-3">
+        {categories.map((category) => {
+          const Icon = category.icon;
+          return (
+            <Button
+              key={category.id}
+              variant={activeFilter === category.id ? "default" : "outline"}
+              onClick={() => setActiveFilter(category.id)}
+              className={`flex items-center gap-2 transition-all duration-300 ${
+                activeFilter === category.id 
+                  ? "bg-primary text-primary-foreground shadow-glow" 
+                  : "bg-glass-bg/50 hover:bg-glass-bg/70 border-glass-border hover:border-primary/50"
+              }`}
+            >
+              {Icon && <Icon className="w-4 h-4" />}
+              {category.label}
+            </Button>
+          );
+        })}
       </div>
 
       {/* Connection Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {connectionTypes.map((connection) => {
+        {filteredConnections.map((connection) => {
           const Icon = connection.icon;
-          const isAvailable = connection.status === "available";
+          const clickable = isClickable(connection.status);
           
           return (
             <Card
               key={connection.id}
-              className={`group relative p-6 bg-glass-bg/50 backdrop-blur-sm border-glass-border transition-all duration-300 cursor-pointer overflow-hidden
-                ${isAvailable 
-                  ? "hover:bg-glass-bg/70 hover:border-primary/50 hover:shadow-glow hover:-translate-y-1" 
+              className={`group relative p-6 bg-glass-bg/50 backdrop-blur-sm border-glass-border transition-all duration-300 overflow-hidden
+                ${clickable 
+                  ? "hover:bg-glass-bg/70 hover:border-primary/50 hover:shadow-glow hover:-translate-y-1 cursor-pointer" 
                   : "opacity-60 cursor-not-allowed"
                 }
                 ${selectedConnection === connection.id ? "border-primary shadow-glow" : ""}
               `}
-              onClick={() => isAvailable && handleConnectionClick(connection.id)}
+              onClick={() => clickable && handleConnectionClick(connection.id)}
             >
               {/* Status badge */}
-              {connection.status === "coming-soon" && (
-                <div className="absolute top-4 right-4">
-                  <span className="text-xs bg-taxops-warning/20 text-taxops-warning px-2 py-1 rounded-full">
-                    Coming Soon
-                  </span>
-                </div>
-              )}
+              <div className="absolute top-4 right-4">
+                {getStatusBadge(connection.status)}
+              </div>
 
               {/* Icon */}
               <div className="flex items-start justify-between mb-4">
                 <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                   <Icon className="w-6 h-6 text-primary" />
                 </div>
-                
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="w-8 h-8">
-                        <Info className="w-4 h-4 text-muted-foreground" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">{connection.description}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
               </div>
 
               {/* Content */}
-              <div className="space-y-3">
+              <div className="space-y-3 pr-20">
                 <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
                   {connection.title}
                 </h3>
                 
-                <p className="text-sm text-muted-foreground line-clamp-2">
+                <p className="text-sm text-muted-foreground line-clamp-3">
                   {connection.description}
                 </p>
               </div>
 
               {/* Action */}
-              <div className="flex items-center justify-end mt-6">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`group-hover:text-primary transition-colors ${
-                    isAvailable ? "" : "opacity-50"
-                  }`}
-                  disabled={!isAvailable}
-                >
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </div>
+              {clickable && (
+                <div className="flex items-center justify-end mt-6">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="group-hover:text-primary transition-colors"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
 
               {/* Hover effect overlay */}
               <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none" />
@@ -147,7 +294,7 @@ const Connections = () => {
         })}
       </div>
 
-      {/* Additional Info */}
+      {/* Getting Started */}
       <Card className="p-6 bg-muted/20 border-border">
         <div className="flex items-start gap-4">
           <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -157,13 +304,13 @@ const Connections = () => {
             <h3 className="text-lg font-semibold text-foreground">Getting Started</h3>
             <p className="text-muted-foreground">
               Select a connection type above to begin configuring your data source. 
-              Each connection type has different requirements and capabilities for accessing your tax data.
+              Each integration has different requirements and capabilities for accessing your financial data.
             </p>
             <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 mt-3">
-              <li>Automatic downloads require valid SAT credentials</li>
-              <li>Web bot connections may need additional browser configuration</li>
-              <li>Bulk uploads support ZIP files containing multiple XML documents</li>
-              <li>NetSuite integration requires API access and configuration</li>
+              <li>Some integrations require OAuth or API key access</li>
+              <li>Bank feeds may be connected via aggregators like Plaid or Finicity</li>
+              <li>ERP systems often require admin-level credentials or sandbox tokens</li>
+              <li>Bookkeeping software typically uses secure API connections</li>
             </ul>
           </div>
         </div>
@@ -174,7 +321,7 @@ const Connections = () => {
         <h2 className="text-xl font-semibold text-foreground">Recent Connections</h2>
         <Card className="p-4 bg-card/30 border-border">
           <div className="text-center py-8">
-            <Globe className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <Building className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">No recent connections</h3>
             <p className="text-muted-foreground">
               Your recent connection activities will appear here.
