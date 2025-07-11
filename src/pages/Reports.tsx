@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Filter, Calendar, FileText, Download, MoreHorizontal, MessageSquare, Bot, Users, Calculator, DollarSign, BarChart3, Loader2, CheckCircle, Send, Mic, History, FileSpreadsheet, Building2, User } from "lucide-react";
+import { Search, Filter, Calendar, FileText, Download, MoreHorizontal, MessageSquare, Brain, Users, Calculator, DollarSign, BarChart3, Loader2, CheckCircle, Send, Mic, History, FileSpreadsheet, Building2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -156,7 +156,7 @@ const Reports = () => {
             Reports
           </TabsTrigger>
           <TabsTrigger value="assistant" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
-            <Bot className="w-4 h-4 mr-2" />
+            <Brain className="w-4 h-4 mr-2" />
             Assistant
           </TabsTrigger>
           <TabsTrigger value="history" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
@@ -221,7 +221,7 @@ const Reports = () => {
             <div className="p-6 border-b border-glass-border bg-gradient-to-r from-primary/10 to-primary/5">
               <div className="flex items-center space-x-4">
                 <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center animate-glow-pulse">
-                  <Bot className="w-6 h-6 text-white" />
+                  <Brain className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-white">
@@ -239,7 +239,7 @@ const Reports = () => {
               {chatMessages.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
-                    <Bot className="w-16 h-16 text-taxops-gray-light mx-auto mb-4" />
+                    <Brain className="w-16 h-16 text-taxops-gray-light mx-auto mb-4" />
                     <p className="text-taxops-gray-light">Select a report from the Reports tab to start</p>
                   </div>
                 </div>
