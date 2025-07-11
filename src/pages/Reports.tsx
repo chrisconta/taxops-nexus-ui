@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Filter, Calendar, FileText, Download, MoreHorizontal } from "lucide-react";
+import { Search, Filter, Calendar, FileText, Download, MoreHorizontal, MessageSquare, Bot, Users, Calculator, DollarSign, BarChart3, Loader2, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -26,6 +26,74 @@ const Reports = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedClient, setSelectedClient] = useState("");
   const [dateRange, setDateRange] = useState("");
+  const [generatingReport, setGeneratingReport] = useState<string | null>(null);
+  const [generatedReports, setGeneratedReports] = useState<string[]>([]);
+
+  const reportCards = [
+    {
+      id: "monthly-tax",
+      title: "Monthly Tax Report",
+      description: "Summary of monthly tax obligations",
+      icon: Calendar,
+      color: "primary"
+    },
+    {
+      id: "vendor-invoice",
+      title: "Vendor Invoice Summary", 
+      description: "List of invoices received by vendors",
+      icon: FileText,
+      color: "success"
+    },
+    {
+      id: "isr-declaration",
+      title: "ISR Declaration",
+      description: "Standard ISR tax declaration",
+      icon: Calculator,
+      color: "warning"
+    },
+    {
+      id: "payroll-summary",
+      title: "Payroll Summary",
+      description: "Employee payment breakdown",
+      icon: Users,
+      color: "purple"
+    },
+    {
+      id: "vat-breakdown",
+      title: "VAT Breakdown",
+      description: "Breakdown of VAT from sales and purchases",
+      icon: DollarSign,
+      color: "orange"
+    },
+    {
+      id: "annual-report",
+      title: "Annual Report",
+      description: "Consolidated tax data by fiscal year",
+      icon: BarChart3,
+      color: "primary"
+    }
+  ];
+
+  const handleGenerateReport = async (reportId: string, reportTitle: string) => {
+    setGeneratingReport(reportId);
+    
+    // Simulate processing
+    setTimeout(() => {
+      setGeneratingReport(null);
+      setGeneratedReports(prev => [...prev, reportId]);
+    }, 2000);
+  };
+
+  const getCardIconColor = (color: string) => {
+    const colors = {
+      primary: "text-primary",
+      success: "text-taxops-success", 
+      warning: "text-taxops-warning",
+      purple: "text-purple-400",
+      orange: "text-orange-400"
+    };
+    return colors[color as keyof typeof colors] || "text-primary";
+  };
 
   return (
     <div className="space-y-6">
@@ -231,6 +299,123 @@ const Reports = () => {
             <div>
               <h3 className="font-medium text-foreground">Scheduled Reports</h3>
               <p className="text-sm text-muted-foreground">Manage schedules</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* VALARIX AI Assistant Panel */}
+      <div className="fixed bottom-6 right-6 w-96 z-50">
+        <Card className="bg-glass-bg/95 backdrop-blur-xl border-glass-border shadow-glow-lg overflow-hidden">
+          {/* Header */}
+          <div className="p-4 border-b border-glass-border bg-gradient-to-r from-primary/10 to-primary/5">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center animate-glow-pulse">
+                <Bot className="w-4 h-4 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">VALARIX AI Assistant</h3>
+            </div>
+          </div>
+
+          {/* Chat Container */}
+          <div className="max-h-96 overflow-y-auto p-4 space-y-4">
+            {/* Welcome Message */}
+            <div className="flex items-start space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center flex-shrink-0">
+                <MessageSquare className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1">
+                <div className="bg-primary/10 rounded-lg p-3 border border-primary/20">
+                  <p className="text-sm text-white leading-relaxed">
+                    Hi! I'm your AI assistant. I can help you generate any report instantly. Just choose one below to get started.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Report Cards */}
+            <div className="space-y-3">
+              {reportCards.map((report) => {
+                const Icon = report.icon;
+                const isGenerating = generatingReport === report.id;
+                const isGenerated = generatedReports.includes(report.id);
+                
+                return (
+                  <div key={report.id} className="bg-glass-bg/30 rounded-lg border border-glass-border hover:border-primary/30 transition-all duration-300 group hover:shadow-glow">
+                    <div className="p-4">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className={`w-10 h-10 rounded-lg bg-${report.color === 'primary' ? 'primary' : 'glass-bg'}/20 flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                          <Icon className={`w-5 h-5 ${getCardIconColor(report.color)}`} />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold text-white group-hover:text-primary transition-colors">
+                            {report.title}
+                          </h4>
+                          <p className="text-xs text-taxops-gray-light">{report.description}</p>
+                        </div>
+                      </div>
+                      
+                      <Button 
+                        className={`w-full text-xs transition-all duration-300 ${
+                          isGenerated 
+                            ? "bg-taxops-success/20 text-taxops-success border-taxops-success/30 hover:bg-taxops-success/30" 
+                            : "bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-glow"
+                        }`}
+                        onClick={() => handleGenerateReport(report.id, report.title)}
+                        disabled={isGenerating}
+                      >
+                        {isGenerating ? (
+                          <div className="flex items-center space-x-2">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Generating...</span>
+                          </div>
+                        ) : isGenerated ? (
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle className="w-3 h-3" />
+                            <span>View Report</span>
+                          </div>
+                        ) : (
+                          "Generate"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Processing Messages */}
+            {generatingReport && (
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center flex-shrink-0">
+                  <MessageSquare className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="bg-primary/10 rounded-lg p-3 border border-primary/20">
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      <p className="text-sm text-white">
+                        Generating your {reportCards.find(r => r.id === generatingReport)?.title}...
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Input (Disabled/Future) */}
+          <div className="p-4 border-t border-glass-border bg-glass-bg/30">
+            <div className="relative">
+              <input 
+                type="text" 
+                placeholder="Voice and custom prompts coming soon!"
+                disabled
+                className="w-full px-3 py-2 bg-glass-bg/20 border border-glass-border rounded-lg text-sm text-taxops-gray-light placeholder:text-taxops-gray-light/60 cursor-not-allowed"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full">Soon</span>
+              </div>
             </div>
           </div>
         </Card>
