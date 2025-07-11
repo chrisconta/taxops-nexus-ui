@@ -31,11 +31,10 @@ const clients = [
     name: "Acme Corporation",
     email: "admin@acme.com",
     rfc: "ACM850101ABC",
-    certificates: {
-      fiel: "valid",
-      csd: "expired",
-      ciec: "valid"
-    },
+    credentials: [
+      { code: "qb", name: "QuickBooks", status: "connected" },
+      { code: "jp", name: "JPMorgan Chase", status: "connected" }
+    ],
     satStatus: "active",
     lastSync: "2024-01-15"
   },
@@ -44,11 +43,11 @@ const clients = [
     name: "TechStart Solutions",
     email: "contact@techstart.mx",
     rfc: "TSS901201XYZ",
-    certificates: {
-      fiel: "valid",
-      csd: "valid",
-      ciec: "invalid"
-    },
+    credentials: [
+      { code: "qb", name: "QuickBooks", status: "connected" },
+      { code: "my", name: "Mercury", status: "connected" },
+      { code: "nt", name: "NetSuite", status: "partial" }
+    ],
     satStatus: "rejected",
     lastSync: "2024-01-14"
   },
@@ -57,11 +56,10 @@ const clients = [
     name: "Global Imports SA",
     email: "info@globalimports.com",
     rfc: "GIM751215DEF",
-    certificates: {
-      fiel: "expired",
-      csd: "valid",
-      ciec: "valid"
-    },
+    credentials: [
+      { code: "sp", name: "SAP ERP", status: "disconnected" },
+      { code: "my", name: "Mercury", status: "connected" }
+    ],
     satStatus: "pending",
     lastSync: "2024-01-13"
   }
@@ -102,13 +100,13 @@ const Clients = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAccountant, setSelectedAccountant] = useState("");
 
-  const getCertificateIcon = (status: string) => {
+  const getCredentialIcon = (status: string) => {
     switch (status) {
-      case "valid":
+      case "connected":
         return <CheckCircle className="w-4 h-4 text-taxops-success" />;
-      case "expired":
+      case "partial":
         return <AlertCircle className="w-4 h-4 text-taxops-warning" />;
-      case "invalid":
+      case "disconnected":
         return <XCircle className="w-4 h-4 text-taxops-error" />;
       default:
         return <AlertTriangle className="w-4 h-4 text-taxops-gray-light" />;
@@ -233,51 +231,27 @@ const Clients = () => {
                     <p className="text-sm text-taxops-gray-light font-mono">{client.rfc}</p>
                   </div>
                   
-                  {/* Certificates */}
+                  {/* Credentials */}
                   <div className="flex flex-col space-y-2">
-                    <p className="text-xs text-taxops-gray-light uppercase tracking-wide">Certificates</p>
+                    <p className="text-xs text-taxops-gray-light uppercase tracking-wide">Credentials</p>
                     <div className="flex items-center space-x-4">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center space-x-1">
-                              {getCertificateIcon(client.certificates.fiel)}
-                              <span className="text-xs text-taxops-gray-light">FIEL</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>FIEL Status: {client.certificates.fiel}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center space-x-1">
-                              {getCertificateIcon(client.certificates.csd)}
-                              <span className="text-xs text-taxops-gray-light">CSD</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>CSD Status: {client.certificates.csd}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center space-x-1">
-                              {getCertificateIcon(client.certificates.ciec)}
-                              <span className="text-xs text-taxops-gray-light">CIEC</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>CIEC Status: {client.certificates.ciec}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      {client.credentials.map((credential, credIndex) => (
+                        <TooltipProvider key={credIndex}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center space-x-1">
+                                {getCredentialIcon(credential.status)}
+                                <span className="text-xs text-taxops-gray-light uppercase">
+                                  {credential.code}
+                                </span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{credential.name}: {credential.status}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ))}
                     </div>
                   </div>
                   
