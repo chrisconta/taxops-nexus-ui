@@ -1,7 +1,35 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 const Layout = () => {
+  const location = useLocation();
+  
+  const getPageTitle = () => {
+    switch (location.pathname) {
+      case "/clients":
+        return "Client Management";
+      case "/connections":
+        return "Connections";
+      case "/reports":
+        return "Reports";
+      default:
+        return "Dashboard";
+    }
+  };
+
+  const getPageDescription = () => {
+    switch (location.pathname) {
+      case "/clients":
+        return "Manage your clients and their tax compliance status";
+      case "/connections":
+        return "Connect and manage financial service integrations";
+      case "/reports":
+        return "View and generate comprehensive reports";
+      default:
+        return "Welcome to TaxOps";
+    }
+  };
+
   const navItems = [{
     to: "/clients",
     label: "Clients",
@@ -63,8 +91,9 @@ const Layout = () => {
       <div className="flex-1 flex flex-col ml-72">
         {/* Enhanced top header */}
         <header className="fixed top-0 left-72 right-0 h-20 bg-glass-bg/30 backdrop-blur-sm border-b border-glass-border flex items-center justify-between px-8 z-10">
-          <div className="flex items-center gap-4">
-            
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold text-white">{getPageTitle()}</h1>
+            <p className="text-sm text-taxops-gray-light">{getPageDescription()}</p>
           </div>
           
           <div className="flex items-center gap-6">
