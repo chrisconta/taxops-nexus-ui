@@ -17,7 +17,7 @@ const Layout = () => {
   }];
   return <div className="min-h-screen bg-background flex">
       {/* AI-driven sidebar */}
-      <aside className="w-72 bg-glass-bg/95 backdrop-blur-xl border-r border-glass-border shadow-glass flex flex-col">
+      <aside className="fixed left-0 top-0 h-screen w-72 bg-glass-bg/95 backdrop-blur-xl border-r border-glass-border shadow-glass flex flex-col z-10">
         {/* Premium Logo */}
         <div className="p-8 border-b border-glass-border">
           <div className="flex items-center justify-center">
@@ -60,7 +60,7 @@ const Layout = () => {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col ml-72">
         {/* Enhanced top header */}
         <header className="h-20 bg-glass-bg/30 backdrop-blur-sm border-b border-glass-border flex items-center justify-between px-8">
           <div className="flex items-center gap-4">
