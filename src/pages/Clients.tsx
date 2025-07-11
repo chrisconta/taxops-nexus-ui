@@ -67,7 +67,7 @@ const clients = [
 
 const metrics = [
   {
-    title: "Total Clients",
+    title: "Register Clients",
     value: "124",
     change: "+12%",
     icon: Users,
@@ -81,14 +81,14 @@ const metrics = [
     color: "green"
   },
   {
-    title: "Invalid Certificates",
+    title: "Invalid Credentials",
     value: "7",
     change: "-2",
     icon: AlertTriangle,
     color: "orange"
   },
   {
-    title: "Pending Sync",
+    title: "Successful Syncs",
     value: "15",
     change: "+3",
     icon: Clock,
@@ -156,7 +156,7 @@ const Clients = () => {
             >
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
-                  <p className="text-sm text-taxops-gray-light">Invalid Credentials</p>
+                  <p className="text-sm text-taxops-gray-light">{metric.title}</p>
                   <p className="text-3xl font-bold text-white">{metric.value}</p>
                   <p className={`text-sm ${metric.change.startsWith('+') ? 'text-taxops-success' : 'text-taxops-error'}`}>
                     {metric.change} from last month
