@@ -201,16 +201,6 @@ const Connections = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-taxops-gray-light bg-clip-text text-transparent">
-          Connections
-        </h1>
-        <p className="text-lg text-taxops-gray-light">
-          Connect your financial systems to generate comprehensive reports
-        </p>
-      </div>
-
       {/* Filter Controls */}
       <div className="flex flex-wrap gap-3">
         {categories.map((category) => {

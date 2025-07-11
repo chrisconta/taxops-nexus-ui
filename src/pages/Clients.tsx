@@ -146,16 +146,6 @@ const Clients = () => {
 
   return (
     <div className="space-y-8 animate-slide-up">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-taxops-gray-light bg-clip-text text-transparent">
-          Client Management
-        </h1>
-        <p className="text-lg text-taxops-gray-light">
-          Manage your clients and their tax compliance status
-        </p>
-      </div>
-
       {/* Metrics Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {metrics.map((metric, index) => {
