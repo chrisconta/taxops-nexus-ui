@@ -15,21 +15,12 @@ const Layout = () => {
       <aside className="w-72 bg-glass-bg/95 backdrop-blur-xl border-r border-glass-border shadow-glass flex flex-col">
         {/* Premium Logo */}
         <div className="p-8 border-b border-glass-border">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center shadow-glow">
-                <Bot className="w-6 h-6 text-white" />
-              </div>
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center animate-glow-pulse">
-                <Sparkles className="w-2 h-2 text-white" />
-              </div>
-            </div>
-            <div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-white to-taxops-gray-light bg-clip-text text-transparent">
-                TAXOPS
-              </span>
-              <p className="text-xs text-taxops-gray-light mt-1">AI-Powered Tax Automation</p>
-            </div>
+          <div className="flex items-center justify-center">
+            <img 
+              src="/lovable-uploads/ed6e6561-0f8b-47cb-9fbd-edfe6ec7c766.png" 
+              alt="TaxOps by VALARIX" 
+              className="h-12 w-auto brightness-0 invert opacity-90 hover:opacity-100 transition-opacity duration-300"
+            />
           </div>
         </div>
 
