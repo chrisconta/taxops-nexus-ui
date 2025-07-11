@@ -1,48 +1,41 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
 const Layout = () => {
-  const navItems = [
-    { to: "/clients", label: "Clients", icon: Users },
-    { to: "/connections", label: "Connections", icon: Link2 },
-    { to: "/reports", label: "Reports", icon: FileText },
-  ];
-
-  return (
-    <div className="min-h-screen bg-background flex">
+  const navItems = [{
+    to: "/clients",
+    label: "Clients",
+    icon: Users
+  }, {
+    to: "/connections",
+    label: "Connections",
+    icon: Link2
+  }, {
+    to: "/reports",
+    label: "Reports",
+    icon: FileText
+  }];
+  return <div className="min-h-screen bg-background flex">
       {/* AI-driven sidebar */}
       <aside className="w-72 bg-glass-bg/95 backdrop-blur-xl border-r border-glass-border shadow-glass flex flex-col">
         {/* Premium Logo */}
         <div className="p-8 border-b border-glass-border">
           <div className="flex items-center justify-center">
-            <img 
-              src="/lovable-uploads/ed6e6561-0f8b-47cb-9fbd-edfe6ec7c766.png" 
-              alt="TaxOps by VALARIX" 
-              className="h-12 w-auto brightness-0 invert opacity-90 hover:opacity-100 transition-opacity duration-300"
-            />
+            <img src="/lovable-uploads/ed6e6561-0f8b-47cb-9fbd-edfe6ec7c766.png" alt="TaxOps by VALARIX" className="h-12 w-auto brightness-0 invert opacity-90 hover:opacity-100 transition-opacity duration-300" />
           </div>
         </div>
 
         {/* Navigation with glow effects */}
         <nav className="flex-1 p-6">
           <div className="space-y-3">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `group relative flex items-center gap-4 px-6 py-4 rounded-xl text-sm font-semibold transition-all duration-300 overflow-hidden border border-transparent ${
-                      isActive
-                        ? "bg-gradient-to-r from-primary/20 to-primary/10 text-primary border-primary/30 shadow-glow"
-                        : "text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 hover:border-glass-border"
-                    }`
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
+            {navItems.map(item => {
+            const Icon = item.icon;
+            return <NavLink key={item.to} to={item.to} className={({
+              isActive
+            }) => `group relative flex items-center gap-4 px-6 py-4 rounded-xl text-sm font-semibold transition-all duration-300 overflow-hidden border border-transparent ${isActive ? "bg-gradient-to-r from-primary/20 to-primary/10 text-primary border-primary/30 shadow-glow" : "text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 hover:border-glass-border"}`}>
+                  {({
+                isActive
+              }) => <>
                       {/* Glow effect overlay */}
                       <div className={`absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 transition-opacity duration-300 ${isActive ? 'opacity-100' : 'group-hover:opacity-100'}`} />
                       
@@ -50,23 +43,16 @@ const Layout = () => {
                       <span className="relative z-10">{item.label}</span>
                       
                       {/* Active indicator */}
-                      {isActive && (
-                        <div className="absolute right-4 w-2 h-2 bg-primary rounded-full animate-glow-pulse" />
-                      )}
-                    </>
-                  )}
-                </NavLink>
-              );
-            })}
+                      {isActive && <div className="absolute right-4 w-2 h-2 bg-primary rounded-full animate-glow-pulse" />}
+                    </>}
+                </NavLink>;
+          })}
           </div>
         </nav>
 
         {/* Bottom section */}
         <div className="p-6 border-t border-glass-border">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-4 px-6 py-4 text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 transition-all duration-300 group"
-          >
+          <Button variant="ghost" className="w-full justify-start gap-4 px-6 py-4 text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 transition-all duration-300 group">
             <Settings className="w-5 h-5 group-hover:scale-110 transition-transform" />
             <span className="font-medium">Settings</span>
           </Button>
@@ -78,9 +64,7 @@ const Layout = () => {
         {/* Enhanced top header */}
         <header className="h-20 bg-glass-bg/30 backdrop-blur-sm border-b border-glass-border flex items-center justify-between px-8">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-taxops-gray-light bg-clip-text text-transparent">
-              AI Tax Dashboard
-            </h1>
+            
           </div>
           
           <div className="flex items-center gap-6">
@@ -111,8 +95,6 @@ const Layout = () => {
           <Outlet />
         </main>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Layout;
