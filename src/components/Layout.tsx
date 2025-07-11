@@ -62,7 +62,7 @@ const Layout = () => {
       {/* Main content */}
       <div className="flex-1 flex flex-col ml-72">
         {/* Enhanced top header */}
-        <header className="h-20 bg-glass-bg/30 backdrop-blur-sm border-b border-glass-border flex items-center justify-between px-8">
+        <header className="fixed top-0 left-72 right-0 h-20 bg-glass-bg/30 backdrop-blur-sm border-b border-glass-border flex items-center justify-between px-8 z-10">
           <div className="flex items-center gap-4">
             
           </div>
@@ -86,7 +86,7 @@ const Layout = () => {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-8 overflow-auto">
+        <main className="flex-1 p-8 pt-28 overflow-auto">
           <Outlet />
         </main>
       </div>
