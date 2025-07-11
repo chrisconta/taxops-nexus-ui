@@ -148,16 +148,6 @@ const Reports = () => {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="space-y-2 mb-8">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-taxops-gray-light bg-clip-text text-transparent">
-          VALARIX AI Assistant
-        </h1>
-        <p className="text-lg text-taxops-gray-light">
-          Generate reports using intelligent prompts
-        </p>
-      </div>
-
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <TabsList className="grid w-full grid-cols-3 bg-glass-bg/50 border border-glass-border">
