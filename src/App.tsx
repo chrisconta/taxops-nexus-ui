@@ -7,6 +7,7 @@ import Layout from "./components/Layout";
 import Clients from "./pages/Clients";
 import Connections from "./pages/Connections";
 import Reports from "./pages/Reports";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -18,6 +19,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path="/auth" element={<Auth />} />
           <Route path="/" element={<Layout />}>
             <Route index element={<Navigate to="/clients" replace />} />
             <Route path="clients" element={<Clients />} />
