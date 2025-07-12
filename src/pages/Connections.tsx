@@ -84,7 +84,7 @@ const connectionTypes = [
     description: "Connect to NetSuite to retrieve corporate financial reports.",
     icon: Briefcase,
     category: "erp",
-    status: "coming-soon",
+    status: "not-connected",
   },
   {
     id: "infor",
