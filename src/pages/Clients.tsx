@@ -29,6 +29,8 @@ interface Client {
   last_sync: string | null;
   last_sync_successful: boolean | null;
   last_sync_at: string | null;
+  created_at?: string;
+  updated_at?: string;
   credentials: Array<{
     id: string;
     name: string;
@@ -116,6 +118,8 @@ const Clients = () => {
         last_sync: client.last_sync,
         last_sync_successful: client.last_sync_successful,
         last_sync_at: client.last_sync_at,
+        created_at: client.created_at,
+        updated_at: client.updated_at,
         credentials: client.client_credentials || []
       }));
 
@@ -210,6 +214,63 @@ const Clients = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleDownloadCSV = () => {
+    if (clients.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No clients available to download.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // CSV headers
+    const headers = [
+      "Client Name",
+      "Email", 
+      "Tax ID (EIN)",
+      "SAT Status",
+      "Last Sync",
+      "Last Sync Successful",
+      "Credentials Status",
+      "Created Date"
+    ];
+
+    // Convert clients data to CSV rows
+    const csvRows = clients.map(client => [
+      `"${client.name}"`,
+      `"${client.email}"`,
+      `"${client.rfc}"`,
+      `"${client.sat_status || 'Unknown'}"`,
+      `"${client.last_sync ? new Date(client.last_sync).toLocaleDateString() : 'Never'}"`,
+      `"${client.last_sync_successful === null ? 'N/A' : client.last_sync_successful ? 'Yes' : 'No'}"`,
+      `"${client.credentials.length > 0 ? client.credentials.map(c => `${c.code}:${c.status}`).join('; ') : 'None'}"`,
+      `"${new Date(client.created_at || '').toLocaleDateString()}"`
+    ]);
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...csvRows.map(row => row.join(','))
+    ].join('\n');
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `clients-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Success",
+      description: "Client list downloaded successfully.",
+    });
   };
   
 
@@ -338,7 +399,11 @@ const Clients = () => {
           </div>
           
           <div className="flex gap-3">
-            <Button variant="outline" className="gap-2 hover:bg-glass-bg/50 transition-all duration-300 group">
+            <Button 
+              variant="outline" 
+              className="gap-2 hover:bg-glass-bg/50 transition-all duration-300 group"
+              onClick={handleDownloadCSV}
+            >
               <Download className="w-4 h-4 group-hover:scale-110 transition-transform" />
               Download Client List
             </Button>
