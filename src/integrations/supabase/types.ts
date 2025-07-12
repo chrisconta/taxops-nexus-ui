@@ -256,6 +256,24 @@ export type Database = {
         Args: { data: Json; key_id?: string }
         Returns: string
       }
+      save_client_credentials: {
+        Args: {
+          p_client_id: string
+          p_connection_code: string
+          p_credentials: Json
+          p_connection_name?: string
+        }
+        Returns: string
+      }
+      update_connection_status: {
+        Args: {
+          p_client_id: string
+          p_connection_code: string
+          p_status: string
+          p_last_sync_at?: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
