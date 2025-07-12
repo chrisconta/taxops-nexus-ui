@@ -439,12 +439,6 @@ const Clients = () => {
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       className="hover:bg-glass-bg/50"
-                      onClick={() => navigate(`/clients/${client.id}`)}
-                    >
-                      Edit Client
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      className="hover:bg-glass-bg/50"
                       onClick={() => handleSyncClient(client.id)}
                     >
                       Sync Data
