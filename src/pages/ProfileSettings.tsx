@@ -281,7 +281,7 @@ export default function ProfileSettings() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/clients")}
           className="hover:bg-accent"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
