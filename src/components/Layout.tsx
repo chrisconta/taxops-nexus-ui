@@ -4,10 +4,44 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from "react";
 const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [userProfile, setUserProfile] = useState<{ display_name: string | null; email: string | null }>({ 
+    display_name: null, 
+    email: null 
+  });
+
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Load profile from profiles table
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("display_name, email")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (error && error.code !== "PGRST116") {
+          console.error("Error loading profile:", error);
+        }
+
+        setUserProfile({
+          display_name: profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || "User",
+          email: profile?.email || user.email || "user@example.com"
+        });
+      }
+    } catch (error) {
+      console.error("Error loading user profile:", error);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -129,8 +163,10 @@ const Layout = () => {
               <DropdownMenuTrigger asChild>
                 <div className="flex items-center gap-4 p-3 bg-glass-bg/30 rounded-xl border border-glass-border hover:border-primary/30 transition-all duration-300 group cursor-pointer">
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-white group-hover:text-primary transition-colors">Admin User</p>
-                    <p className="text-xs text-taxops-gray-light">admin@taxops.ai</p>
+                    <p className="text-sm font-semibold text-white group-hover:text-primary transition-colors">
+                      {userProfile.display_name || "User"}
+                    </p>
+                    <p className="text-xs text-taxops-gray-light">{userProfile.email}</p>
                   </div>
                   <div className="relative">
                     <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center">
