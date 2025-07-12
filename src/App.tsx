@@ -9,6 +9,7 @@ import Clients from "./pages/Clients";
 import ClientNew from "./pages/ClientNew";
 import ClientDetail from "./pages/ClientDetail";
 import Connections from "./pages/Connections";
+import ConnectionSetup from "./pages/ConnectionSetup";
 import Reports from "./pages/Reports";
 import Auth from "./pages/Auth";
 import ProfileSettings from "./pages/ProfileSettings";
@@ -37,6 +38,7 @@ const App = () => {
               <Route path="clients/new" element={<ClientNew />} />
               <Route path="clients/:id" element={<ClientDetail />} />
               <Route path="connections" element={<Connections />} />
+              <Route path="connections/:connectionId/setup" element={<ConnectionSetup />} />
               <Route path="reports" element={<Reports />} />
               <Route path="profile-settings" element={<ProfileSettings />} />
             </Route>

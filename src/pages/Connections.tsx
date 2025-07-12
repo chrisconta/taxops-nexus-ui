@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowRight, Info, Building, BookOpen, Briefcase, Check, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -161,12 +162,13 @@ const categories = [
 ];
 
 const Connections = () => {
+  const navigate = useNavigate();
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("all");
 
   const handleConnectionClick = (connectionId: string) => {
     setSelectedConnection(connectionId);
-    console.log(`Configuring connection: ${connectionId}`);
+    navigate(`/connections/${connectionId}/setup`);
   };
 
   const filteredConnections = connectionTypes.filter(connection => 
