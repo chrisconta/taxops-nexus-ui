@@ -19,6 +19,7 @@ export type Database = {
           client_id: string
           code: string
           created_at: string
+          credentials: Json | null
           id: string
           name: string
           status: string | null
@@ -28,6 +29,7 @@ export type Database = {
           client_id: string
           code: string
           created_at?: string
+          credentials?: Json | null
           id?: string
           name: string
           status?: string | null
@@ -37,6 +39,7 @@ export type Database = {
           client_id?: string
           code?: string
           created_at?: string
+          credentials?: Json | null
           id?: string
           name?: string
           status?: string | null
@@ -58,6 +61,8 @@ export type Database = {
           email: string
           id: string
           last_sync: string | null
+          last_sync_at: string | null
+          last_sync_successful: boolean | null
           name: string
           rfc: string
           sat_status: string | null
@@ -69,6 +74,8 @@ export type Database = {
           email: string
           id?: string
           last_sync?: string | null
+          last_sync_at?: string | null
+          last_sync_successful?: boolean | null
           name: string
           rfc: string
           sat_status?: string | null
@@ -80,6 +87,8 @@ export type Database = {
           email?: string
           id?: string
           last_sync?: string | null
+          last_sync_at?: string | null
+          last_sync_successful?: boolean | null
           name?: string
           rfc?: string
           sat_status?: string | null

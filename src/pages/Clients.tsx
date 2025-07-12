@@ -1,16 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Plus, Download, MoreHorizontal, AlertTriangle, Shield, CheckCircle, XCircle, Users, AlertCircle, Clock, Activity } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,81 +17,200 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
-// Mock data
-const clients = [
-  {
-    id: 1,
-    name: "Acme Corporation",
-    email: "admin@acme.com",
-    rfc: "ACM850101ABC",
-    credentials: [
-      { code: "qb", name: "QuickBooks", status: "connected" },
-      { code: "jp", name: "JPMorgan Chase", status: "connected" }
-    ],
-    satStatus: "active",
-    lastSync: "2024-01-15"
-  },
-  {
-    id: 2,
-    name: "TechStart Solutions",
-    email: "contact@techstart.mx",
-    rfc: "TSS901201XYZ",
-    credentials: [
-      { code: "qb", name: "QuickBooks", status: "connected" },
-      { code: "my", name: "Mercury", status: "connected" },
-      { code: "nt", name: "NetSuite", status: "partial" }
-    ],
-    satStatus: "rejected",
-    lastSync: "2024-01-14"
-  },
-  {
-    id: 3,
-    name: "Global Imports SA",
-    email: "info@globalimports.com",
-    rfc: "GIM751215DEF",
-    credentials: [
-      { code: "sp", name: "SAP ERP", status: "disconnected" },
-      { code: "my", name: "Mercury", status: "connected" }
-    ],
-    satStatus: "pending",
-    lastSync: "2024-01-13"
-  }
-];
+interface Client {
+  id: string;
+  name: string;
+  email: string;
+  rfc: string;
+  sat_status: string | null;
+  last_sync: string | null;
+  last_sync_successful: boolean | null;
+  last_sync_at: string | null;
+  credentials: Array<{
+    id: string;
+    name: string;
+    code: string;
+    status: string;
+  }>;
+}
 
-const metrics = [
+interface Metrics {
+  registeredClients: number;
+  activeClients: number;
+  invalidCredentials: number;
+  successfulSyncs: number;
+}
+
+const metricsConfig = [
   {
-    title: "Register Clients",
-    value: "124",
-    change: "+12%",
+    title: "Registered Clients",
+    key: "registeredClients" as keyof Metrics,
     icon: Users,
     color: "blue"
   },
   {
-    title: "Active Clients",
-    value: "98",
-    change: "+8%",
+    title: "Active Clients", 
+    key: "activeClients" as keyof Metrics,
     icon: CheckCircle,
     color: "green"
   },
   {
     title: "Invalid Credentials",
-    value: "7",
-    change: "-2",
+    key: "invalidCredentials" as keyof Metrics,
     icon: AlertTriangle,
     color: "orange"
   },
   {
     title: "Successful Syncs",
-    value: "15",
-    change: "+3",
+    key: "successfulSyncs" as keyof Metrics,
     icon: Clock,
     color: "purple"
   }
 ];
 
 const Clients = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [clients, setClients] = useState<Client[]>([]);
+  const [metrics, setMetrics] = useState<Metrics>({
+    registeredClients: 0,
+    activeClients: 0,
+    invalidCredentials: 0,
+    successfulSyncs: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const fetchClients = async () => {
+    try {
+      // Fetch clients with their credentials
+      const { data: clientsData, error: clientsError } = await supabase
+        .from("clients")
+        .select(`
+          *,
+          client_credentials (
+            id,
+            name,
+            code,
+            status
+          )
+        `);
+
+      if (clientsError) throw clientsError;
+
+      // Transform the data to match our interface
+      const transformedClients: Client[] = (clientsData || []).map(client => ({
+        id: client.id,
+        name: client.name,
+        email: client.email,
+        rfc: client.rfc,
+        sat_status: client.sat_status,
+        last_sync: client.last_sync,
+        last_sync_successful: client.last_sync_successful,
+        last_sync_at: client.last_sync_at,
+        credentials: client.client_credentials || []
+      }));
+
+      setClients(transformedClients);
+      calculateMetrics(transformedClients);
+    } catch (error: any) {
+      console.error("Error fetching clients:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load clients.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const calculateMetrics = (clientsData: Client[]) => {
+    const registeredClients = clientsData.length;
+    const activeClients = clientsData.filter(client => 
+      client.credentials.some(cred => cred.status === "connected")
+    ).length;
+    const invalidCredentials = clientsData.filter(client => 
+      client.credentials.length === 0 || 
+      client.credentials.every(cred => cred.status === "disconnected")
+    ).length;
+    const successfulSyncs = clientsData.filter(client => 
+      client.last_sync_successful === true
+    ).length;
+
+    setMetrics({
+      registeredClients,
+      activeClients,
+      invalidCredentials,
+      successfulSyncs,
+    });
+  };
+
+  const handleMetricClick = (metricKey: keyof Metrics) => {
+    setSelectedFilter(selectedFilter === metricKey ? null : metricKey);
+  };
+
+  const handleSyncClient = async (clientId: string) => {
+    try {
+      // Mock sync operation - update last_sync_at and last_sync_successful
+      const { error } = await supabase
+        .from("clients")
+        .update({
+          last_sync_at: new Date().toISOString(),
+          last_sync_successful: true,
+        })
+        .eq("id", clientId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Client data synced successfully.",
+      });
+
+      fetchClients(); // Refresh the data
+    } catch (error: any) {
+      console.error("Error syncing client:", error);
+      toast({
+        title: "Error",
+        description: "Failed to sync client data.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteClient = async (clientId: string) => {
+    try {
+      const { error } = await supabase
+        .from("clients")
+        .delete()
+        .eq("id", clientId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Client deleted successfully.",
+      });
+
+      fetchClients(); // Refresh the data
+    } catch (error: any) {
+      console.error("Error deleting client:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete client.",
+        variant: "destructive",
+      });
+    }
+  };
   
 
   const getCredentialIcon = (status: string) => {
@@ -113,7 +226,7 @@ const Clients = () => {
     }
   };
 
-  const getSatStatusBadge = (status: string) => {
+  const getSatStatusBadge = (status: string | null) => {
     switch (status) {
       case "active":
         return <Badge className="bg-taxops-success/20 text-taxops-success border-taxops-success/30">Active</Badge>;
@@ -136,31 +249,69 @@ const Clients = () => {
     return colors[color as keyof typeof colors] || "text-primary";
   };
 
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.rfc.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const getFilteredClients = () => {
+    let filtered = clients.filter(client =>
+      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.rfc.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Apply metric filter
+    if (selectedFilter) {
+      switch (selectedFilter) {
+        case "activeClients":
+          filtered = filtered.filter(client => 
+            client.credentials.some(cred => cred.status === "connected")
+          );
+          break;
+        case "invalidCredentials":
+          filtered = filtered.filter(client => 
+            client.credentials.length === 0 || 
+            client.credentials.every(cred => cred.status === "disconnected")
+          );
+          break;
+        case "successfulSyncs":
+          filtered = filtered.filter(client => client.last_sync_successful === true);
+          break;
+        default:
+          break;
+      }
+    }
+
+    return filtered;
+  };
+
+  const filteredClients = getFilteredClients();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Activity className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-slide-up">
       {/* Metrics Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {metrics.map((metric, index) => {
+        {metricsConfig.map((metric, index) => {
           const Icon = metric.icon;
+          const value = metrics[metric.key];
+          const isSelected = selectedFilter === metric.key;
           return (
             <Card
               key={metric.title}
-              className={`p-6 bg-glass-bg/50 backdrop-blur-sm border-glass-border hover:border-primary/30 transition-all duration-300 group hover:shadow-glow animate-slide-up`}
+              className={`p-6 bg-glass-bg/50 backdrop-blur-sm border-glass-border hover:border-primary/30 transition-all duration-300 group hover:shadow-glow animate-slide-up cursor-pointer ${
+                isSelected ? 'border-primary/50 shadow-glow' : ''
+              }`}
               style={{ animationDelay: `${index * 100}ms` }}
+              onClick={() => handleMetricClick(metric.key)}
             >
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
                   <p className="text-sm text-taxops-gray-light">{metric.title}</p>
-                  <p className="text-3xl font-bold text-white">{metric.value}</p>
-                  <p className={`text-sm ${metric.change.startsWith('+') ? 'text-taxops-success' : 'text-taxops-error'}`}>
-                    {metric.change} from last month
-                  </p>
+                  <p className="text-3xl font-bold text-white">{value}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                   <Icon className={`w-6 h-6 ${getMetricColor(metric.color)}`} />
@@ -191,7 +342,9 @@ const Clients = () => {
               <Download className="w-4 h-4 group-hover:scale-110 transition-transform" />
               Download Client List
             </Button>
-            <Button className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-glow transition-all duration-300 group">
+            <Button className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-glow transition-all duration-300 group"
+              onClick={() => navigate("/clients/new")}
+            >
               <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
               Add Client
             </Button>
@@ -246,13 +399,27 @@ const Clients = () => {
                   {/* SAT Status */}
                   <div className="flex flex-col space-y-2">
                     <p className="text-xs text-taxops-gray-light uppercase tracking-wide">SAT Status</p>
-                    {getSatStatusBadge(client.satStatus)}
+                    {getSatStatusBadge(client.sat_status)}
                   </div>
                   
                   {/* Last Sync */}
                   <div className="flex flex-col space-y-2">
                     <p className="text-xs text-taxops-gray-light uppercase tracking-wide">Last Sync</p>
-                    <p className="text-sm text-white">{client.lastSync}</p>
+                    <p className="text-sm text-white">
+                      {client.last_sync ? new Date(client.last_sync).toLocaleDateString() : 'Never'}
+                    </p>
+                    {client.last_sync_successful !== null && (
+                      <div className="flex items-center gap-1">
+                        {client.last_sync_successful ? (
+                          <CheckCircle className="w-3 h-3 text-taxops-success" />
+                        ) : (
+                          <XCircle className="w-3 h-3 text-taxops-error" />
+                        )}
+                        <span className={`text-xs ${client.last_sync_successful ? 'text-taxops-success' : 'text-taxops-error'}`}>
+                          {client.last_sync_successful ? 'Success' : 'Failed'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -264,16 +431,28 @@ const Clients = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="bg-glass-bg/95 backdrop-blur-xl border-glass-border">
-                    <DropdownMenuItem className="hover:bg-glass-bg/50">
+                    <DropdownMenuItem 
+                      className="hover:bg-glass-bg/50"
+                      onClick={() => navigate(`/clients/${client.id}`)}
+                    >
                       View Details
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="hover:bg-glass-bg/50">
+                    <DropdownMenuItem 
+                      className="hover:bg-glass-bg/50"
+                      onClick={() => navigate(`/clients/${client.id}`)}
+                    >
                       Edit Client
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="hover:bg-glass-bg/50">
+                    <DropdownMenuItem 
+                      className="hover:bg-glass-bg/50"
+                      onClick={() => handleSyncClient(client.id)}
+                    >
                       Sync Data
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="hover:bg-glass-bg/50 text-taxops-error">
+                    <DropdownMenuItem 
+                      className="hover:bg-glass-bg/50 text-taxops-error"
+                      onClick={() => handleDeleteClient(client.id)}
+                    >
                       Remove Client
                     </DropdownMenuItem>
                   </DropdownMenuContent>

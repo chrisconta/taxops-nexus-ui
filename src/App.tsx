@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import Layout from "./components/Layout";
 import Clients from "./pages/Clients";
+import ClientNew from "./pages/ClientNew";
+import ClientDetail from "./pages/ClientDetail";
 import Connections from "./pages/Connections";
 import Reports from "./pages/Reports";
 import Auth from "./pages/Auth";
@@ -32,6 +34,8 @@ const App = () => {
             <Route path="/" element={<Layout />}>
               <Route index element={<Navigate to="/clients" replace />} />
               <Route path="clients" element={<Clients />} />
+              <Route path="clients/new" element={<ClientNew />} />
+              <Route path="clients/:id" element={<ClientDetail />} />
               <Route path="connections" element={<Connections />} />
               <Route path="reports" element={<Reports />} />
               <Route path="profile-settings" element={<ProfileSettings />} />
