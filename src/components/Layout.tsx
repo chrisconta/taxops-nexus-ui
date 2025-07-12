@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
-import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User, LogOut, ChevronDown } from "lucide-react";
+import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User, LogOut, ChevronDown, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
@@ -71,7 +71,7 @@ const Layout = () => {
       case "/connections":
         return "Connections";
       case "/reports":
-        return "Artificial Intelligence Reports";
+        return "AI Reports";
       default:
         return "Dashboard";
     }
@@ -100,8 +100,8 @@ const Layout = () => {
     icon: Link2
   }, {
     to: "/reports",
-    label: "Reports",
-    icon: FileText
+    label: "AI Reports",
+    icon: Brain
   }];
   return <div className="min-h-screen bg-background flex">
       {/* AI-driven sidebar */}
