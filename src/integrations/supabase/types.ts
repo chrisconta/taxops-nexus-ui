@@ -103,33 +103,36 @@ export type Database = {
           config: Json | null
           connection_type: string
           created_at: string
+          description: string | null
+          enabled: boolean | null
           id: string
           status: string | null
           title: string
           updated_at: string
-          user_id: string
         }
         Insert: {
           category: string
           config?: Json | null
           connection_type: string
           created_at?: string
+          description?: string | null
+          enabled?: boolean | null
           id?: string
           status?: string | null
           title: string
           updated_at?: string
-          user_id: string
         }
         Update: {
           category?: string
           config?: Json | null
           connection_type?: string
           created_at?: string
+          description?: string | null
+          enabled?: boolean | null
           id?: string
           status?: string | null
           title?: string
           updated_at?: string
-          user_id?: string
         }
         Relationships: []
       }
@@ -245,7 +248,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      decrypt_credentials: {
+        Args: { encrypted_data: string }
+        Returns: Json
+      }
+      encrypt_credentials: {
+        Args: { data: Json; key_id?: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
