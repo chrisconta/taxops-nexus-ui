@@ -1,8 +1,34 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User } from "lucide-react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User, LogOut, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 const Layout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to sign out",
+          variant: "destructive",
+        });
+      } else {
+        navigate("/auth");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    }
+  };
   
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -99,18 +125,37 @@ const Layout = () => {
           <div className="flex items-center gap-6">
             
             
-            <div className="flex items-center gap-4 p-3 bg-glass-bg/30 rounded-xl border border-glass-border hover:border-primary/30 transition-all duration-300 group">
-              <div className="text-right">
-                <p className="text-sm font-semibold text-white group-hover:text-primary transition-colors">Admin User</p>
-                <p className="text-xs text-taxops-gray-light">admin@taxops.ai</p>
-              </div>
-              <div className="relative">
-                <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center">
-                  <User className="w-5 h-5 text-white" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <div className="flex items-center gap-4 p-3 bg-glass-bg/30 rounded-xl border border-glass-border hover:border-primary/30 transition-all duration-300 group cursor-pointer">
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-white group-hover:text-primary transition-colors">Admin User</p>
+                    <p className="text-xs text-taxops-gray-light">admin@taxops.ai</p>
+                  </div>
+                  <div className="relative">
+                    <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center">
+                      <User className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-taxops-success rounded-full border-2 border-background" />
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-taxops-gray-light group-hover:text-white transition-colors" />
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-taxops-success rounded-full border-2 border-background" />
-              </div>
-            </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-card border-border">
+                <DropdownMenuItem className="cursor-pointer hover:bg-accent">
+                  <User className="w-4 h-4 mr-2" />
+                  Profile Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  className="cursor-pointer hover:bg-accent text-destructive hover:text-destructive focus:text-destructive"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
