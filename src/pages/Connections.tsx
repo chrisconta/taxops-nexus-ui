@@ -168,11 +168,13 @@ const Connections = () => {
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const { statuses, loading } = useConnectionStatuses();
 
-  // Get dynamic status for a connection, fallback to static status
+  // Get dynamic status for a connection, fallback logic
   const getConnectionStatus = (connectionId: string, staticStatus: string) => {
-    if (loading) return staticStatus;
+    if (loading) return staticStatus === "coming-soon" ? "coming-soon" : "not-connected";
     const dynamicStatus = statuses.find(s => s.connectionId === connectionId);
-    return dynamicStatus?.status || staticStatus;
+    // Only return dynamic status if it exists, otherwise default to not-connected
+    // Only preserve "coming-soon" from static status
+    return dynamicStatus?.status || (staticStatus === "coming-soon" ? "coming-soon" : "not-connected");
   };
 
   // Get error details for a connection
