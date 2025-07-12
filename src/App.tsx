@@ -8,6 +8,7 @@ import Clients from "./pages/Clients";
 import Connections from "./pages/Connections";
 import Reports from "./pages/Reports";
 import Auth from "./pages/Auth";
+import ProfileSettings from "./pages/ProfileSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="clients" element={<Clients />} />
             <Route path="connections" element={<Connections />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="profile-settings" element={<ProfileSettings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

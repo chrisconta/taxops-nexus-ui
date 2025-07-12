@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
 import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User, LogOut, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -142,9 +142,11 @@ const Layout = () => {
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 bg-card border-border">
-                <DropdownMenuItem className="cursor-pointer hover:bg-accent">
-                  <User className="w-4 h-4 mr-2" />
-                  Profile Settings
+                <DropdownMenuItem asChild className="cursor-pointer hover:bg-accent">
+                  <Link to="/profile-settings" className="flex items-center">
+                    <User className="w-4 h-4 mr-2" />
+                    Profile Settings
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
