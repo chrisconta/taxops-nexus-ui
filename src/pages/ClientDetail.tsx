@@ -56,12 +56,113 @@ interface Connection {
 }
 
 const connectionTypes = [
-  { code: "qb", name: "QuickBooks", description: "Connect to QuickBooks Online" },
-  { code: "jp", name: "JPMorgan Chase", description: "Banking integration" },
-  { code: "my", name: "Mercury", description: "Banking platform" },
-  { code: "nt", name: "NetSuite", description: "ERP system" },
-  { code: "sp", name: "SAP ERP", description: "Enterprise resource planning" },
-  { code: "sat", name: "SAT Mexico", description: "Mexican tax authority" },
+  // Bookkeeping Software
+  {
+    id: "quickbooks",
+    name: "QuickBooks",
+    description: "Connect to QuickBooks Online",
+    code: "quickbooks"
+  },
+  {
+    id: "xero",
+    name: "Xero",
+    description: "Sync Xero to access invoices, expenses, and financial summaries",
+    code: "xero"
+  },
+  {
+    id: "sage",
+    name: "Sage 50cloud",
+    description: "Integrate Sage to pull ledger and balance sheet data",
+    code: "sage"
+  },
+  {
+    id: "freshbooks",
+    name: "FreshBooks",
+    description: "Access billing, payments, and income reports through FreshBooks",
+    code: "freshbooks"
+  },
+  {
+    id: "wave",
+    name: "Wave Accounting",
+    description: "Connect Wave to retrieve categorized income and expense records",
+    code: "wave"
+  },
+  
+  // ERP Systems
+  {
+    id: "sap",
+    name: "SAP ERP",
+    description: "Link SAP ERP to analyze enterprise-level financials and compliance data",
+    code: "sap"
+  },
+  {
+    id: "oracle",
+    name: "Oracle ERP Cloud",
+    description: "Pull accounting and reporting data from Oracle ERP",
+    code: "oracle"
+  },
+  {
+    id: "dynamics",
+    name: "Microsoft Dynamics 365",
+    description: "Sync Dynamics 365 to automate financial workflows and tax analysis",
+    code: "dynamics"
+  },
+  {
+    id: "netsuite",
+    name: "NetSuite",
+    description: "Connect to NetSuite to retrieve corporate financial reports",
+    code: "netsuite"
+  },
+  {
+    id: "infor",
+    name: "Infor ERP",
+    description: "Import structured financials from Infor ERP into your reports",
+    code: "infor"
+  },
+  
+  // Banks
+  {
+    id: "chase",
+    name: "JPMorgan Chase",
+    description: "Securely connect Chase bank feeds to retrieve transaction history",
+    code: "chase"
+  },
+  {
+    id: "bofa",
+    name: "Bank of America",
+    description: "Access statement data and account transactions from BofA",
+    code: "bofa"
+  },
+  {
+    id: "wells",
+    name: "Wells Fargo",
+    description: "Integrate Wells Fargo banking activity for reporting",
+    code: "wells"
+  },
+  {
+    id: "citi",
+    name: "Citibank (Citigroup)",
+    description: "Connect Citibank accounts to import deposit and payment details",
+    code: "citi"
+  },
+  {
+    id: "usbank",
+    name: "U.S. Bank",
+    description: "Pull U.S. Bank statements and transaction flows",
+    code: "usbank"
+  },
+  {
+    id: "mercury",
+    name: "Mercury",
+    description: "Sync startup-friendly bank feeds from Mercury for report generation",
+    code: "mercury"
+  },
+  {
+    id: "brex",
+    name: "Brex",
+    description: "Connect Brex financial data and smart cards for business analysis",
+    code: "brex"
+  }
 ];
 
 const ClientDetail = () => {
