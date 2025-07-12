@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Info, Building, BookOpen, Briefcase, Check, X } from "lucide-react";
+import { ArrowRight, Info, Building, BookOpen, Briefcase, Check, X, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useConnectionStatuses } from "@/hooks/useConnectionStatuses";
 
 const connectionTypes = [
   // Bookkeeping Software
@@ -165,6 +166,20 @@ const Connections = () => {
   const navigate = useNavigate();
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("all");
+  const { statuses, loading } = useConnectionStatuses();
+
+  // Get dynamic status for a connection, fallback to static status
+  const getConnectionStatus = (connectionId: string, staticStatus: string) => {
+    if (loading) return staticStatus;
+    const dynamicStatus = statuses.find(s => s.connectionId === connectionId);
+    return dynamicStatus?.status || staticStatus;
+  };
+
+  // Get error details for a connection
+  const getConnectionErrorDetails = (connectionId: string) => {
+    const status = statuses.find(s => s.connectionId === connectionId);
+    return status?.errorDetails;
+  };
 
   const handleConnectionClick = (connectionId: string) => {
     setSelectedConnection(connectionId);
@@ -175,14 +190,33 @@ const Connections = () => {
     activeFilter === "all" || connection.category === activeFilter
   );
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
+  const getStatusBadge = (connectionId: string, staticStatus: string) => {
+    const dynamicStatus = getConnectionStatus(connectionId, staticStatus);
+    const errorDetails = getConnectionErrorDetails(connectionId);
+
+    switch (dynamicStatus) {
       case "connected":
         return (
           <div className="flex items-center gap-1 text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">
             <Check className="w-3 h-3" />
             Connected
           </div>
+        );
+      case "error":
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full cursor-help">
+                  <AlertTriangle className="w-3 h-3" />
+                  Error
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>{errorDetails || "Connection failed due to authentication or sync errors"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         );
       case "coming-soon":
         return (
@@ -245,7 +279,7 @@ const Connections = () => {
             >
               {/* Status badge */}
               <div className="absolute top-4 right-4">
-                {getStatusBadge(connection.status)}
+                {getStatusBadge(connection.id, connection.status)}
               </div>
 
               {/* Icon */}
