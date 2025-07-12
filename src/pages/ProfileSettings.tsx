@@ -98,6 +98,35 @@ export default function ProfileSettings() {
 
     setIsLoading(true);
     try {
+      // Check if email has changed and validate it's not already in use
+      if (email !== user.email) {
+        // Check if the email is already registered
+        const { data: existingProfiles, error: profileCheckError } = await supabase
+          .from("profiles")
+          .select("email")
+          .eq("email", email)
+          .neq("user_id", user.id);
+
+        if (profileCheckError) {
+          console.error("Error checking email availability:", profileCheckError);
+          toast({
+            title: "Error",
+            description: "Failed to validate email availability",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (existingProfiles && existingProfiles.length > 0) {
+          toast({
+            title: "Email Already in Use",
+            description: "This email address is already registered. Please choose a different email.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       // Update profile in profiles table
       const { error: profileError } = await supabase
         .from("profiles")
@@ -121,6 +150,18 @@ export default function ProfileSettings() {
         });
 
         if (emailError) {
+          // If auth update fails, revert the profile update
+          await supabase
+            .from("profiles")
+            .upsert({
+              user_id: user.id,
+              display_name: displayName,
+              email: user.email, // Revert to original email
+              updated_at: new Date().toISOString(),
+            }, {
+              onConflict: "user_id"
+            });
+          
           throw emailError;
         }
 
@@ -128,19 +169,29 @@ export default function ProfileSettings() {
           title: "Email Update",
           description: "Please check your new email for verification",
         });
+      } else {
+        toast({
+          title: "Success",
+          description: "Profile updated successfully",
+        });
       }
-
-      toast({
-        title: "Success",
-        description: "Profile updated successfully",
-      });
     } catch (error: any) {
       console.error("Error updating profile:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update profile",
-        variant: "destructive",
-      });
+      
+      // Check for specific Supabase auth errors
+      if (error.message?.includes("email address is already registered")) {
+        toast({
+          title: "Email Already in Use", 
+          description: "This email address is already registered. Please choose a different email.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update profile",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
