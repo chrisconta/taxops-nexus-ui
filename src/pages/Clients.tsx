@@ -472,7 +472,10 @@ const Clients = () => {
                   {searchTerm ? "Try adjusting your search terms." : "Add a client to get started with AI-powered tax automation."}
                 </p>
               </div>
-              <Button className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-glow transition-all duration-300 group">
+              <Button 
+                className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-glow transition-all duration-300 group"
+                onClick={() => navigate("/clients/new")}
+              >
                 <Plus className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
                 Add Your First Client
               </Button>
