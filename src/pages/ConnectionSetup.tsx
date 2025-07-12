@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import MercuryTokenSetup from "@/components/MercuryTokenSetup";
 
 interface Client {
   id: string;
@@ -301,6 +302,42 @@ const ConnectionSetup = () => {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
+        {/* Mercury Token Setup */}
+        {connectionId === "mercury" && selectedClients.length > 0 && (
+          <div className="lg:col-span-3 mb-6">
+            <MercuryTokenSetup 
+              clientId={selectedClients[0]} 
+              onTokenValidated={(isValid) => {
+                setCredentialsValid(isValid);
+                if (isValid) {
+                  checkCredentials();
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {/* Mercury Instructions */}
+        {connectionId === "mercury" && selectedClients.length === 0 && (
+          <div className="lg:col-span-3 mb-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Mercury Bank Integration</CardTitle>
+                <CardDescription>
+                  Please select a client first, then you'll be able to configure your Mercury API token.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>• You'll need a read-only Mercury API token</p>
+                  <p>• Token validation ensures read-only permissions</p>
+                  <p>• Your credentials are encrypted and stored securely</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Client Selection */}
         <div className="lg:col-span-2 space-y-6">
           <Card>
