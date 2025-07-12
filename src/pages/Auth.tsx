@@ -154,11 +154,12 @@ export default function Auth() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <div className="text-2xl font-bold text-white">
-              <span className="text-primary">TO</span> TaxOps
-            </div>
+            <img 
+              src="/lovable-uploads/e611eebf-b11c-4538-859e-b60904da5f3e.png" 
+              alt="TaxOps by VALARIX" 
+              className="h-16 w-auto brightness-0 invert opacity-90 hover:opacity-100 transition-opacity duration-300" 
+            />
           </div>
-          <div className="text-sm text-muted-foreground">by VALARIX</div>
         </div>
 
         {/* Auth Card */}
