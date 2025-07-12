@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { profileValidationSchema, type ProfileFormData } from "@/lib/validation";
 
 export default function ProfileSettings() {
   const [user, setUser] = useState<any>(null);
@@ -98,13 +99,32 @@ export default function ProfileSettings() {
 
     setIsLoading(true);
     try {
+      // SECURITY: Validate and sanitize input data
+      const validationResult = profileValidationSchema.safeParse({
+        displayName,
+        email,
+      });
+
+      if (!validationResult.success) {
+        const errorMessage = validationResult.error.issues
+          .map(issue => issue.message)
+          .join(", ");
+        toast({
+          title: "Validation Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { displayName: sanitizedDisplayName, email: sanitizedEmail } = validationResult.data;
       // Check if email has changed and validate it's not already in use
-      if (email !== user.email) {
+      if (sanitizedEmail !== user.email) {
         // Check if the email is already registered
         const { data: existingProfiles, error: profileCheckError } = await supabase
           .from("profiles")
           .select("email")
-          .eq("email", email)
+          .eq("email", sanitizedEmail)
           .neq("user_id", user.id);
 
         if (profileCheckError) {
@@ -127,13 +147,13 @@ export default function ProfileSettings() {
         }
       }
 
-      // Update profile in profiles table
+      // Update profile in profiles table with sanitized data
       const { error: profileError } = await supabase
         .from("profiles")
         .upsert({
           user_id: user.id,
-          display_name: displayName,
-          email: email,
+          display_name: sanitizedDisplayName,
+          email: sanitizedEmail,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: "user_id"
@@ -144,9 +164,9 @@ export default function ProfileSettings() {
       }
 
       // Update auth email if changed
-      if (email !== user.email) {
+      if (sanitizedEmail !== user.email) {
         const { error: emailError } = await supabase.auth.updateUser({
-          email: email,
+          email: sanitizedEmail,
         });
 
         if (emailError) {
@@ -155,7 +175,7 @@ export default function ProfileSettings() {
             .from("profiles")
             .upsert({
               user_id: user.id,
-              display_name: displayName,
+              display_name: sanitizedDisplayName,
               email: user.email, // Revert to original email
               updated_at: new Date().toISOString(),
             }, {

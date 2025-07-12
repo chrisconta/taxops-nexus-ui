@@ -1,5 +1,6 @@
 import * as React from "react"
 import * as RechartsPrimitive from "recharts"
+import DOMPurify from "dompurify"
 
 import { cn } from "@/lib/utils"
 
@@ -74,25 +75,42 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null
   }
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
+  // SECURITY FIX: Sanitize CSS to prevent XSS attacks
+  const sanitizedCSS = React.useMemo(() => {
+    const cssContent = Object.entries(THEMES)
+      .map(
+        ([theme, prefix]) => `
+${prefix} [data-chart=${DOMPurify.sanitize(id, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] })}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
     const color =
       itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
       itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
+    // Sanitize color values and key names to prevent CSS injection
+    const sanitizedKey = DOMPurify.sanitize(key, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] })
+    const sanitizedColor = color ? DOMPurify.sanitize(color, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] }) : null
+    return sanitizedColor ? `  --color-${sanitizedKey}: ${sanitizedColor};` : null
   })
+  .filter(Boolean)
   .join("\n")}
 }
 `
-          )
-          .join("\n"),
+      )
+      .join("\n")
+    
+    // Additional CSS sanitization to remove any potential script injection
+    return DOMPurify.sanitize(cssContent, { 
+      ALLOWED_TAGS: [], 
+      ALLOWED_ATTR: [],
+      FORBID_TAGS: ['script', 'style'],
+      FORBID_ATTR: ['onload', 'onerror', 'onclick']
+    })
+  }, [id, colorConfig])
+
+  return (
+    <style
+      dangerouslySetInnerHTML={{
+        __html: sanitizedCSS,
       }}
     />
   )
