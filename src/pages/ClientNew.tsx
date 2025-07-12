@@ -115,7 +115,7 @@ const ClientNew = () => {
 
             <div className="space-y-2">
               <Label htmlFor="rfc" className="text-white">
-                Tax ID (RFC) *
+                Tax ID (EIN) *
               </Label>
               <Input
                 id="rfc"
@@ -123,7 +123,7 @@ const ClientNew = () => {
                 type="text"
                 value={formData.rfc}
                 onChange={handleChange}
-                placeholder="RFC123456789"
+                placeholder="92-0458797"
                 className="bg-glass-bg/30 border-glass-border"
                 required
               />
