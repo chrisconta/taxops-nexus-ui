@@ -46,10 +46,13 @@ export const clientValidationSchema = z.object({
   
   rfc: z
     .string()
-    .min(12, "RFC must be at least 12 characters")
-    .max(13, "RFC must be at most 13 characters")
-    .regex(/^[A-Z0-9]+$/, "RFC must contain only uppercase letters and numbers")
-    .transform(val => sanitizeString(val.toUpperCase(), 13)),
+    .min(1, "Tax ID (EIN) is required")
+    .regex(/^\d{2}-?\d{7}$/, { message: "Tax ID must be in the format XX-XXXXXXX or XXXXXXXXX" })
+    .transform(val => {
+      const sanitized = sanitizeString(val, 12);
+      // Normalize to format with dash for consistency
+      return sanitized.replace(/^(\d{2})(\d{7})$/, '$1-$2');
+    }),
   
   email: z
     .string()

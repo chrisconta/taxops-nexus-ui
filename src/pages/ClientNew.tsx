@@ -123,7 +123,7 @@ const ClientNew = () => {
                 type="text"
                 value={formData.rfc}
                 onChange={handleChange}
-                placeholder="92-0458797"
+                placeholder="e.g., 93-3739023"
                 className="bg-glass-bg/30 border-glass-border"
                 required
               />
