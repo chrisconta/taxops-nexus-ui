@@ -57,6 +57,7 @@ const ConnectionSetup = () => {
   // Connection metadata based on connectionId
   const getConnectionInfo = (id: string) => {
     const connections: Record<string, { title: string; description: string; requiresAuth: boolean }> = {
+      // Bookkeeping Software
       quickbooks: {
         title: "QuickBooks",
         description: "Connect your QuickBooks account to import transactions, reports, and tax data.",
@@ -70,6 +71,78 @@ const ConnectionSetup = () => {
       sage: {
         title: "Sage 50cloud",
         description: "Integrate Sage to pull ledger and balance sheet data.",
+        requiresAuth: true
+      },
+      freshbooks: {
+        title: "FreshBooks",
+        description: "Access billing, payments, and income reports through FreshBooks.",
+        requiresAuth: true
+      },
+      wave: {
+        title: "Wave Accounting",
+        description: "Connect Wave to retrieve categorized income and expense records.",
+        requiresAuth: true
+      },
+      // ERP Systems
+      sap: {
+        title: "SAP ERP",
+        description: "Link SAP ERP to analyze enterprise-level financials and compliance data.",
+        requiresAuth: true
+      },
+      oracle: {
+        title: "Oracle ERP Cloud",
+        description: "Pull accounting and reporting data from Oracle ERP.",
+        requiresAuth: true
+      },
+      dynamics: {
+        title: "Microsoft Dynamics 365",
+        description: "Sync Dynamics 365 to automate financial workflows and tax analysis.",
+        requiresAuth: true
+      },
+      netsuite: {
+        title: "NetSuite",
+        description: "Connect to NetSuite to retrieve corporate financial reports.",
+        requiresAuth: true
+      },
+      infor: {
+        title: "Infor ERP",
+        description: "Import structured financials from Infor ERP into your reports.",
+        requiresAuth: true
+      },
+      // Banks
+      chase: {
+        title: "JPMorgan Chase",
+        description: "Securely connect Chase bank feeds to retrieve transaction history.",
+        requiresAuth: true
+      },
+      bofa: {
+        title: "Bank of America",
+        description: "Access statement data and account transactions from BofA.",
+        requiresAuth: true
+      },
+      wells: {
+        title: "Wells Fargo",
+        description: "Integrate Wells Fargo banking activity for reporting.",
+        requiresAuth: true
+      },
+      citi: {
+        title: "Citibank (Citigroup)",
+        description: "Connect Citibank accounts to import deposit and payment details.",
+        requiresAuth: true
+      },
+      usbank: {
+        title: "U.S. Bank",
+        description: "Pull U.S. Bank statements and transaction flows.",
+        requiresAuth: true
+      },
+      mercury: {
+        title: "Mercury",
+        description: "Sync startup-friendly bank feeds from Mercury for report generation.",
+        requiresAuth: true
+      },
+      brex: {
+        title: "Brex",
+        description: "Connect Brex financial data and smart cards for business analysis.",
         requiresAuth: true
       }
     };
