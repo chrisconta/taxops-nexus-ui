@@ -98,7 +98,7 @@ const metrics = [
 
 const Clients = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedAccountant, setSelectedAccountant] = useState("");
+  
 
   const getCredentialIcon = (status: string) => {
     switch (status) {
@@ -175,18 +175,6 @@ const Clients = () => {
       <Card className="p-6 bg-glass-bg/50 backdrop-blur-sm border-glass-border">
         <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
           <div className="flex flex-col sm:flex-row gap-4 flex-1">
-            <Select value={selectedAccountant} onValueChange={setSelectedAccountant}>
-              <SelectTrigger className="w-full sm:w-64 bg-glass-bg/30 border-glass-border">
-                <SelectValue placeholder="Select Accountant" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Accountants</SelectItem>
-                <SelectItem value="maria">María González</SelectItem>
-                <SelectItem value="carlos">Carlos Rodriguez</SelectItem>
-                <SelectItem value="ana">Ana Martinez</SelectItem>
-              </SelectContent>
-            </Select>
-            
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-taxops-gray-light" />
               <Input
