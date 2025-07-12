@@ -154,11 +154,18 @@ export default function Auth() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <img 
-              src="/lovable-uploads/e611eebf-b11c-4538-859e-b60904da5f3e.png" 
-              alt="TaxOps by VALARIX" 
-              className="h-16 w-auto brightness-0 invert opacity-90 hover:opacity-100 transition-opacity duration-300" 
-            />
+            <a 
+              href="https://www.taxops.io" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-block"
+            >
+              <img 
+                src="/lovable-uploads/e611eebf-b11c-4538-859e-b60904da5f3e.png" 
+                alt="TaxOps by VALARIX" 
+                className="h-16 w-auto brightness-0 invert opacity-90 hover:opacity-100 transition-opacity duration-300 cursor-pointer" 
+              />
+            </a>
           </div>
         </div>
 
