@@ -183,6 +183,7 @@ const ClientDetail = () => {
   const [mercuryApiToken, setMercuryApiToken] = useState("");
   const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
   const [isSubmittingConnection, setIsSubmittingConnection] = useState(false);
+  const [testingConnectionId, setTestingConnectionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -341,6 +342,50 @@ const ClientDetail = () => {
     setConnectionCredentials("");
     setMercuryApiToken("");
     setValidationErrors({});
+  };
+
+  const handleTestConnection = async (connectionId: string) => {
+    setTestingConnectionId(connectionId);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('test-mercury-connection', {
+        body: { connectionId }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to test connection. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.success) {
+        toast({
+          title: "Connection Test Successful",
+          description: data.message,
+        });
+        // Refresh connection data to update status
+        fetchClientData();
+      } else {
+        toast({
+          title: "Connection Test Failed",
+          description: data.error || "Unable to connect to Mercury API.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error testing connection:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while testing the connection.",
+        variant: "destructive",
+      });
+    } finally {
+      setTestingConnectionId(null);
+    }
   };
 
   const renderCredentialFields = () => {
@@ -654,6 +699,27 @@ const ClientDetail = () => {
                   <div className="flex items-center gap-4">
                     {getStatusIcon(connection.status)}
                     {getStatusBadge(connection.status)}
+                    {connection.code === "mercury" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleTestConnection(connection.id)}
+                        disabled={testingConnectionId === connection.id}
+                        className="border-primary/30 hover:bg-primary/10 text-primary"
+                      >
+                        {testingConnectionId === connection.id ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                            Testing...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Test Connection
+                          </>
+                        )}
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
