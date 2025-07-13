@@ -70,6 +70,12 @@ serve(async (req) => {
           throw new Error('sync_id parameter required for get-sync-details')
         }
         return await getSyncDetails(supabaseClient, user.id, syncId)
+      } else if (action === 'get-transactions') {
+        const syncId = url.searchParams.get('sync_id')
+        if (!syncId) {
+          throw new Error('sync_id parameter required for get-transactions')
+        }
+        return await getTransactionData(supabaseClient, user.id, syncId)
       } else if (action === 'process-scheduled') {
         return await processScheduledSyncs(supabaseClient)
       }
@@ -419,4 +425,77 @@ async function processScheduledSyncs(supabaseClient: any) {
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   )
+}
+
+async function getTransactionData(supabaseClient: any, userId: string, syncId: string) {
+  console.log('Getting transaction data for sync:', { userId, syncId })
+  
+  // First verify the sync request belongs to the user
+  const { data: syncRequest, error: syncError } = await supabaseClient
+    .from('sync_requests')
+    .select('*')
+    .eq('id', syncId)
+    .eq('user_id', userId)
+    .single()
+
+  if (syncError || !syncRequest) {
+    throw new Error('Sync request not found or access denied')
+  }
+
+  // Get sync logs to determine how many records were processed
+  const { data: syncLogs } = await supabaseClient
+    .from('sync_logs')
+    .select('records_processed')
+    .eq('sync_request_id', syncId)
+    .eq('status', 'success')
+
+  // Generate mock transaction data based on sync request
+  const totalRecords = syncLogs?.reduce((sum, log) => sum + (log.records_processed || 0), 0) || 50
+  const startDate = new Date(syncRequest.start_date || '2025-06-01')
+  const endDate = new Date(syncRequest.end_date || '2025-06-30')
+  
+  const transactions = []
+  const transactionTypes = [
+    'Payment received', 'Wire transfer', 'ACH deposit', 'Check deposit',
+    'Payment sent', 'Wire sent', 'ACH transfer', 'Service fee',
+    'Interest earned', 'Dividend payment', 'Refund received', 'Subscription payment'
+  ]
+  
+  const companies = [
+    'Acme Corp', 'Global Industries', 'Tech Solutions Inc', 'Marketing Partners',
+    'Supply Chain Co', 'Professional Services', 'Digital Agency', 'Consulting Group'
+  ]
+
+  for (let i = 0; i < Math.min(totalRecords, 100); i++) {
+    // Generate random date between start and end
+    const randomTime = startDate.getTime() + Math.random() * (endDate.getTime() - startDate.getTime())
+    const transactionDate = new Date(randomTime)
+    
+    // Generate random amount between -5000 and 15000
+    const amount = (Math.random() - 0.3) * 20000
+    const isCredit = amount > 0
+    
+    transactions.push({
+      id: `txn_${syncId.substring(0, 8)}_${i.toString().padStart(3, '0')}`,
+      date: transactionDate.toISOString().split('T')[0],
+      description: `${transactionTypes[Math.floor(Math.random() * transactionTypes.length)]} - ${companies[Math.floor(Math.random() * companies.length)]}`,
+      amount: Math.abs(amount).toFixed(2),
+      type: isCredit ? 'credit' : 'debit',
+      status: Math.random() > 0.05 ? 'completed' : 'pending',
+      category: isCredit ? 'income' : 'expense',
+      balance_after: (50000 + Math.random() * 100000).toFixed(2)
+    })
+  }
+
+  // Sort by date descending
+  transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+  return new Response(JSON.stringify({ 
+    transactions,
+    total_count: transactions.length,
+    sync_request_id: syncId
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status: 200
+  })
 }
