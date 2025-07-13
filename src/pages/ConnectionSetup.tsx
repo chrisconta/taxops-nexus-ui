@@ -193,19 +193,29 @@ const ConnectionSetup = () => {
       const url = new URL('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/mercury-sync-manager');
       url.searchParams.set('action', 'list-syncs');
       
-      const { data, error } = await fetch(url.toString(), {
+      const response = await fetch(url.toString(), {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
           'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppdGRlcmRqdnF0YWR0d2dhdG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIyNzI4MTAsImV4cCI6MjA2Nzg0ODgxMH0.apenqp5pSuLZtRGD7K2iXWr5cFJLtXD9xuhu0gsJ0QA',
           'Content-Type': 'application/json'
         }
-      }).then(res => res.json()).catch(err => ({ error: err }));
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('Sync requests fetched:', data); // Debug log
       setSyncRequests(data.sync_requests || []);
     } catch (error) {
       console.error("Error fetching sync requests:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load sync history",
+        variant: "destructive"
+      });
     }
   };
 
