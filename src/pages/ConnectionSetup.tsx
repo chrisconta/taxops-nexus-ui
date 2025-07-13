@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Calendar, Clock, Users, Play, CheckCircle, XCircle, AlertCircle, RefreshCw, Trash2, History, Search, Eye, ChevronDown, ChevronUp } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,12 +62,11 @@ interface SyncStatus {
 
 interface Transaction {
   id: string;
-  date: string;
-  description: string;
+  postedAt: string;
   amount: number;
-  status?: string;
-  category?: string;
-  client_id?: string;
+  counterpartyName: string;
+  note: string;
+  status: string;
 }
 
 const ConnectionSetup = () => {
@@ -384,7 +384,7 @@ const ConnectionSetup = () => {
     
     try {
       const url = new URL('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/mercury-sync-manager');
-      url.searchParams.set('action', 'get-transactions');
+      url.searchParams.set('action', 'transactions');
       url.searchParams.set('sync_id', syncId);
       
       const response = await fetch(url.toString(), {
@@ -1002,145 +1002,149 @@ const ConnectionSetup = () => {
               )}
 
               {/* Request Summary & Logs - Collapsible Card */}
-              <Card>
-                <CardHeader className="cursor-pointer" onClick={() => setSummaryCollapsed(!summaryCollapsed)}>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Request Summary & Logs</CardTitle>
-                    <Button variant="ghost" size="sm" className="p-0 h-auto">
-                      {summaryCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  <CardDescription>
-                    Overview details and execution logs for this sync request
-                  </CardDescription>
-                </CardHeader>
-                {!summaryCollapsed && (
-                  <CardContent className="space-y-6 pt-0">
-                    {/* Request Overview Section */}
-                    <div>
-                      <h4 className="font-semibold text-sm text-muted-foreground mb-3 uppercase tracking-wide">Overview</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-muted-foreground">Request ID</Label>
-                          <div className="font-mono text-sm">{selectedSyncRequest.id}</div>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-muted-foreground">Sync Type</Label>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">
-                              {selectedSyncRequest.sync_type === "automatic" ? "Automatic" : "Historical"}
-                            </Badge>
+              <Collapsible defaultOpen={false}>
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-lg">Request Summary & Logs</CardTitle>
+                        <CardDescription>
+                          Overview details and execution logs for this sync request
+                        </CardDescription>
+                      </div>
+                      <CollapsibleTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <span className="text-xs">Show Metadata</span>
+                          <ChevronDown className="h-4 w-4 ml-2" />
+                        </Button>
+                      </CollapsibleTrigger>
+                    </div>
+                  </CardHeader>
+                  <CollapsibleContent>
+                    <CardContent className="space-y-6 pt-0">
+                      {/* Request Overview Section */}
+                      <div>
+                        <h4 className="font-semibold text-sm text-muted-foreground mb-3 uppercase tracking-wide">Overview</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-sm font-medium text-muted-foreground">Request ID</Label>
+                            <div className="font-mono text-sm">{selectedSyncRequest.id}</div>
                           </div>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-muted-foreground">Status</Label>
-                          <div>{getStatusBadge(selectedSyncRequest.status)}</div>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-muted-foreground">Clients Selected</Label>
-                          <div>{selectedSyncRequest.client_ids.length} client(s)</div>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-muted-foreground">Created At</Label>
-                          <div className="text-sm">{formatDate(selectedSyncRequest.created_at)}</div>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-muted-foreground">Last Run</Label>
-                          <div className="text-sm">
-                            {selectedSyncRequest.last_run_at ? formatDate(selectedSyncRequest.last_run_at) : "Never"}
-                          </div>
-                        </div>
-                        {selectedSyncRequest.sync_type === "automatic" && (
-                          <>
-                            <div>
-                              <Label className="text-sm font-medium text-muted-foreground">Frequency</Label>
-                              <div className="text-sm capitalize">{selectedSyncRequest.frequency}</div>
+                          <div>
+                            <Label className="text-sm font-medium text-muted-foreground">Sync Type</Label>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline">
+                                {selectedSyncRequest.sync_type === "automatic" ? "Automatic" : "Historical"}
+                              </Badge>
                             </div>
-                            <div>
-                              <Label className="text-sm font-medium text-muted-foreground">Next Scheduled</Label>
-                              <div className="text-sm">
-                                {selectedSyncRequest.next_run_at ? formatDate(selectedSyncRequest.next_run_at) : "Not scheduled"}
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                            <div>{getStatusBadge(selectedSyncRequest.status)}</div>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium text-muted-foreground">Clients Selected</Label>
+                            <div>{selectedSyncRequest.client_ids.length} client(s)</div>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium text-muted-foreground">Created At</Label>
+                            <div className="text-sm">{formatDate(selectedSyncRequest.created_at)}</div>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium text-muted-foreground">Last Run</Label>
+                            <div className="text-sm">
+                              {selectedSyncRequest.last_run_at ? formatDate(selectedSyncRequest.last_run_at) : "Never"}
+                            </div>
+                          </div>
+                          {selectedSyncRequest.sync_type === "automatic" && (
+                            <>
+                              <div>
+                                <Label className="text-sm font-medium text-muted-foreground">Frequency</Label>
+                                <div className="text-sm capitalize">{selectedSyncRequest.frequency}</div>
                               </div>
-                            </div>
-                          </>
-                        )}
-                        {selectedSyncRequest.sync_type === "historical" && (
-                          <>
-                            <div>
-                              <Label className="text-sm font-medium text-muted-foreground">Start Date</Label>
-                              <div className="text-sm">{selectedSyncRequest.start_date || "Not specified"}</div>
-                            </div>
-                            <div>
-                              <Label className="text-sm font-medium text-muted-foreground">End Date</Label>
-                              <div className="text-sm">{selectedSyncRequest.end_date || "Not specified"}</div>
-                            </div>
-                          </>
+                              <div>
+                                <Label className="text-sm font-medium text-muted-foreground">Next Scheduled</Label>
+                                <div className="text-sm">
+                                  {selectedSyncRequest.next_run_at ? formatDate(selectedSyncRequest.next_run_at) : "Not scheduled"}
+                                </div>
+                              </div>
+                            </>
+                          )}
+                          {selectedSyncRequest.sync_type === "historical" && (
+                            <>
+                              <div>
+                                <Label className="text-sm font-medium text-muted-foreground">Start Date</Label>
+                                <div className="text-sm">{selectedSyncRequest.start_date || "Not specified"}</div>
+                              </div>
+                              <div>
+                                <Label className="text-sm font-medium text-muted-foreground">End Date</Label>
+                                <div className="text-sm">{selectedSyncRequest.end_date || "Not specified"}</div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Sync Logs Section */}
+                      <div>
+                        <h4 className="font-semibold text-sm text-muted-foreground mb-3 uppercase tracking-wide">Execution Logs</h4>
+                        {syncDetailsLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                            Loading sync details...
+                          </div>
+                        ) : selectedSyncRequest.sync_logs && selectedSyncRequest.sync_logs.length > 0 ? (
+                          <div className="rounded-md border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Client ID</TableHead>
+                                  <TableHead>Status</TableHead>
+                                  <TableHead>Records Processed</TableHead>
+                                  <TableHead>Execution Time</TableHead>
+                                  <TableHead>Error Message</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {selectedSyncRequest.sync_logs.map((log, index) => (
+                                  <TableRow key={index}>
+                                    <TableCell className="font-mono text-sm">
+                                      {log.client_id.slice(-8).toUpperCase()}
+                                    </TableCell>
+                                    <TableCell>
+                                      {getStatusBadge(log.status)}
+                                    </TableCell>
+                                    <TableCell>{log.records_processed || 0}</TableCell>
+                                    <TableCell className="text-sm">
+                                      {formatDate(log.created_at)}
+                                    </TableCell>
+                                    <TableCell className="text-sm">
+                                      {log.error_message || "None"}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            No sync logs available for this request.
+                          </div>
                         )}
                       </div>
-                    </div>
-
-                    {/* Sync Logs Section */}
-                    <div>
-                      <h4 className="font-semibold text-sm text-muted-foreground mb-3 uppercase tracking-wide">Execution Logs</h4>
-                      {syncDetailsLoading ? (
-                        <div className="flex items-center justify-center py-8">
-                          <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-                          Loading sync details...
-                        </div>
-                      ) : selectedSyncRequest.sync_logs && selectedSyncRequest.sync_logs.length > 0 ? (
-                        <div className="rounded-md border">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Client ID</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Records Processed</TableHead>
-                                <TableHead>Execution Time</TableHead>
-                                <TableHead>Error Message</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {selectedSyncRequest.sync_logs.map((log, index) => (
-                                <TableRow key={index}>
-                                  <TableCell className="font-mono text-sm">
-                                    {log.client_id.slice(-8).toUpperCase()}
-                                  </TableCell>
-                                  <TableCell>
-                                    {getStatusBadge(log.status)}
-                                  </TableCell>
-                                  <TableCell>{log.records_processed || 0}</TableCell>
-                                  <TableCell className="text-sm">
-                                    {formatDate(log.created_at)}
-                                  </TableCell>
-                                  <TableCell className="text-sm">
-                                    {log.error_message || "None"}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          No sync logs available for this request.
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
 
               {/* Transaction Data - Primary Focus */}
               <Card className="border-2">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    Transaction Data
-                    <Badge variant="secondary" className="text-xs">
-                      Primary
-                    </Badge>
+                    Transaction Data ({transactions.length})
                   </CardTitle>
                   <CardDescription>
-                    Actual transaction records fetched during this sync request - this is the main data output
+                    Real Mercury transaction data retrieved from your account
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -1156,47 +1160,49 @@ const ConnectionSetup = () => {
                       </div>
                     </div>
                   ) : transactions.length > 0 ? (
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Transaction ID</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead>Amount</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Category</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {transactions.map((transaction) => (
-                            <TableRow key={transaction.id}>
-                              <TableCell className="font-mono text-sm">
-                                {transaction.id.slice(-8).toUpperCase()}
-                              </TableCell>
-                              <TableCell className="text-sm">
-                                {transaction.date}
-                              </TableCell>
-                              <TableCell className="text-sm max-w-xs truncate">
-                                {transaction.description}
-                              </TableCell>
-                              <TableCell className="font-medium">
-                                <span className={transaction.amount < 0 ? "text-red-600" : "text-green-600"}>
-                                  ${Math.abs(transaction.amount).toLocaleString()}
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant={transaction.status === "cleared" ? "default" : "secondary"}>
-                                  {transaction.status || "N/A"}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-sm">
-                                {transaction.category || "Uncategorized"}
-                              </TableCell>
+                    <div className="max-h-72 overflow-y-auto">
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Posted Date</TableHead>
+                              <TableHead>Amount</TableHead>
+                              <TableHead>Counterparty</TableHead>
+                              <TableHead>Note</TableHead>
+                              <TableHead>Status</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {transactions.map((transaction) => (
+                              <TableRow key={transaction.id}>
+                                <TableCell className="text-sm">
+                                  {new Date(transaction.postedAt).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell className="font-medium">
+                                  <span className={transaction.amount < 0 ? "text-red-600" : "text-green-600"}>
+                                    ${(Math.abs(transaction.amount) / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-sm max-w-xs">
+                                  <div className="truncate" title={transaction.counterpartyName}>
+                                    {transaction.counterpartyName}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-sm max-w-xs">
+                                  <div className="truncate" title={transaction.note}>
+                                    {transaction.note || "—"}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={transaction.status === "posted" ? "default" : "secondary"}>
+                                    {transaction.status}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">

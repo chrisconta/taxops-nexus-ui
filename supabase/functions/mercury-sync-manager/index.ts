@@ -70,10 +70,10 @@ serve(async (req) => {
           throw new Error('sync_id parameter required for get-sync-details')
         }
         return await getSyncDetails(supabaseClient, user.id, syncId)
-      } else if (action === 'get-transactions') {
+      } else if (action === 'transactions') {
         const syncId = url.searchParams.get('sync_id')
         if (!syncId) {
-          throw new Error('sync_id parameter required for get-transactions')
+          throw new Error('sync_id parameter required for transactions')
         }
         return await getTransactionData(supabaseClient, user.id, syncId)
       } else if (action === 'process-scheduled') {
@@ -457,52 +457,85 @@ async function getTransactionData(supabaseClient: any, userId: string, syncId: s
   }
 
   try {
-    // Call Mercury API to get real transaction data
-    const mercuryToken = credentials.credentials?.token
+    // Get Mercury API token - using the correct field name
+    const mercuryToken = credentials.credentials?.api_token
     if (!mercuryToken) {
-      throw new Error('Mercury token not found in credentials')
+      throw new Error('Mercury API token not found in credentials')
     }
 
-    const startDate = syncRequest.start_date || '2025-06-01'
-    const endDate = syncRequest.end_date || '2025-06-30'
+    console.log('Using Mercury token for API calls')
     
-    // Call Mercury transactions API
-    const mercuryResponse = await fetch('https://api.mercury.com/api/v1/transactions', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${mercuryToken}`,
-        'Content-Type': 'application/json'
-      },
-      // Note: Add query parameters for date filtering if Mercury API supports it
-    })
-
-    if (!mercuryResponse.ok) {
-      throw new Error(`Mercury API error: ${mercuryResponse.status} ${mercuryResponse.statusText}`)
+    // Helper function for Mercury API calls with proper authentication
+    const mercuryFetch = async (endpoint: string) => {
+      const url = `https://api.mercury.com/api/v1${endpoint}`
+      console.log('Calling Mercury API:', url)
+      
+      return await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${mercuryToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
     }
 
-    const mercuryData = await mercuryResponse.json()
-    console.log('Mercury API response received:', { count: mercuryData?.transactions?.length })
+    // Step 1: Get all Mercury accounts
+    const accountsResponse = await mercuryFetch('/accounts')
+    
+    if (!accountsResponse.ok) {
+      const errorText = await accountsResponse.text()
+      throw new Error(`Mercury accounts API error: ${accountsResponse.status} ${accountsResponse.statusText} - ${errorText}`)
+    }
 
-    // Transform Mercury API data to our format
-    const transactions = (mercuryData.transactions || [])
-      .filter((tx: any) => {
-        // Filter by date range if Mercury API doesn't support it natively
-        const txDate = new Date(tx.createdAt || tx.date)
-        const start = new Date(startDate)
-        const end = new Date(endDate)
-        return txDate >= start && txDate <= end
-      })
+    const accountsData = await accountsResponse.json()
+    console.log('Mercury accounts fetched:', { count: accountsData?.accounts?.length })
+    
+    const accounts = accountsData.accounts || []
+    let allTransactions: any[] = []
+
+    // Step 2: Get transactions for each account
+    for (const account of accounts) {
+      try {
+        console.log('Fetching transactions for account:', account.id)
+        const transactionsResponse = await mercuryFetch(`/account/${account.id}/transactions`)
+        
+        if (transactionsResponse.ok) {
+          const transactionsData = await transactionsResponse.json()
+          const accountTransactions = transactionsData.transactions || []
+          
+          // Filter by date range client-side if needed
+          const startDate = new Date(syncRequest.start_date || '2025-01-01')
+          const endDate = new Date(syncRequest.end_date || '2025-12-31')
+          
+          const filteredTransactions = accountTransactions.filter((tx: any) => {
+            if (!tx.postedAt) return true // Include if no date
+            const txDate = new Date(tx.postedAt)
+            return txDate >= startDate && txDate <= endDate
+          })
+          
+          allTransactions.push(...filteredTransactions)
+          console.log('Account transactions fetched:', { accountId: account.id, count: filteredTransactions.length })
+        } else {
+          console.warn('Failed to fetch transactions for account:', account.id, transactionsResponse.status)
+        }
+      } catch (error) {
+        console.warn('Error fetching transactions for account:', account.id, error)
+      }
+    }
+
+    // Step 3: Transform Mercury API data to our format
+    const transactions = allTransactions
       .map((tx: any) => ({
         id: tx.id,
-        date: tx.createdAt ? new Date(tx.createdAt).toISOString().split('T')[0] : tx.date,
-        description: tx.description || tx.note || 'Transaction',
-        amount: Math.abs(tx.amount / 100).toFixed(2), // Mercury uses cents
-        type: tx.amount > 0 ? 'credit' : 'debit',
-        status: tx.status || 'completed',
-        category: tx.amount > 0 ? 'income' : 'expense',
-        balance_after: tx.runningBalance ? (tx.runningBalance / 100).toFixed(2) : null
+        postedAt: tx.postedAt,
+        amount: tx.amount, // Mercury amount in cents
+        counterpartyName: tx.counterpartyName || 'Unknown',
+        note: tx.note || '',
+        status: tx.status || 'posted'
       }))
-      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .sort((a: any, b: any) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime())
+
+    console.log('Total transactions processed:', transactions.length)
 
     return new Response(JSON.stringify({ 
       transactions,
@@ -517,7 +550,7 @@ async function getTransactionData(supabaseClient: any, userId: string, syncId: s
     console.error('Error fetching Mercury transactions:', error)
     
     // Fall back to mock data if Mercury API fails
-    console.log('Falling back to mock data due to Mercury API error')
+    console.log('Falling back to mock data due to Mercury API error:', error.message)
     
     const mockTransactions = generateMockTransactions(syncId, syncRequest.start_date, syncRequest.end_date)
     
@@ -525,7 +558,7 @@ async function getTransactionData(supabaseClient: any, userId: string, syncId: s
       transactions: mockTransactions,
       total_count: mockTransactions.length,
       sync_request_id: syncId,
-      note: 'Using mock data due to API error'
+      note: `Using mock data due to API error: ${error.message}`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200
