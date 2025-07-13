@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import MercuryTokenSetup from "@/components/MercuryTokenSetup";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
 
 interface Client {
   id: string;
@@ -97,6 +98,13 @@ const ConnectionSetup = () => {
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
   const [summaryCollapsed, setSummaryCollapsed] = useState(false); // Collapsible state for overview + logs
+  
+  // Pagination state for transactions
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const saved = localStorage.getItem('txPageSize');
+    return saved ? Number(saved) : 25;
+  });
 
   // Connection metadata based on connectionId
   const getConnectionInfo = (id: string) => {
@@ -415,9 +423,27 @@ const ConnectionSetup = () => {
     setSelectedSyncRequest(syncRequest);
     setTransactions([]);
     setTransactionsError(null);
+    setPageIndex(0); // Reset to first page when opening new sync request
     fetchSyncDetails(syncRequest.id);
     fetchTransactionData(syncRequest.id);
   };
+
+  // Pagination handlers
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    localStorage.setItem('txPageSize', String(newPageSize));
+    setPageIndex(0); // Reset to first page when changing page size
+  };
+
+  const handlePageChange = (newPageIndex: number) => {
+    setPageIndex(newPageIndex);
+  };
+
+  // Calculate paginated transactions
+  const paginatedTransactions = transactions.slice(
+    pageIndex * pageSize, 
+    (pageIndex + 1) * pageSize
+  );
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -1160,7 +1186,7 @@ const ConnectionSetup = () => {
                       </div>
                     </div>
                   ) : transactions.length > 0 ? (
-                    <div className="max-h-72 overflow-y-auto">
+                    <div className="space-y-4">
                       <div className="rounded-md border">
                         <Table>
                           <TableHeader>
@@ -1173,7 +1199,7 @@ const ConnectionSetup = () => {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {transactions.map((transaction) => (
+                            {paginatedTransactions.map((transaction) => (
                               <TableRow key={transaction.id}>
                                 <TableCell className="text-sm">
                                   {new Date(transaction.postedAt).toLocaleDateString()}
@@ -1203,6 +1229,15 @@ const ConnectionSetup = () => {
                           </TableBody>
                         </Table>
                       </div>
+                      
+                      {/* Pagination Component */}
+                      <DataTablePagination
+                        total={transactions.length}
+                        pageSize={pageSize}
+                        pageIndex={pageIndex}
+                        onPageSizeChange={handlePageSizeChange}
+                        onPageChange={handlePageChange}
+                      />
                     </div>
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
