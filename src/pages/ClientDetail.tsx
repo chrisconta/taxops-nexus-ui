@@ -305,7 +305,7 @@ const ClientDetail = () => {
             client_id: id,
             name: connectionType.name,
             code: connectionType.code,
-            status: "pending",
+            status: "disconnected", // Use valid constraint value instead of "pending"
             credentials: credentials,
           },
         ]);
@@ -446,11 +446,9 @@ const ClientDetail = () => {
     switch (status) {
       case "connected":
         return <CheckCircle className="w-4 h-4 text-taxops-success" />;
-      case "pending":
+      case "partial":
         return <AlertCircle className="w-4 h-4 text-taxops-warning" />;
-      case "error":
-        return <XCircle className="w-4 h-4 text-taxops-error" />;
-      case "not-connected":
+      case "disconnected":
       default:
         return <XCircle className="w-4 h-4 text-taxops-error" />;
     }
@@ -460,11 +458,9 @@ const ClientDetail = () => {
     switch (status) {
       case "connected":
         return <Badge className="bg-taxops-success/20 text-taxops-success border-taxops-success/30">Connected</Badge>;
-      case "pending":
-        return <Badge className="bg-taxops-warning/20 text-taxops-warning border-taxops-warning/30">Pending</Badge>;
-      case "error":
-        return <Badge className="bg-taxops-error/20 text-taxops-error border-taxops-error/30">Error</Badge>;
-      case "not-connected":
+      case "partial":
+        return <Badge className="bg-taxops-warning/20 text-taxops-warning border-taxops-warning/30">Partial</Badge>;
+      case "disconnected":
       default:
         return <Badge className="bg-taxops-error/20 text-taxops-error border-taxops-error/30">Disconnected</Badge>;
     }
