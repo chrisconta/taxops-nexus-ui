@@ -185,9 +185,8 @@ const ConnectionSetup = () => {
 
   const fetchSyncRequests = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('mercury-sync-manager', {
-        method: 'GET',
-        body: new URLSearchParams({ action: 'list-syncs' })
+      const { data, error } = await supabase.functions.invoke('mercury-sync-manager?action=list-syncs', {
+        method: 'GET'
       });
 
       if (error) throw error;
@@ -219,10 +218,9 @@ const ConnectionSetup = () => {
     setLoadingSync(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('mercury-sync-manager', {
+      const { data, error } = await supabase.functions.invoke('mercury-sync-manager?action=create-sync', {
         method: 'POST',
         body: JSON.stringify({
-          action: 'create-sync',
           connection_code: connectionId,
           client_ids: selectedClients,
           sync_type: syncSettings.syncType,
@@ -254,12 +252,8 @@ const ConnectionSetup = () => {
 
   const handleCancelSync = async (syncId: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('mercury-sync-manager', {
-        method: 'DELETE',
-        body: new URLSearchParams({ 
-          action: 'cancel-sync',
-          sync_id: syncId 
-        })
+      const { data, error } = await supabase.functions.invoke(`mercury-sync-manager?action=cancel-sync&sync_id=${syncId}`, {
+        method: 'DELETE'
       });
 
       if (error) throw error;

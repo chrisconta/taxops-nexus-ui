@@ -28,17 +28,23 @@ serve(async (req) => {
     )
 
     const authHeader = req.headers.get('Authorization')
+    console.log('Auth header present:', !!authHeader)
+    
     if (!authHeader) {
       throw new Error('No authorization header')
     }
 
     // Get user from JWT token
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
+    const token = authHeader.replace('Bearer ', '')
+    console.log('Extracting user from token...')
+    
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
+    
+    console.log('User extracted:', { userId: user?.id, email: user?.email })
+    console.log('Auth error:', authError)
 
     if (authError || !user) {
-      throw new Error('Authentication failed')
+      throw new Error(`Authentication failed: ${authError?.message || 'No user found'}`)
     }
 
     const url = new URL(req.url)
@@ -86,6 +92,17 @@ serve(async (req) => {
 async function createSyncRequest(req: Request, supabaseClient: any, userId: string) {
   const syncRequest: SyncRequest = await req.json()
   
+  console.log('Creating sync request:', { userId, syncRequest })
+  
+  // Validate required fields
+  if (!syncRequest.connection_code || !syncRequest.client_ids || !Array.isArray(syncRequest.client_ids) || syncRequest.client_ids.length === 0) {
+    throw new Error('Missing required fields: connection_code and client_ids array')
+  }
+  
+  if (!syncRequest.sync_type || !['automatic', 'historical'].includes(syncRequest.sync_type)) {
+    throw new Error('Invalid sync_type. Must be "automatic" or "historical"')
+  }
+  
   // Calculate next_run_at for automatic syncs
   let nextRunAt = null
   if (syncRequest.sync_type === 'automatic' && syncRequest.frequency) {
@@ -103,6 +120,8 @@ async function createSyncRequest(req: Request, supabaseClient: any, userId: stri
     }
   }
 
+  console.log('Inserting sync request with userId:', userId)
+  
   const { data, error } = await supabaseClient
     .from('sync_requests')
     .insert({
@@ -114,12 +133,15 @@ async function createSyncRequest(req: Request, supabaseClient: any, userId: stri
       start_date: syncRequest.start_date,
       end_date: syncRequest.end_date,
       next_run_at: nextRunAt?.toISOString(),
-      status: syncRequest.sync_type === 'historical' ? 'pending' : 'pending'
+      status: 'pending'
     })
     .select()
     .single()
 
+  console.log('Insert result:', { data, error })
+
   if (error) {
+    console.error('Database insert error:', error)
     throw new Error(`Failed to create sync request: ${error.message}`)
   }
 
