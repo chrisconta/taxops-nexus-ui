@@ -31,6 +31,7 @@ serve(async (req) => {
     console.log('Auth header present:', !!authHeader)
     
     if (!authHeader) {
+      console.error('No authorization header provided')
       throw new Error('No authorization header')
     }
 
@@ -41,7 +42,10 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
     
     console.log('User extracted:', { userId: user?.id, email: user?.email })
-    console.log('Auth error:', authError)
+    
+    if (authError) {
+      console.error('Auth error:', authError)
+    }
 
     if (authError || !user) {
       throw new Error(`Authentication failed: ${authError?.message || 'No user found'}`)
@@ -49,6 +53,7 @@ serve(async (req) => {
 
     const url = new URL(req.url)
     const action = url.searchParams.get('action')
+    console.log('Action requested:', action, 'Method:', req.method)
 
     if (req.method === 'POST') {
       if (action === 'create-sync') {
@@ -75,8 +80,9 @@ serve(async (req) => {
       }
     }
 
+    console.error('Invalid action or method combination:', { action, method: req.method })
     return new Response(
-      JSON.stringify({ error: 'Invalid action' }),
+      JSON.stringify({ error: 'Invalid action or method' }),
       { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -85,6 +91,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in mercury-sync-manager:', error)
+    console.error('Error stack:', error.stack)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
@@ -276,7 +283,7 @@ async function executeSyncById(supabaseClient: any, syncId: string) {
 
     return new Response(
       JSON.stringify({ success: true, message: 'Sync completed successfully' }),
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
@@ -295,6 +302,8 @@ async function executeSyncById(supabaseClient: any, syncId: string) {
 }
 
 async function listSyncRequests(supabaseClient: any, userId: string) {
+  console.log('Listing sync requests for user:', userId)
+  
   const { data, error } = await supabaseClient
     .from('sync_requests')
     .select(`
@@ -310,17 +319,22 @@ async function listSyncRequests(supabaseClient: any, userId: string) {
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
 
+  console.log('Query result:', { data, error })
+
   if (error) {
+    console.error('Database query error:', error)
     throw new Error(`Failed to fetch sync requests: ${error.message}`)
   }
 
   return new Response(
     JSON.stringify({ sync_requests: data }),
-    { headers: { 'Content-Type': 'application/json' } }
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   )
 }
 
 async function cancelSyncRequest(supabaseClient: any, userId: string, syncId: string | null) {
+  console.log('Cancelling sync request:', { userId, syncId })
+  
   if (!syncId) {
     throw new Error('Sync ID is required')
   }
@@ -332,12 +346,13 @@ async function cancelSyncRequest(supabaseClient: any, userId: string, syncId: st
     .eq('user_id', userId)
 
   if (error) {
+    console.error('Cancel sync error:', error)
     throw new Error(`Failed to cancel sync: ${error.message}`)
   }
 
   return new Response(
     JSON.stringify({ success: true, message: 'Sync cancelled successfully' }),
-    { headers: { 'Content-Type': 'application/json' } }
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   )
 }
 
@@ -371,7 +386,7 @@ async function getSyncDetails(supabaseClient: any, userId: string, syncId: strin
     sync_request: syncRequest,
     sync_logs: syncLogs || [] 
   }), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     status: 200
   })
 }
@@ -402,6 +417,6 @@ async function processScheduledSyncs(supabaseClient: any) {
       processed: scheduledSyncs.length,
       message: `Processed ${scheduledSyncs.length} scheduled syncs` 
     }),
-    { headers: { 'Content-Type': 'application/json' } }
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   )
 }

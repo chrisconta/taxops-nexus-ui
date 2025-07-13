@@ -190,9 +190,17 @@ const ConnectionSetup = () => {
 
   const fetchSyncRequests = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('mercury-sync-manager?action=list-syncs', {
-        method: 'GET'
-      });
+      const url = new URL('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/mercury-sync-manager');
+      url.searchParams.set('action', 'list-syncs');
+      
+      const { data, error } = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppdGRlcmRqdnF0YWR0d2dhdG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIyNzI4MTAsImV4cCI6MjA2Nzg0ODgxMH0.apenqp5pSuLZtRGD7K2iXWr5cFJLtXD9xuhu0gsJ0QA',
+          'Content-Type': 'application/json'
+        }
+      }).then(res => res.json()).catch(err => ({ error: err }));
 
       if (error) throw error;
       setSyncRequests(data.sync_requests || []);
@@ -223,8 +231,16 @@ const ConnectionSetup = () => {
     setLoadingSync(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('mercury-sync-manager?action=create-sync', {
+      const url = new URL('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/mercury-sync-manager');
+      url.searchParams.set('action', 'create-sync');
+      
+      const response = await fetch(url.toString(), {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppdGRlcmRqdnF0YWR0d2dhdG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIyNzI4MTAsImV4cCI6MjA2Nzg0ODgxMH0.apenqp5pSuLZtRGD7K2iXWr5cFJLtXD9xuhu0gsJ0QA',
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           connection_code: connectionId,
           client_ids: selectedClients,
@@ -235,7 +251,11 @@ const ConnectionSetup = () => {
         })
       });
 
-      if (error) throw error;
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Request failed');
+      }
 
       toast({
         title: "Sync Request Created",
@@ -257,11 +277,24 @@ const ConnectionSetup = () => {
 
   const handleCancelSync = async (syncId: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke(`mercury-sync-manager?action=cancel-sync&sync_id=${syncId}`, {
-        method: 'DELETE'
+      const url = new URL('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/mercury-sync-manager');
+      url.searchParams.set('action', 'cancel-sync');
+      url.searchParams.set('sync_id', syncId);
+      
+      const response = await fetch(url.toString(), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppdGRlcmRqdnF0YWR0d2dhdG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIyNzI4MTAsImV4cCI6MjA2Nzg0ODgxMH0.apenqp5pSuLZtRGD7K2iXWr5cFJLtXD9xuhu0gsJ0QA',
+          'Content-Type': 'application/json'
+        }
       });
 
-      if (error) throw error;
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Request failed');
+      }
 
       toast({
         title: "Sync Cancelled",
@@ -282,11 +315,24 @@ const ConnectionSetup = () => {
   const fetchSyncDetails = async (syncId: string) => {
     setSyncDetailsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke(`mercury-sync-manager?action=get-sync-details&sync_id=${syncId}`, {
-        method: 'GET'
+      const url = new URL('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/mercury-sync-manager');
+      url.searchParams.set('action', 'get-sync-details');
+      url.searchParams.set('sync_id', syncId);
+      
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppdGRlcmRqdnF0YWR0d2dhdG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIyNzI4MTAsImV4cCI6MjA2Nzg0ODgxMH0.apenqp5pSuLZtRGD7K2iXWr5cFJLtXD9xuhu0gsJ0QA',
+          'Content-Type': 'application/json'
+        }
       });
 
-      if (error) throw error;
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Request failed');
+      }
       
       // Update the selected sync request with detailed logs
       setSelectedSyncRequest(prev => ({
