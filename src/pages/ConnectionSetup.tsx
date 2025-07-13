@@ -82,6 +82,7 @@ const ConnectionSetup = () => {
   const [selectedSyncRequest, setSelectedSyncRequest] = useState<SyncRequest | null>(null);
   const [syncRequestsSearch, setSyncRequestsSearch] = useState("");
   const [syncDetailsLoading, setSyncDetailsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"setup" | "history">("setup");
 
   // Connection metadata based on connectionId
   const getConnectionInfo = (id: string) => {
@@ -554,331 +555,368 @@ const ConnectionSetup = () => {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Client Selection */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Client Selection
-              </CardTitle>
-              <CardDescription>
-                Select clients to sync Mercury data for. You can choose multiple clients.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <Label htmlFor="search">Search clients</Label>
-                  <Input
-                    id="search"
-                    placeholder="Search by name, email, or RFC..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <Button variant="outline" onClick={handleSelectAll} className="mt-6">
-                  {selectedClients.length === filteredClients.length ? "Deselect All" : "Select All"}
-                </Button>
-              </div>
-
-              <div className="max-h-64 overflow-y-auto space-y-2">
-                {filteredClients.map((client) => (
-                  <div
-                    key={client.id}
-                    className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                    onClick={() => handleClientToggle(client.id)}
-                  >
-                    <Checkbox
-                      checked={selectedClients.includes(client.id)}
-                      onChange={() => handleClientToggle(client.id)}
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium">{client.name}</div>
-                      <div className="text-sm text-muted-foreground">{client.email} • RFC: {client.rfc}</div>
-                    </div>
-                    <Badge variant={client.sat_status === "active" ? "default" : "secondary"}>
-                      {client.sat_status}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-
-              {selectedClients.length > 0 && (
-                <div className="text-sm text-muted-foreground">
-                  {selectedClients.length} client(s) selected
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Sync Type Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Sync Type
-              </CardTitle>
-              <CardDescription>
-                Choose between automatic recurring sync or one-time historical data sync.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <RadioGroup
-                value={syncSettings.syncType}
-                onValueChange={(value) => setSyncSettings(prev => ({ ...prev, syncType: value as any }))}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="automatic" id="automatic" />
-                  <Label htmlFor="automatic">Automatic Sync</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="historical" id="historical" />
-                  <Label htmlFor="historical">Historical Data Sync</Label>
-                </div>
-              </RadioGroup>
-
-              {syncSettings.syncType === "automatic" && (
-                <div>
-                  <Label>Sync Frequency</Label>
-                  <RadioGroup
-                    value={syncSettings.frequency}
-                    onValueChange={(value) => setSyncSettings(prev => ({ ...prev, frequency: value as any }))}
-                    className="mt-2"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="daily" id="freq-daily" />
-                      <Label htmlFor="freq-daily">Daily</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="weekly" id="freq-weekly" />
-                      <Label htmlFor="freq-weekly">Weekly</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="monthly" id="freq-monthly" />
-                      <Label htmlFor="freq-monthly">Monthly</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-              )}
-
-              {syncSettings.syncType === "historical" && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="start-date">Start Date</Label>
-                    <Input
-                      id="start-date"
-                      type="date"
-                      value={syncSettings.startDate || ""}
-                      onChange={(e) => setSyncSettings(prev => ({ ...prev, startDate: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="end-date">End Date</Label>
-                    <Input
-                      id="end-date"
-                      type="date"
-                      value={syncSettings.endDate || ""}
-                      onChange={(e) => setSyncSettings(prev => ({ ...prev, endDate: e.target.value }))}
-                    />
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Action Panel */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sync Control</CardTitle>
-              <CardDescription>
-                Request data synchronization for selected clients
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button
-                onClick={handleCreateSync}
-                disabled={selectedClients.length === 0 || !credentialsValid || loadingSync}
-                className="w-full"
-                size="lg"
-              >
-                {loadingSync ? (
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4 mr-2" />
-                )}
-                Request Data Sync
-              </Button>
-
-              <Button
-                onClick={fetchSyncRequests}
-                variant="outline"
-                className="w-full"
-                size="sm"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Status
-              </Button>
-
-              {!credentialsValid && (
-                <div className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded border">
-                  ⚠️ No valid Mercury credentials found. Please configure connection credentials on the main connections page first.
-                </div>
-              )}
-
-              {selectedClients.length === 0 && (
-                <div className="text-sm text-muted-foreground">
-                  Select at least one client to enable sync
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      {/* Tab Navigation */}
+      <div className="border-b border-border">
+        <div className="flex space-x-8">
+          <Button
+            variant="ghost"
+            className={`relative px-0 py-2 border-b-2 transition-colors ${
+              activeTab === "setup"
+                ? "border-primary text-primary font-medium"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setActiveTab("setup")}
+          >
+            Setup
+          </Button>
+          <Button
+            variant="ghost"
+            className={`relative px-0 py-2 border-b-2 transition-colors ${
+              activeTab === "history"
+                ? "border-primary text-primary font-medium"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setActiveTab("history")}
+          >
+            Sync History
+            {syncRequests.length > 0 && (
+              <Badge variant="secondary" className="ml-2 text-xs">
+                {syncRequests.length}
+              </Badge>
+            )}
+          </Button>
         </div>
       </div>
 
-      {/* Sync Requests Table */}
-      {connectionId === "mercury" && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <History className="h-5 w-5" />
-                  Sync Requests History
-                </CardTitle>
-                <CardDescription>
-                  Track the status and history of your Mercury data sync requests. Click on any row to view detailed information.
-                </CardDescription>
-              </div>
-            </div>
-            {syncRequests.length > 0 && (
-              <div className="flex items-center gap-4 mt-4">
-                <div className="relative flex-1 max-w-sm">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by ID, type, or status..."
-                    value={syncRequestsSearch}
-                    onChange={(e) => setSyncRequestsSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Button
-                  onClick={fetchSyncRequests}
-                  variant="outline"
-                  size="sm"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
-              </div>
-            )}
-          </CardHeader>
-          <CardContent>
-            {syncRequests.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No sync requests found. Create your first sync request above.
-              </div>
-            ) : filteredSyncRequests.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No sync requests match your search criteria.
-              </div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Request ID</TableHead>
-                      <TableHead>Sync Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created At</TableHead>
-                      <TableHead>Last Run</TableHead>
-                      <TableHead>Next Scheduled</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredSyncRequests.map((request) => (
-                      <TableRow 
-                        key={request.id} 
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleSyncRowClick(request)}
+      {/* Tab Content */}
+      <div className="animate-fade-in">
+        {activeTab === "setup" && (
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Client Selection */}
+            <div className="lg:col-span-2 space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Client Selection
+                  </CardTitle>
+                  <CardDescription>
+                    Select clients to sync Mercury data for. You can choose multiple clients.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <Label htmlFor="search">Search clients</Label>
+                      <Input
+                        id="search"
+                        placeholder="Search by name, email, or RFC..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <Button variant="outline" onClick={handleSelectAll} className="mt-6">
+                      {selectedClients.length === filteredClients.length ? "Deselect All" : "Select All"}
+                    </Button>
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {filteredClients.map((client) => (
+                      <div
+                        key={client.id}
+                        className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                        onClick={() => handleClientToggle(client.id)}
                       >
-                        <TableCell className="font-mono text-sm">
-                          {request.id.slice(-8).toUpperCase()}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {request.sync_type === "automatic" ? "Automatic" : "Historical"}
-                          </Badge>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {request.sync_type === "automatic" 
-                              ? `${request.frequency?.charAt(0).toUpperCase()}${request.frequency?.slice(1)}`
-                              : request.start_date && request.end_date
-                                ? `${request.start_date} to ${request.end_date}`
-                                : "One-time"
-                            }
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(request.status)}
-                          {request.error_message && (
-                            <div className="text-xs text-red-600 mt-1 truncate max-w-32">
-                              {request.error_message}
+                        <Checkbox
+                          checked={selectedClients.includes(client.id)}
+                          onChange={() => handleClientToggle(client.id)}
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium">{client.name}</div>
+                          <div className="text-sm text-muted-foreground">{client.email} • RFC: {client.rfc}</div>
+                        </div>
+                        <Badge variant={client.sat_status === "active" ? "default" : "secondary"}>
+                          {client.sat_status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+
+                  {selectedClients.length > 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      {selectedClients.length} client(s) selected
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Sync Type Selection */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Sync Type
+                  </CardTitle>
+                  <CardDescription>
+                    Choose between automatic recurring sync or one-time historical data sync.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <RadioGroup
+                    value={syncSettings.syncType}
+                    onValueChange={(value) => setSyncSettings(prev => ({ ...prev, syncType: value as any }))}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="automatic" id="automatic" />
+                      <Label htmlFor="automatic">Automatic Sync</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="historical" id="historical" />
+                      <Label htmlFor="historical">Historical Data Sync</Label>
+                    </div>
+                  </RadioGroup>
+
+                  {syncSettings.syncType === "automatic" && (
+                    <div>
+                      <Label>Sync Frequency</Label>
+                      <RadioGroup
+                        value={syncSettings.frequency}
+                        onValueChange={(value) => setSyncSettings(prev => ({ ...prev, frequency: value as any }))}
+                        className="mt-2"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="daily" id="freq-daily" />
+                          <Label htmlFor="freq-daily">Daily</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="weekly" id="freq-weekly" />
+                          <Label htmlFor="freq-weekly">Weekly</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="monthly" id="freq-monthly" />
+                          <Label htmlFor="freq-monthly">Monthly</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  )}
+
+                  {syncSettings.syncType === "historical" && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="start-date">Start Date</Label>
+                        <Input
+                          id="start-date"
+                          type="date"
+                          value={syncSettings.startDate || ""}
+                          onChange={(e) => setSyncSettings(prev => ({ ...prev, startDate: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="end-date">End Date</Label>
+                        <Input
+                          id="end-date"
+                          type="date"
+                          value={syncSettings.endDate || ""}
+                          onChange={(e) => setSyncSettings(prev => ({ ...prev, endDate: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Action Panel */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sync Control</CardTitle>
+                  <CardDescription>
+                    Request data synchronization for selected clients
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button
+                    onClick={handleCreateSync}
+                    disabled={selectedClients.length === 0 || !credentialsValid || loadingSync}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {loadingSync ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4 mr-2" />
+                    )}
+                    Request Data Sync
+                  </Button>
+
+                  <Button
+                    onClick={fetchSyncRequests}
+                    variant="outline"
+                    className="w-full"
+                    size="sm"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh Status
+                  </Button>
+
+                  {!credentialsValid && (
+                    <div className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded border">
+                      ⚠️ No valid Mercury credentials found. Please configure connection credentials on the main connections page first.
+                    </div>
+                  )}
+
+                  {selectedClients.length === 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      Select at least one client to enable sync
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "history" && connectionId === "mercury" && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Sync Requests History
+                  </CardTitle>
+                  <CardDescription>
+                    Track the status and history of your Mercury data sync requests. Click on any row to view detailed information.
+                  </CardDescription>
+                </div>
+              </div>
+              {syncRequests.length > 0 && (
+                <div className="flex items-center gap-4 mt-4">
+                  <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by ID, type, or status..."
+                      value={syncRequestsSearch}
+                      onChange={(e) => setSyncRequestsSearch(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Button
+                    onClick={fetchSyncRequests}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              {syncRequests.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No sync requests found. Create your first sync request in the Setup tab.
+                </div>
+              ) : filteredSyncRequests.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No sync requests match your search criteria.
+                </div>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Request ID</TableHead>
+                        <TableHead>Sync Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created At</TableHead>
+                        <TableHead>Last Run</TableHead>
+                        <TableHead>Next Scheduled</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredSyncRequests.map((request) => (
+                        <TableRow 
+                          key={request.id} 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleSyncRowClick(request)}
+                        >
+                          <TableCell className="font-mono text-sm">
+                            {request.id.slice(-8).toUpperCase()}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {request.sync_type === "automatic" ? "Automatic" : "Historical"}
+                            </Badge>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {request.sync_type === "automatic" 
+                                ? `${request.frequency?.charAt(0).toUpperCase()}${request.frequency?.slice(1)}`
+                                : request.start_date && request.end_date
+                                  ? `${request.start_date} to ${request.end_date}`
+                                  : "One-time"
+                              }
                             </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {formatDate(request.created_at)}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {request.last_run_at ? formatDate(request.last_run_at) : "Never"}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {request.next_run_at 
-                            ? formatDate(request.next_run_at)
-                            : request.sync_type === "historical" 
-                              ? "N/A" 
-                              : "Not scheduled"
-                          }
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSyncRowClick(request);
-                              }}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {(request.status === "pending" || request.status === "running") && (
+                          </TableCell>
+                          <TableCell>
+                            {getStatusBadge(request.status)}
+                            {request.error_message && (
+                              <div className="text-xs text-red-600 mt-1 truncate max-w-32">
+                                {request.error_message}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {formatDate(request.created_at)}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {request.last_run_at ? formatDate(request.last_run_at) : "Never"}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {request.next_run_at 
+                              ? formatDate(request.next_run_at)
+                              : request.sync_type === "historical" 
+                                ? "N/A" 
+                                : "Not scheduled"
+                            }
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleCancelSync(request.id);
+                                  handleSyncRowClick(request);
                                 }}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                              {(request.status === "pending" || request.status === "running") && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCancelSync(request.id);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Sync Details Modal */}
       <Dialog open={!!selectedSyncRequest} onOpenChange={() => setSelectedSyncRequest(null)}>
