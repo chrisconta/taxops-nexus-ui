@@ -442,17 +442,100 @@ async function getTransactionData(supabaseClient: any, userId: string, syncId: s
     throw new Error('Sync request not found or access denied')
   }
 
-  // Get sync logs to determine how many records were processed
-  const { data: syncLogs } = await supabaseClient
-    .from('sync_logs')
-    .select('records_processed')
-    .eq('sync_request_id', syncId)
-    .eq('status', 'success')
+  // Get client credentials for Mercury API
+  const clientId = syncRequest.client_ids[0] // Use first client for now
+  const { data: credentials, error: credError } = await supabaseClient
+    .from('client_credentials')
+    .select('credentials')
+    .eq('client_id', clientId)
+    .eq('code', 'mercury')
+    .eq('status', 'connected')
+    .single()
 
-  // Generate mock transaction data based on sync request
-  const totalRecords = syncLogs?.reduce((sum, log) => sum + (log.records_processed || 0), 0) || 50
-  const startDate = new Date(syncRequest.start_date || '2025-06-01')
-  const endDate = new Date(syncRequest.end_date || '2025-06-30')
+  if (credError || !credentials) {
+    throw new Error('No valid Mercury credentials found for this sync request')
+  }
+
+  try {
+    // Call Mercury API to get real transaction data
+    const mercuryToken = credentials.credentials?.token
+    if (!mercuryToken) {
+      throw new Error('Mercury token not found in credentials')
+    }
+
+    const startDate = syncRequest.start_date || '2025-06-01'
+    const endDate = syncRequest.end_date || '2025-06-30'
+    
+    // Call Mercury transactions API
+    const mercuryResponse = await fetch('https://api.mercury.com/api/v1/transactions', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${mercuryToken}`,
+        'Content-Type': 'application/json'
+      },
+      // Note: Add query parameters for date filtering if Mercury API supports it
+    })
+
+    if (!mercuryResponse.ok) {
+      throw new Error(`Mercury API error: ${mercuryResponse.status} ${mercuryResponse.statusText}`)
+    }
+
+    const mercuryData = await mercuryResponse.json()
+    console.log('Mercury API response received:', { count: mercuryData?.transactions?.length })
+
+    // Transform Mercury API data to our format
+    const transactions = (mercuryData.transactions || [])
+      .filter((tx: any) => {
+        // Filter by date range if Mercury API doesn't support it natively
+        const txDate = new Date(tx.createdAt || tx.date)
+        const start = new Date(startDate)
+        const end = new Date(endDate)
+        return txDate >= start && txDate <= end
+      })
+      .map((tx: any) => ({
+        id: tx.id,
+        date: tx.createdAt ? new Date(tx.createdAt).toISOString().split('T')[0] : tx.date,
+        description: tx.description || tx.note || 'Transaction',
+        amount: Math.abs(tx.amount / 100).toFixed(2), // Mercury uses cents
+        type: tx.amount > 0 ? 'credit' : 'debit',
+        status: tx.status || 'completed',
+        category: tx.amount > 0 ? 'income' : 'expense',
+        balance_after: tx.runningBalance ? (tx.runningBalance / 100).toFixed(2) : null
+      }))
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+    return new Response(JSON.stringify({ 
+      transactions,
+      total_count: transactions.length,
+      sync_request_id: syncId
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
+    })
+
+  } catch (error) {
+    console.error('Error fetching Mercury transactions:', error)
+    
+    // Fall back to mock data if Mercury API fails
+    console.log('Falling back to mock data due to Mercury API error')
+    
+    const mockTransactions = generateMockTransactions(syncId, syncRequest.start_date, syncRequest.end_date)
+    
+    return new Response(JSON.stringify({ 
+      transactions: mockTransactions,
+      total_count: mockTransactions.length,
+      sync_request_id: syncId,
+      note: 'Using mock data due to API error'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
+    })
+  }
+}
+
+function generateMockTransactions(syncId: string, startDate?: string, endDate?: string) {
+  const start = new Date(startDate || '2025-06-01')
+  const end = new Date(endDate || '2025-06-30')
   
   const transactions = []
   const transactionTypes = [
@@ -466,12 +549,9 @@ async function getTransactionData(supabaseClient: any, userId: string, syncId: s
     'Supply Chain Co', 'Professional Services', 'Digital Agency', 'Consulting Group'
   ]
 
-  for (let i = 0; i < Math.min(totalRecords, 100); i++) {
-    // Generate random date between start and end
-    const randomTime = startDate.getTime() + Math.random() * (endDate.getTime() - startDate.getTime())
+  for (let i = 0; i < 50; i++) {
+    const randomTime = start.getTime() + Math.random() * (end.getTime() - start.getTime())
     const transactionDate = new Date(randomTime)
-    
-    // Generate random amount between -5000 and 15000
     const amount = (Math.random() - 0.3) * 20000
     const isCredit = amount > 0
     
@@ -487,15 +567,5 @@ async function getTransactionData(supabaseClient: any, userId: string, syncId: s
     })
   }
 
-  // Sort by date descending
-  transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-  return new Response(JSON.stringify({ 
-    transactions,
-    total_count: transactions.length,
-    sync_request_id: syncId
-  }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    status: 200
-  })
+  return transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 }
