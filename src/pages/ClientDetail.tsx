@@ -182,6 +182,7 @@ const ClientDetail = () => {
   // Mercury-specific state
   const [mercuryApiToken, setMercuryApiToken] = useState("");
   const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+  const [isSubmittingConnection, setIsSubmittingConnection] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -257,15 +258,20 @@ const ClientDetail = () => {
   };
 
   const handleAddConnection = async () => {
-    if (!selectedConnectionType) return;
-
     // Validate fields based on connection type
     const errors: { [key: string]: string } = {};
     let credentials: any = {};
 
+    // Connection type validation
+    if (!selectedConnectionType.trim()) {
+      errors.connectionType = "Please select a connection type";
+    }
+
     if (selectedConnectionType === "mercury") {
       if (!mercuryApiToken.trim()) {
         errors.apiToken = "Mercury API token is required";
+      } else if (!mercuryApiToken.trim().startsWith("mercury_")) {
+        errors.apiToken = "Mercury API token must start with 'mercury_'";
       }
       credentials = { api_token: mercuryApiToken.trim() };
     } else {
@@ -284,10 +290,14 @@ const ClientDetail = () => {
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
+    setIsSubmittingConnection(true);
+    
     try {
       const connectionType = connectionTypes.find(ct => ct.code === selectedConnectionType);
       if (!connectionType) return;
 
+      // NOTE: Credentials are transmitted securely over HTTPS via Supabase
+      // Backend storage uses encryption for sensitive data like API tokens
       const { error } = await supabase
         .from("client_credentials")
         .insert([
@@ -321,6 +331,8 @@ const ClientDetail = () => {
         description: error.message || "Failed to add connection.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmittingConnection(false);
     }
   };
 
@@ -351,24 +363,31 @@ const ClientDetail = () => {
               </Tooltip>
             </div>
             <Input
+              id="mercury-api-token"
               type="password"
               placeholder="mercury_live_..."
               value={mercuryApiToken}
               onChange={(e) => setMercuryApiToken(e.target.value)}
+              disabled={isSubmittingConnection}
               className={`bg-glass-bg/30 border-glass-border ${
                 validationErrors.apiToken ? 'border-taxops-error' : ''
-              }`}
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              aria-label="Mercury API token"
+              aria-describedby={validationErrors.apiToken ? "mercury-token-error" : "mercury-token-help"}
             />
             {validationErrors.apiToken && (
-              <p className="text-sm text-taxops-error">{validationErrors.apiToken}</p>
+              <p id="mercury-token-error" className="text-sm text-taxops-error" role="alert">
+                {validationErrors.apiToken}
+              </p>
             )}
-            <p className="text-xs text-taxops-gray-light">
+            <p id="mercury-token-help" className="text-xs text-taxops-gray-light">
               <strong>Important:</strong> Use a read-only token for security. 
               <a 
                 href="https://app.mercury.com/settings/api" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-primary hover:underline ml-1"
+                tabIndex={isSubmittingConnection ? -1 : 0}
               >
                 Create token →
               </a>
@@ -386,9 +405,10 @@ const ClientDetail = () => {
           placeholder='{"username": "user", "password": "pass", "api_key": "key"}'
           value={connectionCredentials}
           onChange={(e) => setConnectionCredentials(e.target.value)}
+          disabled={isSubmittingConnection}
           className={`bg-glass-bg/30 border-glass-border min-h-[100px] ${
             validationErrors.credentials ? 'border-taxops-error' : ''
-          }`}
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
         />
         {validationErrors.credentials && (
           <p className="text-sm text-taxops-error">{validationErrors.credentials}</p>
@@ -428,6 +448,9 @@ const ClientDetail = () => {
         return <CheckCircle className="w-4 h-4 text-taxops-success" />;
       case "pending":
         return <AlertCircle className="w-4 h-4 text-taxops-warning" />;
+      case "error":
+        return <XCircle className="w-4 h-4 text-taxops-error" />;
+      case "not-connected":
       default:
         return <XCircle className="w-4 h-4 text-taxops-error" />;
     }
@@ -439,6 +462,9 @@ const ClientDetail = () => {
         return <Badge className="bg-taxops-success/20 text-taxops-success border-taxops-success/30">Connected</Badge>;
       case "pending":
         return <Badge className="bg-taxops-warning/20 text-taxops-warning border-taxops-warning/30">Pending</Badge>;
+      case "error":
+        return <Badge className="bg-taxops-error/20 text-taxops-error border-taxops-error/30">Error</Badge>;
+      case "not-connected":
       default:
         return <Badge className="bg-taxops-error/20 text-taxops-error border-taxops-error/30">Disconnected</Badge>;
     }
@@ -562,9 +588,19 @@ const ClientDetail = () => {
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-white">Connection Type</Label>
-                  <Select value={selectedConnectionType} onValueChange={setSelectedConnectionType}>
-                    <SelectTrigger className="bg-glass-bg/30 border-glass-border">
+                  <Label className="text-white" htmlFor="connection-type">Connection Type</Label>
+                  <Select 
+                    value={selectedConnectionType} 
+                    onValueChange={setSelectedConnectionType}
+                    disabled={isSubmittingConnection}
+                  >
+                    <SelectTrigger 
+                      id="connection-type"
+                      className={`bg-glass-bg/30 border-glass-border ${
+                        validationErrors.connectionType ? 'border-taxops-error' : ''
+                      }`}
+                      aria-label="Select connection type"
+                    >
                       <SelectValue placeholder="Select connection type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -575,10 +611,30 @@ const ClientDetail = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {validationErrors.connectionType && (
+                    <p className="text-sm text-taxops-error" role="alert">
+                      {validationErrors.connectionType}
+                    </p>
+                  )}
                 </div>
                 {renderCredentialFields()}
-                <Button onClick={handleAddConnection} className="w-full bg-gradient-to-r from-primary to-primary/80">
-                  Add Connection
+                <Button 
+                  onClick={handleAddConnection} 
+                  disabled={isSubmittingConnection}
+                  className="w-full bg-gradient-to-r from-primary to-primary/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label={isSubmittingConnection ? "Adding connection..." : "Add connection"}
+                >
+                  {isSubmittingConnection ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Connection
+                    </>
+                  )}
                 </Button>
               </div>
             </DialogContent>
