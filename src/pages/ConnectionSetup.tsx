@@ -190,12 +190,8 @@ const ConnectionSetup = () => {
 
   const fetchSyncRequests = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('mercury-sync-manager', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'list-syncs' })
+      const { data, error } = await supabase.functions.invoke('mercury-sync-manager?action=list-syncs', {
+        method: 'GET'
       });
 
       if (error) throw error;
@@ -227,10 +223,9 @@ const ConnectionSetup = () => {
     setLoadingSync(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('mercury-sync-manager', {
+      const { data, error } = await supabase.functions.invoke('mercury-sync-manager?action=create-sync', {
         method: 'POST',
         body: JSON.stringify({
-          action: 'create-sync',
           connection_code: connectionId,
           client_ids: selectedClients,
           sync_type: syncSettings.syncType,
