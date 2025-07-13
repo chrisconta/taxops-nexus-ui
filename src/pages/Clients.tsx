@@ -93,6 +93,17 @@ const Clients = () => {
 
   const fetchClients = async () => {
     try {
+      // Check current session and user
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log("Current session:", session);
+      console.log("Current user:", session?.user?.id);
+      
+      if (!session?.user) {
+        console.error("No authenticated user found");
+        setIsLoading(false);
+        return;
+      }
+
       // Fetch clients with their credentials
       const { data: clientsData, error: clientsError } = await supabase
         .from("clients")
@@ -105,6 +116,8 @@ const Clients = () => {
             status
           )
         `);
+
+      console.log("Clients query result:", { clientsData, clientsError });
 
       if (clientsError) throw clientsError;
 
@@ -123,6 +136,7 @@ const Clients = () => {
         credentials: client.client_credentials || []
       }));
 
+      console.log("Transformed clients:", transformedClients);
       setClients(transformedClients);
       calculateMetrics(transformedClients);
     } catch (error: any) {
