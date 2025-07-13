@@ -161,6 +161,7 @@ Deno.serve(async (req) => {
 
     const mercuryData: MercuryApiResponse = await mercuryResponse.json()
     console.log('Mercury API success, accounts found:', mercuryData.accounts?.length || 0)
+    console.log('Full Mercury API response:', JSON.stringify(mercuryData, null, 2))
 
     // Update connection status to connected if test is successful
     const { error: updateError } = await supabase
@@ -179,7 +180,8 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: `Successfully connected to Mercury. Found ${mercuryData.accounts?.length || 0} accounts.`,
-        accountCount: mercuryData.accounts?.length || 0
+        accountCount: mercuryData.accounts?.length || 0,
+        mercuryResponse: mercuryData // Include the full response for debugging
       }),
       { 
         status: 200, 
