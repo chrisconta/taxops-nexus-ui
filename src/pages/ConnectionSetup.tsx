@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, Clock, Users, Play, CheckCircle, XCircle, AlertCircle, RefreshCw, Trash2, History } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Users, Play, CheckCircle, XCircle, AlertCircle, RefreshCw, Trash2, History, Search, Eye } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import MercuryTokenSetup from "@/components/MercuryTokenSetup";
@@ -77,6 +79,9 @@ const ConnectionSetup = () => {
     message: ""
   });
   const [credentialsValid, setCredentialsValid] = useState(false);
+  const [selectedSyncRequest, setSelectedSyncRequest] = useState<SyncRequest | null>(null);
+  const [syncRequestsSearch, setSyncRequestsSearch] = useState("");
+  const [syncDetailsLoading, setSyncDetailsLoading] = useState(false);
 
   // Connection metadata based on connectionId
   const getConnectionInfo = (id: string) => {
@@ -274,17 +279,63 @@ const ConnectionSetup = () => {
     }
   };
 
+  const fetchSyncDetails = async (syncId: string) => {
+    setSyncDetailsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(`mercury-sync-manager?action=get-sync-details&sync_id=${syncId}`, {
+        method: 'GET'
+      });
+
+      if (error) throw error;
+      
+      // Update the selected sync request with detailed logs
+      setSelectedSyncRequest(prev => ({
+        ...prev!,
+        sync_logs: data.sync_logs || []
+      }));
+    } catch (error) {
+      console.error("Error fetching sync details:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load sync details",
+        variant: "destructive"
+      });
+    } finally {
+      setSyncDetailsLoading(false);
+    }
+  };
+
+  const handleSyncRowClick = (syncRequest: SyncRequest) => {
+    setSelectedSyncRequest(syncRequest);
+    fetchSyncDetails(syncRequest.id);
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      pending: { variant: "secondary" as const, label: "Pending" },
-      running: { variant: "default" as const, label: "Running" },
-      success: { variant: "default" as const, label: "Success" },
-      failed: { variant: "destructive" as const, label: "Failed" },
-      cancelled: { variant: "secondary" as const, label: "Cancelled" }
+      pending: { 
+        className: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-300 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800", 
+        label: "Pending" 
+      },
+      running: { 
+        className: "bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800", 
+        label: "In Progress" 
+      },
+      success: { 
+        className: "bg-green-100 text-green-800 hover:bg-green-200 border-green-300 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800", 
+        label: "Success" 
+      },
+      failed: { 
+        className: "bg-red-100 text-red-800 hover:bg-red-200 border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800", 
+        label: "Failed" 
+      },
+      cancelled: { 
+        className: "bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-300 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800", 
+        label: "Cancelled" 
+      }
     };
     
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+    return <Badge className={config.className}>{config.label}</Badge>;
   };
 
   const formatDate = (dateString: string) => {
@@ -339,6 +390,12 @@ const ConnectionSetup = () => {
     client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.rfc.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredSyncRequests = syncRequests.filter(request =>
+    request.sync_type.toLowerCase().includes(syncRequestsSearch.toLowerCase()) ||
+    request.status.toLowerCase().includes(syncRequestsSearch.toLowerCase()) ||
+    request.id.toLowerCase().includes(syncRequestsSearch.toLowerCase())
   );
 
   const handleClientToggle = (clientId: string) => {
@@ -630,48 +687,77 @@ const ConnectionSetup = () => {
       {connectionId === "mercury" && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              Sync Requests History
-            </CardTitle>
-            <CardDescription>
-              Track the status and history of your Mercury data sync requests
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5" />
+                  Sync Requests History
+                </CardTitle>
+                <CardDescription>
+                  Track the status and history of your Mercury data sync requests. Click on any row to view detailed information.
+                </CardDescription>
+              </div>
+            </div>
+            {syncRequests.length > 0 && (
+              <div className="flex items-center gap-4 mt-4">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by ID, type, or status..."
+                    value={syncRequestsSearch}
+                    onChange={(e) => setSyncRequestsSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Button
+                  onClick={fetchSyncRequests}
+                  variant="outline"
+                  size="sm"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {syncRequests.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No sync requests found. Create your first sync request above.
               </div>
+            ) : filteredSyncRequests.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No sync requests match your search criteria.
+              </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2">Sync Type</th>
-                      <th className="text-left p-2">Clients</th>
-                      <th className="text-left p-2">Schedule</th>
-                      <th className="text-left p-2">Last Run</th>
-                      <th className="text-left p-2">Next Run</th>
-                      <th className="text-left p-2">Status</th>
-                      <th className="text-left p-2">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {syncRequests.map((request) => (
-                      <tr key={request.id} className="border-b hover:bg-muted/50">
-                        <td className="p-2">
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Request ID</TableHead>
+                      <TableHead>Sync Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created At</TableHead>
+                      <TableHead>Last Run</TableHead>
+                      <TableHead>Next Scheduled</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSyncRequests.map((request) => (
+                      <TableRow 
+                        key={request.id} 
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => handleSyncRowClick(request)}
+                      >
+                        <TableCell className="font-mono text-sm">
+                          {request.id.slice(-8).toUpperCase()}
+                        </TableCell>
+                        <TableCell>
                           <Badge variant="outline">
                             {request.sync_type === "automatic" ? "Automatic" : "Historical"}
                           </Badge>
-                        </td>
-                        <td className="p-2">
-                          <div className="text-sm">
-                            {request.client_ids.length} client(s)
-                          </div>
-                        </td>
-                        <td className="p-2">
-                          <div className="text-sm">
+                          <div className="text-xs text-muted-foreground mt-1">
                             {request.sync_type === "automatic" 
                               ? `${request.frequency?.charAt(0).toUpperCase()}${request.frequency?.slice(1)}`
                               : request.start_date && request.end_date
@@ -679,53 +765,219 @@ const ConnectionSetup = () => {
                                 : "One-time"
                             }
                           </div>
-                        </td>
-                        <td className="p-2">
-                          <div className="text-sm">
-                            {request.last_run_at 
-                              ? formatDate(request.last_run_at)
-                              : "Never"
-                            }
-                          </div>
-                        </td>
-                        <td className="p-2">
-                          <div className="text-sm">
-                            {request.next_run_at 
-                              ? formatDate(request.next_run_at)
-                              : request.sync_type === "historical" 
-                                ? "N/A" 
-                                : "Not scheduled"
-                            }
-                          </div>
-                        </td>
-                        <td className="p-2">
+                        </TableCell>
+                        <TableCell>
                           {getStatusBadge(request.status)}
                           {request.error_message && (
-                            <div className="text-xs text-red-600 mt-1">
+                            <div className="text-xs text-red-600 mt-1 truncate max-w-32">
                               {request.error_message}
                             </div>
                           )}
-                        </td>
-                        <td className="p-2">
-                          {(request.status === "pending" || request.status === "running") && (
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {formatDate(request.created_at)}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {request.last_run_at ? formatDate(request.last_run_at) : "Never"}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {request.next_run_at 
+                            ? formatDate(request.next_run_at)
+                            : request.sync_type === "historical" 
+                              ? "N/A" 
+                              : "Not scheduled"
+                          }
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleCancelSync(request.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSyncRowClick(request);
+                              }}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Eye className="h-4 w-4" />
                             </Button>
-                          )}
-                        </td>
-                      </tr>
+                            {(request.status === "pending" || request.status === "running") && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCancelSync(request.id);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
         </Card>
       )}
+
+      {/* Sync Details Modal */}
+      <Dialog open={!!selectedSyncRequest} onOpenChange={() => setSelectedSyncRequest(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Sync Request Details
+            </DialogTitle>
+            <DialogDescription>
+              Detailed information and logs for sync request {selectedSyncRequest?.id.slice(-8).toUpperCase()}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedSyncRequest && (
+            <div className="space-y-6">
+              {/* Request Overview */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Request Overview</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Request ID</Label>
+                    <div className="font-mono text-sm">{selectedSyncRequest.id}</div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Sync Type</Label>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">
+                        {selectedSyncRequest.sync_type === "automatic" ? "Automatic" : "Historical"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                    <div>{getStatusBadge(selectedSyncRequest.status)}</div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Clients Selected</Label>
+                    <div>{selectedSyncRequest.client_ids.length} client(s)</div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Created At</Label>
+                    <div className="text-sm">{formatDate(selectedSyncRequest.created_at)}</div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Last Run</Label>
+                    <div className="text-sm">
+                      {selectedSyncRequest.last_run_at ? formatDate(selectedSyncRequest.last_run_at) : "Never"}
+                    </div>
+                  </div>
+                  {selectedSyncRequest.sync_type === "automatic" && (
+                    <>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Frequency</Label>
+                        <div className="text-sm capitalize">{selectedSyncRequest.frequency}</div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Next Scheduled</Label>
+                        <div className="text-sm">
+                          {selectedSyncRequest.next_run_at ? formatDate(selectedSyncRequest.next_run_at) : "Not scheduled"}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {selectedSyncRequest.sync_type === "historical" && (
+                    <>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Start Date</Label>
+                        <div className="text-sm">{selectedSyncRequest.start_date || "Not specified"}</div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">End Date</Label>
+                        <div className="text-sm">{selectedSyncRequest.end_date || "Not specified"}</div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Error Message */}
+              {selectedSyncRequest.error_message && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg text-red-600">Error Details</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
+                      <div className="text-sm text-red-800 dark:text-red-400">
+                        {selectedSyncRequest.error_message}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Sync Logs */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Sync Logs</CardTitle>
+                  <CardDescription>
+                    Detailed execution logs for each client in this sync request
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {syncDetailsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                      Loading sync details...
+                    </div>
+                  ) : selectedSyncRequest.sync_logs && selectedSyncRequest.sync_logs.length > 0 ? (
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Client ID</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Records Processed</TableHead>
+                            <TableHead>Execution Time</TableHead>
+                            <TableHead>Error Message</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {selectedSyncRequest.sync_logs.map((log, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-mono text-sm">
+                                {log.client_id.slice(-8).toUpperCase()}
+                              </TableCell>
+                              <TableCell>
+                                {getStatusBadge(log.status)}
+                              </TableCell>
+                              <TableCell>{log.records_processed || 0}</TableCell>
+                              <TableCell className="text-sm">
+                                {formatDate(log.created_at)}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {log.error_message || "None"}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No sync logs available for this request.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

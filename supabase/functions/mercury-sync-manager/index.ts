@@ -59,6 +59,12 @@ serve(async (req) => {
     } else if (req.method === 'GET') {
       if (action === 'list-syncs') {
         return await listSyncRequests(supabaseClient, user.id)
+      } else if (action === 'get-sync-details') {
+        const syncId = url.searchParams.get('sync_id')
+        if (!syncId) {
+          throw new Error('sync_id parameter required for get-sync-details')
+        }
+        return await getSyncDetails(supabaseClient, user.id, syncId)
       } else if (action === 'process-scheduled') {
         return await processScheduledSyncs(supabaseClient)
       }
@@ -333,6 +339,41 @@ async function cancelSyncRequest(supabaseClient: any, userId: string, syncId: st
     JSON.stringify({ success: true, message: 'Sync cancelled successfully' }),
     { headers: { 'Content-Type': 'application/json' } }
   )
+}
+
+async function getSyncDetails(supabaseClient: any, userId: string, syncId: string) {
+  console.log('Getting sync details for:', { userId, syncId })
+  
+  // First verify the sync request belongs to the user
+  const { data: syncRequest, error: syncError } = await supabaseClient
+    .from('sync_requests')
+    .select('*')
+    .eq('id', syncId)
+    .eq('user_id', userId)
+    .single()
+
+  if (syncError || !syncRequest) {
+    throw new Error('Sync request not found or access denied')
+  }
+
+  // Get sync logs for this request
+  const { data: syncLogs, error: logsError } = await supabaseClient
+    .from('sync_logs')
+    .select('*')
+    .eq('sync_request_id', syncId)
+    .order('created_at', { ascending: false })
+
+  if (logsError) {
+    console.error('Error fetching sync logs:', logsError)
+  }
+
+  return new Response(JSON.stringify({ 
+    sync_request: syncRequest,
+    sync_logs: syncLogs || [] 
+  }), {
+    headers: { 'Content-Type': 'application/json' },
+    status: 200
+  })
 }
 
 async function processScheduledSyncs(supabaseClient: any) {
