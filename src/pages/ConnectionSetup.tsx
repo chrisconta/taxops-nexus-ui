@@ -59,6 +59,16 @@ interface SyncStatus {
   details?: string;
 }
 
+interface Transaction {
+  id: string;
+  date: string;
+  description: string;
+  amount: number;
+  status?: string;
+  category?: string;
+  client_id?: string;
+}
+
 const ConnectionSetup = () => {
   const { connectionId } = useParams<{ connectionId: string }>();
   const navigate = useNavigate();
@@ -83,6 +93,9 @@ const ConnectionSetup = () => {
   const [syncRequestsSearch, setSyncRequestsSearch] = useState("");
   const [syncDetailsLoading, setSyncDetailsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"setup" | "history">("setup");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [transactionsError, setTransactionsError] = useState<string | null>(null);
 
   // Connection metadata based on connectionId
   const getConnectionInfo = (id: string) => {
@@ -362,9 +375,47 @@ const ConnectionSetup = () => {
     }
   };
 
+  const fetchTransactionData = async (syncId: string) => {
+    if (!syncId) return;
+    
+    setTransactionsLoading(true);
+    setTransactionsError(null);
+    
+    try {
+      const url = new URL('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/mercury-sync-manager');
+      url.searchParams.set('action', 'get-transactions');
+      url.searchParams.set('sync_id', syncId);
+      
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppdGRlcmRqdnF0YWR0d2dhdG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIyNzI4MTAsImV4cCI6MjA2Nzg0ODgxMH0.apenqp5pSuLZtRGD7K2iXWr5cFJLtXD9xuhu0gsJ0QA',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch transactions');
+      }
+      
+      setTransactions(data.transactions || []);
+    } catch (error) {
+      console.error("Error fetching transaction data:", error);
+      setTransactionsError(error instanceof Error ? error.message : 'Failed to load transaction data');
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
+
   const handleSyncRowClick = (syncRequest: SyncRequest) => {
     setSelectedSyncRequest(syncRequest);
+    setTransactions([]);
+    setTransactionsError(null);
     fetchSyncDetails(syncRequest.id);
+    fetchTransactionData(syncRequest.id);
   };
 
   const getStatusBadge = (status: string) => {
@@ -1064,6 +1115,77 @@ const ConnectionSetup = () => {
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       No sync logs available for this request.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Transaction Data */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Transaction Data</CardTitle>
+                  <CardDescription>
+                    Actual transaction records fetched during this sync request
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {transactionsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                      Loading transaction data...
+                    </div>
+                  ) : transactionsError ? (
+                    <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
+                      <div className="text-sm text-red-800 dark:text-red-400">
+                        Failed to load transaction data: {transactionsError}
+                      </div>
+                    </div>
+                  ) : transactions.length > 0 ? (
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Transaction ID</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Category</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {transactions.map((transaction) => (
+                            <TableRow key={transaction.id}>
+                              <TableCell className="font-mono text-sm">
+                                {transaction.id.slice(-8).toUpperCase()}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {transaction.date}
+                              </TableCell>
+                              <TableCell className="text-sm max-w-xs truncate">
+                                {transaction.description}
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                <span className={transaction.amount < 0 ? "text-red-600" : "text-green-600"}>
+                                  ${Math.abs(transaction.amount).toLocaleString()}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={transaction.status === "cleared" ? "default" : "secondary"}>
+                                  {transaction.status || "N/A"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {transaction.category || "Uncategorized"}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No transaction data available for this sync request.
                     </div>
                   )}
                 </CardContent>
