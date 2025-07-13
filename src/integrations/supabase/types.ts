@@ -339,6 +339,7 @@ export type Database = {
         Row: {
           amount_cents: number
           client_id: string
+          connection_code: string
           counterparty: string | null
           created_at: string | null
           id: string
@@ -351,6 +352,7 @@ export type Database = {
         Insert: {
           amount_cents: number
           client_id: string
+          connection_code?: string
           counterparty?: string | null
           created_at?: string | null
           id?: string
@@ -363,6 +365,7 @@ export type Database = {
         Update: {
           amount_cents?: number
           client_id?: string
+          connection_code?: string
           counterparty?: string | null
           created_at?: string | null
           id?: string

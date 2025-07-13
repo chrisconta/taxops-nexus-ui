@@ -263,7 +263,8 @@ async function executeSyncById(supabaseClient: any, syncId: string) {
             counterparty: t.counterpartyName || 'Unknown',
             note: t.note || '',
             status: t.status || 'posted',
-            raw: t
+            raw: t,
+            connection_code: 'mercury'
           }));
 
           const { error: txInsertError } = await supabaseClient
