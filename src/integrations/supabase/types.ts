@@ -335,6 +335,60 @@ export type Database = {
         }
         Relationships: []
       }
+      transactions: {
+        Row: {
+          amount_cents: number
+          client_id: string
+          counterparty: string | null
+          created_at: string | null
+          id: string
+          note: string | null
+          posted_at: string
+          raw: Json | null
+          status: string | null
+          sync_request_id: string
+        }
+        Insert: {
+          amount_cents: number
+          client_id: string
+          counterparty?: string | null
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          posted_at: string
+          raw?: Json | null
+          status?: string | null
+          sync_request_id: string
+        }
+        Update: {
+          amount_cents?: number
+          client_id?: string
+          counterparty?: string | null
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          posted_at?: string
+          raw?: Json | null
+          status?: string | null
+          sync_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_sync_request_id_fkey"
+            columns: ["sync_request_id"]
+            isOneToOne: false
+            referencedRelation: "sync_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

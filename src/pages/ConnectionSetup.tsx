@@ -1206,7 +1206,7 @@ const ConnectionSetup = () => {
                                 </TableCell>
                                 <TableCell className="font-medium">
                                   <span className={transaction.amount < 0 ? "text-red-600" : "text-green-600"}>
-                                    ${(Math.abs(transaction.amount) / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    ${Math.abs(transaction.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                   </span>
                                 </TableCell>
                                 <TableCell className="text-sm max-w-xs">

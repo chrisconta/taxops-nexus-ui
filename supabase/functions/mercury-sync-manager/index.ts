@@ -193,117 +193,188 @@ async function executeSyncRequest(req: Request, supabaseClient: any, userId: str
 }
 
 async function executeSyncById(supabaseClient: any, syncId: string) {
-  console.log('Executing sync request:', syncId)
-  
-  // Update status to running
-  await supabaseClient
-    .from('sync_requests')
-    .update({ 
-      status: 'running',
-      last_run_at: new Date().toISOString()
-    })
-    .eq('id', syncId)
-
   try {
+    console.log(`Executing sync request: ${syncId}`);
+    
+    // Update sync request status to running
+    const { error: updateError } = await supabaseClient
+      .from('sync_requests')
+      .update({ 
+        status: 'running',
+        last_run_at: new Date().toISOString()
+      })
+      .eq('id', syncId);
+
+    if (updateError) {
+      throw new Error(`Failed to update sync status: ${updateError.message}`);
+    }
+
     // Get sync request details
-    const { data: syncRequest } = await supabaseClient
+    const { data: syncRequest, error: syncError } = await supabaseClient
       .from('sync_requests')
       .select('*')
       .eq('id', syncId)
-      .single()
+      .single();
+
+    if (syncError || !syncRequest) {
+      throw new Error(`Sync request not found: ${syncError?.message}`);
+    }
+
+    console.log(`Processing sync for ${syncRequest.client_ids.length} clients`);
+    
+    let totalProcessed = 0;
+    const syncLogs = [];
 
     // Process each client
     for (const clientId of syncRequest.client_ids) {
-      const startTime = Date.now()
-      
+      const startTime = Date.now();
+      let clientProcessed = 0;
+      let errorMessage = null;
+
       try {
-        // Get client credentials for Mercury
-        const { data: credentials } = await supabaseClient
+        // Get client credentials for this connection
+        const { data: credentials, error: credError } = await supabaseClient
           .from('client_credentials')
           .select('credentials')
           .eq('client_id', clientId)
-          .eq('code', 'mercury')
-          .eq('status', 'connected')
-          .single()
+          .eq('code', syncRequest.connection_code)
+          .single();
 
-        if (!credentials) {
-          throw new Error('No valid Mercury credentials found')
+        if (credError || !credentials) {
+          throw new Error(`No credentials found for client ${clientId}`);
         }
 
-        // Simulate Mercury API call for demo
-        // In production, this would make actual Mercury API calls
-        const recordsProcessed = Math.floor(Math.random() * 100) + 50
-        
-        // Log successful sync
-        await supabaseClient
-          .from('sync_logs')
-          .insert({
-            sync_request_id: syncId,
-            client_id: clientId,
-            status: 'success',
-            records_processed: recordsProcessed,
-            execution_time_ms: Date.now() - startTime
-          })
+        console.log(`Processing client ${clientId} with connection ${syncRequest.connection_code}`);
 
-      } catch (clientError) {
-        console.error('Client sync error:', clientError)
-        
-        // Log failed sync
-        await supabaseClient
-          .from('sync_logs')
-          .insert({
+        // Fetch and store Mercury transactions
+        const transactions = await fetchAllTransactionsForSync(
+          credentials.credentials.api_token,
+          syncRequest.start_date,
+          syncRequest.end_date
+        );
+
+        if (transactions.length > 0) {
+          // Bulk insert transactions to database
+          const transactionRows = transactions.map(t => ({
             sync_request_id: syncId,
             client_id: clientId,
-            status: 'failed',
-            error_message: clientError.message,
-            execution_time_ms: Date.now() - startTime
-          })
+            posted_at: t.postedAt,
+            amount_cents: Math.round((t.amount || 0) * 100),
+            counterparty: t.counterpartyName || 'Unknown',
+            note: t.note || '',
+            status: t.status || 'posted',
+            raw: t
+          }));
+
+          const { error: txInsertError } = await supabaseClient
+            .from('transactions')
+            .insert(transactionRows);
+
+          if (txInsertError) {
+            throw new Error(`Failed to insert transactions: ${txInsertError.message}`);
+          }
+
+          clientProcessed = transactions.length;
+          totalProcessed += clientProcessed;
+          console.log(`Stored ${clientProcessed} transactions for client ${clientId}`);
+        }
+
+      } catch (error) {
+        console.error(`Error processing client ${clientId}:`, error);
+        errorMessage = error.message;
+      }
+
+      // Log sync result for this client
+      const executionTime = Date.now() - startTime;
+      syncLogs.push({
+        sync_request_id: syncId,
+        client_id: clientId,
+        status: errorMessage ? 'failed' : 'success',
+        records_processed: clientProcessed,
+        execution_time_ms: executionTime,
+        error_message: errorMessage
+      });
+    }
+
+    // Insert all sync logs
+    if (syncLogs.length > 0) {
+      const { error: logError } = await supabaseClient
+        .from('sync_logs')
+        .insert(syncLogs);
+
+      if (logError) {
+        console.error('Failed to insert sync logs:', logError);
       }
     }
 
-    // Calculate next run for automatic syncs
-    let nextRunAt = null
-    if (syncRequest.sync_type === 'automatic' && syncRequest.frequency) {
-      const now = new Date()
+    // Calculate next run time for automatic syncs
+    let nextRunAt = null;
+    if (syncRequest.frequency && syncRequest.frequency !== 'manual') {
+      const now = new Date();
       switch (syncRequest.frequency) {
         case 'daily':
-          nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-          break
+          nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          break;
         case 'weekly':
-          nextRunAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-          break
+          nextRunAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+          break;
         case 'monthly':
-          nextRunAt = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate())
-          break
+          nextRunAt = new Date(now.setMonth(now.getMonth() + 1));
+          break;
       }
     }
 
-    // Update sync request to completed
-    await supabaseClient
+    // Update sync request status to success
+    const { error: finalUpdateError } = await supabaseClient
       .from('sync_requests')
       .update({ 
         status: 'success',
-        next_run_at: nextRunAt?.toISOString()
+        next_run_at: nextRunAt?.toISOString() || null,
+        updated_at: new Date().toISOString()
       })
-      .eq('id', syncId)
+      .eq('id', syncId);
+
+    if (finalUpdateError) {
+      console.error('Failed to update final sync status:', finalUpdateError);
+    }
+
+    console.log(`Sync completed successfully. Total records processed: ${totalProcessed}`);
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Sync completed successfully' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+      JSON.stringify({ 
+        success: true, 
+        message: `Sync completed successfully. Processed ${totalProcessed} records.`,
+        records_processed: totalProcessed
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 
+      }
+    );
 
   } catch (error) {
-    console.error('Sync execution error:', error)
+    console.error('Sync execution failed:', error);
     
+    // Update sync request status to failed
     await supabaseClient
       .from('sync_requests')
       .update({ 
         status: 'failed',
-        error_message: error.message
+        error_message: error.message,
+        updated_at: new Date().toISOString()
       })
-      .eq('id', syncId)
+      .eq('id', syncId);
 
-    throw error
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error.message 
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500 
+      }
+    );
   }
 }
 
@@ -427,6 +498,101 @@ async function processScheduledSyncs(supabaseClient: any) {
   )
 }
 
+// Helper function to fetch all transactions across all accounts for a sync
+async function fetchAllTransactionsForSync(mercuryToken: string, startDate: string, endDate: string) {
+  // Helper function for Mercury API headers with proper authentication
+  function mercuryHeaders(rawToken: string) {
+    const bearer = rawToken.startsWith('secret-token:') ? rawToken : `secret-token:${rawToken}`;
+    return {
+      'Authorization': `Bearer ${bearer}`,
+      'accept': 'application/json'
+    };
+  }
+
+  // Helper function to fetch all transactions with pagination for a specific account
+  async function fetchAllTransactions(accountId: string, token: string, startDate: string, endDate: string) {
+    let url = `https://api.mercury.com/api/v1/account/${accountId}/transactions?start_date=${startDate}&end_date=${endDate}&page_size=500`;
+    const allTransactions: any[] = [];
+    let pageCount = 0;
+    
+    console.log(`Fetching transactions for account ${accountId} from ${startDate} to ${endDate}`);
+    
+    while (url) {
+      pageCount++;
+      console.log(`Fetching page ${pageCount} for account ${accountId}:`, url);
+      
+      const response = await fetch(url, { 
+        method: 'GET',
+        headers: mercuryHeaders(token) 
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Transaction API error for account ${accountId}: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+      
+      const data = await response.json();
+      const transactions = data.transactions || [];
+      allTransactions.push(...transactions);
+      
+      console.log(`Page ${pageCount} fetched: ${transactions.length} transactions (total: ${allTransactions.length})`);
+      
+      // Check for next page
+      if (data.next_page_token) {
+        const baseUrl = `https://api.mercury.com/api/v1/account/${accountId}/transactions`;
+        url = `${baseUrl}?page_token=${data.next_page_token}&start_date=${startDate}&end_date=${endDate}&page_size=500`;
+      } else {
+        url = null;
+      }
+    }
+    
+    console.log(`Finished fetching account ${accountId}: ${allTransactions.length} total transactions across ${pageCount} pages`);
+    return allTransactions;
+  }
+
+  // Step 1: Get all Mercury accounts
+  const accountsResponse = await fetch('https://api.mercury.com/api/v1/accounts', {
+    method: 'GET',
+    headers: mercuryHeaders(mercuryToken)
+  });
+  
+  if (!accountsResponse.ok) {
+    const errorText = await accountsResponse.text();
+    throw new Error(`Mercury accounts API error: ${accountsResponse.status} ${accountsResponse.statusText} - ${errorText}`);
+  }
+
+  const accountsData = await accountsResponse.json();
+  console.log('Mercury accounts fetched:', { count: accountsData?.accounts?.length });
+  
+  const accounts = accountsData.accounts || [];
+  let allTransactions: any[] = [];
+
+  // Step 2: Get transactions for each account with pagination and server-side date filtering
+  const startISO = startDate || '2025-01-01';
+  const endISO = endDate || '2025-12-31';
+  
+  for (const account of accounts) {
+    try {
+      console.log(`Fetching all transactions for account ${account.id} from ${startISO} to ${endISO}`);
+      const accountTransactions = await fetchAllTransactions(account.id, mercuryToken, startISO, endISO);
+      allTransactions.push(...accountTransactions);
+      console.log(`Account ${account.id}: ${accountTransactions.length} transactions fetched`);
+    } catch (error) {
+      console.warn(`Error fetching transactions for account ${account.id}:`, error);
+    }
+  }
+
+  // Step 3: Transform Mercury API data to our format
+  return allTransactions.map((tx: any) => ({
+    id: tx.id,
+    postedAt: tx.postedAt,
+    amount: tx.amount, // Mercury amount in cents
+    counterpartyName: tx.counterpartyName || 'Unknown',
+    note: tx.note || '',
+    status: tx.status || 'posted'
+  }));
+}
+
 async function getTransactionData(supabaseClient: any, userId: string, syncId: string) {
   console.log('Getting transaction data for sync:', { userId, syncId })
   
@@ -442,183 +608,35 @@ async function getTransactionData(supabaseClient: any, userId: string, syncId: s
     throw new Error('Sync request not found or access denied')
   }
 
-  // Get client credentials for Mercury API
-  const clientId = syncRequest.client_ids[0] // Use first client for now
-  const { data: credentials, error: credError } = await supabaseClient
-    .from('client_credentials')
-    .select('credentials')
-    .eq('client_id', clientId)
-    .eq('code', 'mercury')
-    .eq('status', 'connected')
-    .single()
+  // Serve transactions from database instead of calling Mercury API
+  const { data: transactions, error: txError } = await supabaseClient
+    .from('transactions')
+    .select('posted_at, amount_cents, counterparty, note, status')
+    .eq('sync_request_id', syncId)
+    .order('posted_at', { ascending: false })
 
-  if (credError || !credentials) {
-    throw new Error('No valid Mercury credentials found for this sync request')
+  if (txError) {
+    throw new Error(`Failed to fetch transactions from database: ${txError.message}`)
   }
 
-  try {
-    // Get Mercury API token - using the correct field name
-    const mercuryToken = credentials.credentials?.api_token
-    if (!mercuryToken) {
-      throw new Error('Mercury API token not found in credentials')
-    }
+  // Transform database data to expected format
+  const formattedTransactions = transactions.map((tx: any) => ({
+    id: `tx_${syncId}_${Math.random().toString(36).substr(2, 9)}`, // Generate UI ID
+    postedAt: tx.posted_at,
+    amount: tx.amount_cents / 100, // Convert cents back to dollars
+    counterpartyName: tx.counterparty,
+    note: tx.note,
+    status: tx.status
+  }))
 
-    console.log('Using Mercury token for API calls')
-    
-    // Helper function for Mercury API headers with proper authentication
-    function mercuryHeaders(rawToken: string) {
-      const bearer = rawToken.startsWith('secret-token:') ? rawToken : `secret-token:${rawToken}`;
-      return {
-        'Authorization': `Bearer ${bearer}`,
-        'accept': 'application/json'
-      };
-    }
+  console.log(`Serving ${formattedTransactions.length} transactions from database`)
 
-    // Helper function to fetch all transactions with pagination
-    async function fetchAllTransactions(accountId: string, token: string, startDate: string, endDate: string) {
-      let url = `https://api.mercury.com/api/v1/account/${accountId}/transactions?start_date=${startDate}&end_date=${endDate}&page_size=500`;
-      const allTransactions: any[] = [];
-      let pageCount = 0;
-      
-      console.log(`Fetching transactions for account ${accountId} from ${startDate} to ${endDate}`);
-      
-      while (url) {
-        pageCount++;
-        console.log(`Fetching page ${pageCount} for account ${accountId}:`, url);
-        
-        const response = await fetch(url, { 
-          method: 'GET',
-          headers: mercuryHeaders(token) 
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Transaction API error for account ${accountId}: ${response.status} ${response.statusText} - ${errorText}`);
-        }
-        
-        const data = await response.json();
-        const transactions = data.transactions || [];
-        allTransactions.push(...transactions);
-        
-        console.log(`Page ${pageCount} fetched: ${transactions.length} transactions (total: ${allTransactions.length})`);
-        
-        // Check for next page
-        if (data.next_page_token) {
-          const baseUrl = `https://api.mercury.com/api/v1/account/${accountId}/transactions`;
-          url = `${baseUrl}?page_token=${data.next_page_token}&start_date=${startDate}&end_date=${endDate}&page_size=500`;
-        } else {
-          url = null;
-        }
-      }
-      
-      console.log(`Finished fetching account ${accountId}: ${allTransactions.length} total transactions across ${pageCount} pages`);
-      return allTransactions;
-    }
-
-    // Helper function for simple Mercury API calls
-    const mercuryFetch = async (endpoint: string) => {
-      const url = `https://api.mercury.com/api/v1${endpoint}`
-      console.log('Calling Mercury API:', url)
-      
-      return await fetch(url, {
-        method: 'GET',
-        headers: mercuryHeaders(mercuryToken)
-      })
-    }
-
-    // Step 1: Get all Mercury accounts
-    const accountsResponse = await mercuryFetch('/accounts')
-    
-    if (!accountsResponse.ok) {
-      const errorText = await accountsResponse.text()
-      throw new Error(`Mercury accounts API error: ${accountsResponse.status} ${accountsResponse.statusText} - ${errorText}`)
-    }
-
-    const accountsData = await accountsResponse.json()
-    console.log('Mercury accounts fetched:', { count: accountsData?.accounts?.length })
-    
-    const accounts = accountsData.accounts || []
-    let allTransactions: any[] = []
-
-    // Step 2: Get transactions for each account with pagination and server-side date filtering
-    const startISO = syncRequest.start_date || '2025-01-01';
-    const endISO = syncRequest.end_date || '2025-12-31';
-    
-    for (const account of accounts) {
-      try {
-        console.log(`Fetching all transactions for account ${account.id} from ${startISO} to ${endISO}`);
-        const accountTransactions = await fetchAllTransactions(account.id, mercuryToken, startISO, endISO);
-        allTransactions.push(...accountTransactions);
-        console.log(`Account ${account.id}: ${accountTransactions.length} transactions fetched`);
-      } catch (error) {
-        console.warn(`Error fetching transactions for account ${account.id}:`, error);
-      }
-    }
-
-    // Step 3: Transform Mercury API data to our format
-    const transactions = allTransactions
-      .map((tx: any) => ({
-        id: tx.id,
-        postedAt: tx.postedAt,
-        amount: tx.amount, // Mercury amount in cents
-        counterpartyName: tx.counterpartyName || 'Unknown',
-        note: tx.note || '',
-        status: tx.status || 'posted'
-      }))
-      .sort((a: any, b: any) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime())
-
-    console.log('Total transactions processed:', transactions.length)
-
-    return new Response(JSON.stringify({ 
-      transactions,
-      total_count: transactions.length,
-      sync_request_id: syncId
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200
-    })
-
-  } catch (error) {
-    console.error('Error fetching Mercury transactions:', error)
-    
-    // Return the actual error instead of falling back to mock data
-    throw new Error(`Mercury API error: ${error.message}`)
-  }
-}
-
-function generateMockTransactions(syncId: string, startDate?: string, endDate?: string) {
-  const start = new Date(startDate || '2025-06-01')
-  const end = new Date(endDate || '2025-06-30')
-  
-  const transactions = []
-  const transactionTypes = [
-    'Payment received', 'Wire transfer', 'ACH deposit', 'Check deposit',
-    'Payment sent', 'Wire sent', 'ACH transfer', 'Service fee',
-    'Interest earned', 'Dividend payment', 'Refund received', 'Subscription payment'
-  ]
-  
-  const companies = [
-    'Acme Corp', 'Global Industries', 'Tech Solutions Inc', 'Marketing Partners',
-    'Supply Chain Co', 'Professional Services', 'Digital Agency', 'Consulting Group'
-  ]
-
-  for (let i = 0; i < 50; i++) {
-    const randomTime = start.getTime() + Math.random() * (end.getTime() - start.getTime())
-    const transactionDate = new Date(randomTime)
-    const amount = (Math.random() - 0.3) * 20000
-    const isCredit = amount > 0
-    
-    transactions.push({
-      id: `txn_${syncId.substring(0, 8)}_${i.toString().padStart(3, '0')}`,
-      date: transactionDate.toISOString().split('T')[0],
-      description: `${transactionTypes[Math.floor(Math.random() * transactionTypes.length)]} - ${companies[Math.floor(Math.random() * companies.length)]}`,
-      amount: Math.abs(amount).toFixed(2),
-      type: isCredit ? 'credit' : 'debit',
-      status: Math.random() > 0.05 ? 'completed' : 'pending',
-      category: isCredit ? 'income' : 'expense',
-      balance_after: (50000 + Math.random() * 100000).toFixed(2)
-    })
-  }
-
-  return transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  return new Response(JSON.stringify({ 
+    transactions: formattedTransactions,
+    total_count: formattedTransactions.length,
+    sync_request_id: syncId
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status: 200
+  })
 }
