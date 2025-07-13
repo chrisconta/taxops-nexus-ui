@@ -97,13 +97,36 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log('Making request to Mercury API with token:', apiToken.substring(0, 10) + '...')
+    // Validate Mercury token format - must start with "mercury_"
+    // Reference: Mercury API documentation requires tokens to have mercury_ prefix
+    if (!apiToken.startsWith('mercury_')) {
+      console.error('Invalid Mercury token format - must start with mercury_')
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Invalid Mercury API token format. Token must start with "mercury_"' 
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    console.log('Making request to Mercury API with token:', apiToken.substring(0, 15) + '...')
+
+    // Mercury API requires Basic Authentication (not Bearer tokens)
+    // Format: username = "secret-token:<api_token>", password = ""
+    // Reference: https://docs.mercury.com/api-reference/authentication
+    const username = `secret-token:${apiToken}`
+    const password = ""
+    const basicAuthCredentials = btoa(`${username}:${password}`)
 
     // Test the Mercury API connection
     const mercuryResponse = await fetch('https://backend.mercury.com/api/v1/accounts', {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${apiToken}`,
+        'Authorization': `Basic ${basicAuthCredentials}`,
         'Content-Type': 'application/json',
       },
     })
