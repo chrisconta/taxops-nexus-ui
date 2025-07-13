@@ -97,14 +97,13 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Validate Mercury token format - must start with "mercury_"
-    // Reference: Mercury API documentation requires tokens to have mercury_ prefix
-    if (!apiToken.startsWith('mercury_')) {
-      console.error('Invalid Mercury token format - must start with mercury_')
+    // Validate Mercury token format - can start with "mercury_" or "secret-token:"
+    if (!apiToken.startsWith('mercury_') && !apiToken.startsWith('secret-token:')) {
+      console.error('Invalid Mercury token format - must start with mercury_ or secret-token:')
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Invalid Mercury API token format. Token must start with "mercury_"' 
+          error: 'Invalid Mercury API token format. Token must start with "mercury_" or "secret-token:"' 
         }),
         { 
           status: 400, 
@@ -115,20 +114,32 @@ Deno.serve(async (req) => {
 
     console.log('Making request to Mercury API with token:', apiToken.substring(0, 15) + '...')
 
-    // Mercury API requires Basic Authentication (not Bearer tokens)
-    // Format: username = "secret-token:<api_token>", password = ""
-    // Reference: https://docs.mercury.com/api-reference/authentication
-    const username = `secret-token:${apiToken}`
-    const password = ""
-    const basicAuthCredentials = btoa(`${username}:${password}`)
-
-    // Test the Mercury API connection
-    const mercuryResponse = await fetch('https://backend.mercury.com/api/v1/accounts', {
-      method: 'GET',
-      headers: {
+    // Mercury API authentication setup
+    // For tokens starting with "secret-token:", use Bearer auth
+    // For tokens starting with "mercury_", use Basic auth with secret-token: prefix
+    let headers: Record<string, string>;
+    
+    if (apiToken.startsWith('secret-token:')) {
+      // Token already includes the secret-token: prefix, use as Bearer token
+      headers = {
+        'Authorization': `Bearer ${apiToken}`,
+        'Content-Type': 'application/json',
+      };
+    } else {
+      // Legacy mercury_ tokens, use Basic auth with secret-token: prefix
+      const username = `secret-token:${apiToken}`;
+      const password = "";
+      const basicAuthCredentials = btoa(`${username}:${password}`);
+      headers = {
         'Authorization': `Basic ${basicAuthCredentials}`,
         'Content-Type': 'application/json',
-      },
+      };
+    }
+
+    // Test the Mercury API connection
+    const mercuryResponse = await fetch('https://api.mercury.com/api/v1/accounts', {
+      method: 'GET',
+      headers,
     })
 
     console.log('Mercury API response status:', mercuryResponse.status)
