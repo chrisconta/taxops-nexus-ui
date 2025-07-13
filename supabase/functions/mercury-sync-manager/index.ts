@@ -465,36 +465,64 @@ async function getTransactionData(supabaseClient: any, userId: string, syncId: s
 
     console.log('Using Mercury token for API calls')
     
-    // Helper function for Mercury API calls with proper authentication
+    // Helper function for Mercury API headers with proper authentication
+    function mercuryHeaders(rawToken: string) {
+      const bearer = rawToken.startsWith('secret-token:') ? rawToken : `secret-token:${rawToken}`;
+      return {
+        'Authorization': `Bearer ${bearer}`,
+        'accept': 'application/json'
+      };
+    }
+
+    // Helper function to fetch all transactions with pagination
+    async function fetchAllTransactions(accountId: string, token: string, startDate: string, endDate: string) {
+      let url = `https://api.mercury.com/api/v1/account/${accountId}/transactions?start_date=${startDate}&end_date=${endDate}&page_size=500`;
+      const allTransactions: any[] = [];
+      let pageCount = 0;
+      
+      console.log(`Fetching transactions for account ${accountId} from ${startDate} to ${endDate}`);
+      
+      while (url) {
+        pageCount++;
+        console.log(`Fetching page ${pageCount} for account ${accountId}:`, url);
+        
+        const response = await fetch(url, { 
+          method: 'GET',
+          headers: mercuryHeaders(token) 
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Transaction API error for account ${accountId}: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+        
+        const data = await response.json();
+        const transactions = data.transactions || [];
+        allTransactions.push(...transactions);
+        
+        console.log(`Page ${pageCount} fetched: ${transactions.length} transactions (total: ${allTransactions.length})`);
+        
+        // Check for next page
+        if (data.next_page_token) {
+          const baseUrl = `https://api.mercury.com/api/v1/account/${accountId}/transactions`;
+          url = `${baseUrl}?page_token=${data.next_page_token}&start_date=${startDate}&end_date=${endDate}&page_size=500`;
+        } else {
+          url = null;
+        }
+      }
+      
+      console.log(`Finished fetching account ${accountId}: ${allTransactions.length} total transactions across ${pageCount} pages`);
+      return allTransactions;
+    }
+
+    // Helper function for simple Mercury API calls
     const mercuryFetch = async (endpoint: string) => {
       const url = `https://api.mercury.com/api/v1${endpoint}`
       console.log('Calling Mercury API:', url)
       
-      // Mercury API authentication setup
-      // For tokens starting with "secret-token:", use Bearer auth
-      // For tokens starting with "mercury_", use Basic auth with secret-token: prefix
-      let headers: Record<string, string>;
-      
-      if (mercuryToken.startsWith('secret-token:')) {
-        // Token already includes the secret-token: prefix, use as Bearer token
-        headers = {
-          'Authorization': `Bearer ${mercuryToken}`,
-          'Content-Type': 'application/json',
-        };
-      } else {
-        // Legacy mercury_ tokens, use Basic auth with secret-token: prefix
-        const username = `secret-token:${mercuryToken}`;
-        const password = "";
-        const basicAuthCredentials = btoa(`${username}:${password}`);
-        headers = {
-          'Authorization': `Basic ${basicAuthCredentials}`,
-          'Content-Type': 'application/json',
-        };
-      }
-      
       return await fetch(url, {
         method: 'GET',
-        headers
+        headers: mercuryHeaders(mercuryToken)
       })
     }
 
@@ -512,33 +540,18 @@ async function getTransactionData(supabaseClient: any, userId: string, syncId: s
     const accounts = accountsData.accounts || []
     let allTransactions: any[] = []
 
-    // Step 2: Get transactions for each account
+    // Step 2: Get transactions for each account with pagination and server-side date filtering
+    const startISO = syncRequest.start_date || '2025-01-01';
+    const endISO = syncRequest.end_date || '2025-12-31';
+    
     for (const account of accounts) {
       try {
-        console.log('Fetching transactions for account:', account.id)
-        const transactionsResponse = await mercuryFetch(`/account/${account.id}/transactions`)
-        
-        if (transactionsResponse.ok) {
-          const transactionsData = await transactionsResponse.json()
-          const accountTransactions = transactionsData.transactions || []
-          
-          // Filter by date range client-side if needed
-          const startDate = new Date(syncRequest.start_date || '2025-01-01')
-          const endDate = new Date(syncRequest.end_date || '2025-12-31')
-          
-          const filteredTransactions = accountTransactions.filter((tx: any) => {
-            if (!tx.postedAt) return true // Include if no date
-            const txDate = new Date(tx.postedAt)
-            return txDate >= startDate && txDate <= endDate
-          })
-          
-          allTransactions.push(...filteredTransactions)
-          console.log('Account transactions fetched:', { accountId: account.id, count: filteredTransactions.length })
-        } else {
-          console.warn('Failed to fetch transactions for account:', account.id, transactionsResponse.status)
-        }
+        console.log(`Fetching all transactions for account ${account.id} from ${startISO} to ${endISO}`);
+        const accountTransactions = await fetchAllTransactions(account.id, mercuryToken, startISO, endISO);
+        allTransactions.push(...accountTransactions);
+        console.log(`Account ${account.id}: ${accountTransactions.length} transactions fetched`);
       } catch (error) {
-        console.warn('Error fetching transactions for account:', account.id, error)
+        console.warn(`Error fetching transactions for account ${account.id}:`, error);
       }
     }
 
