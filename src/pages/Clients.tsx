@@ -25,7 +25,7 @@ interface Client {
   name: string;
   email: string;
   rfc: string;
-  sat_status: string | null;
+  
   last_sync: string | null;
   last_sync_successful: boolean | null;
   last_sync_at: string | null;
@@ -127,7 +127,7 @@ const Clients = () => {
         name: client.name,
         email: client.email,
         rfc: client.rfc,
-        sat_status: client.sat_status,
+        
         last_sync: client.last_sync,
         last_sync_successful: client.last_sync_successful,
         last_sync_at: client.last_sync_at,
@@ -245,7 +245,6 @@ const Clients = () => {
       "Client Name",
       "Email", 
       "Tax ID (EIN)",
-      "SAT Status",
       "Last Sync",
       "Last Sync Successful",
       "Credentials Status",
@@ -257,8 +256,7 @@ const Clients = () => {
       `"${client.name}"`,
       `"${client.email}"`,
       `"${client.rfc}"`,
-      `"${client.sat_status || 'Unknown'}"`,
-      `"${client.last_sync ? new Date(client.last_sync).toLocaleDateString() : 'Never'}"`,
+      `"${client.last_sync_at ? new Date(client.last_sync_at).toLocaleDateString() : 'Never'}"`,
       `"${client.last_sync_successful === null ? 'N/A' : client.last_sync_successful ? 'Yes' : 'No'}"`,
       `"${client.credentials.length > 0 ? client.credentials.map(c => `${c.code}:${c.status}`).join('; ') : 'None'}"`,
       `"${new Date(client.created_at || '').toLocaleDateString()}"`
@@ -301,18 +299,6 @@ const Clients = () => {
     }
   };
 
-  const getSatStatusBadge = (status: string | null) => {
-    switch (status) {
-      case "active":
-        return <Badge className="bg-taxops-success/20 text-taxops-success border-taxops-success/30">Active</Badge>;
-      case "rejected":
-        return <Badge className="bg-taxops-error/20 text-taxops-error border-taxops-error/30">Rejected</Badge>;
-      case "pending":
-        return <Badge className="bg-taxops-warning/20 text-taxops-warning border-taxops-warning/30">Pending</Badge>;
-      default:
-        return <Badge variant="secondary">Unknown</Badge>;
-    }
-  };
 
   const getMetricColor = (color: string) => {
     const colors = {
@@ -475,17 +461,11 @@ const Clients = () => {
                     </div>
                   </div>
                   
-                  {/* SAT Status */}
-                  <div className="flex flex-col space-y-2">
-                    <p className="text-xs text-taxops-gray-light uppercase tracking-wide">SAT Status</p>
-                    {getSatStatusBadge(client.sat_status)}
-                  </div>
-                  
                   {/* Last Sync */}
                   <div className="flex flex-col space-y-2">
                     <p className="text-xs text-taxops-gray-light uppercase tracking-wide">Last Sync</p>
                     <p className="text-sm text-white">
-                      {client.last_sync ? new Date(client.last_sync).toLocaleDateString() : 'Never'}
+                      {client.last_sync_at ? new Date(client.last_sync_at).toLocaleDateString() : 'Never'}
                     </p>
                     {client.last_sync_successful !== null && (
                       <div className="flex items-center gap-1">
