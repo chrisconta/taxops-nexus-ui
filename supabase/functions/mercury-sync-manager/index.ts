@@ -549,20 +549,8 @@ async function getTransactionData(supabaseClient: any, userId: string, syncId: s
   } catch (error) {
     console.error('Error fetching Mercury transactions:', error)
     
-    // Fall back to mock data if Mercury API fails
-    console.log('Falling back to mock data due to Mercury API error:', error.message)
-    
-    const mockTransactions = generateMockTransactions(syncId, syncRequest.start_date, syncRequest.end_date)
-    
-    return new Response(JSON.stringify({ 
-      transactions: mockTransactions,
-      total_count: mockTransactions.length,
-      sync_request_id: syncId,
-      note: `Using mock data due to API error: ${error.message}`
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200
-    })
+    // Return the actual error instead of falling back to mock data
+    throw new Error(`Mercury API error: ${error.message}`)
   }
 }
 
