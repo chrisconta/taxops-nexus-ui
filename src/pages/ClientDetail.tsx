@@ -271,8 +271,6 @@ const ClientDetail = () => {
     if (selectedConnectionType === "mercury") {
       if (!mercuryApiToken.trim()) {
         errors.apiToken = "Mercury API token is required";
-      } else if (!mercuryApiToken.trim().startsWith("mercury_")) {
-        errors.apiToken = "Mercury API token must start with 'mercury_'";
       }
       credentials = { api_token: mercuryApiToken.trim() };
     } else {
@@ -410,7 +408,7 @@ const ClientDetail = () => {
             <Input
               id="mercury-api-token"
               type="password"
-              placeholder="mercury_live_..."
+              placeholder="secret-token:... or mercury_live_..."
               value={mercuryApiToken}
               onChange={(e) => setMercuryApiToken(e.target.value)}
               disabled={isSubmittingConnection}
