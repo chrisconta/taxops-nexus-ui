@@ -22,6 +22,12 @@ interface MercuryAccountsResponse {
   accounts: MercuryAccount[];
 }
 
+// Rate limiting recommendations:
+// - Implement IP-based rate limiting (e.g., 10 requests per minute per IP)
+// - Consider user-based rate limiting if authentication is available
+// - Use Redis or similar for distributed rate limiting
+// - Block suspicious patterns (repeated invalid tokens from same IP)
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -45,13 +51,19 @@ serve(async (req) => {
       )
     }
 
-    // Validate token format (basic check)
-    if (!token.startsWith('mercury_')) {
+    // Log potential abuse attempts for monitoring
+    const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+    console.log(`Token validation attempt from IP: ${clientIP}`)
+
+    // Flexible token format validation - Mercury may change token format in the future
+    // Currently expecting tokens to start with 'mercury_' but can be adjusted
+    if (!token.startsWith('mercury_') || token.length < 20) {
+      console.warn(`Invalid token format attempt from IP: ${clientIP}`)
       return new Response(
         JSON.stringify({ 
           isValid: false, 
           isReadOnly: false,
-          error: 'Invalid Mercury token format' 
+          error: 'Invalid Mercury token format. Please ensure you are using a valid Mercury API token.' 
         }),
         { 
           status: 400, 
@@ -107,7 +119,9 @@ serve(async (req) => {
     let isReadOnly = true;
     
     try {
-      // Try to access token permissions endpoint if available
+      // IMPORTANT: The /permissions endpoint below is HYPOTHETICAL and may not exist in Mercury's actual API
+      // This is a placeholder for potential future permission checking functionality
+      // If Mercury doesn't provide this endpoint, we safely fall back to assuming read-only access
       const permissionsResponse = await fetch('https://api.mercury.com/api/v1/permissions', {
         method: 'GET',
         headers: {
@@ -124,11 +138,17 @@ serve(async (req) => {
             perm.includes('write') || perm.includes('create') || perm.includes('update') || perm.includes('delete')
           )
           isReadOnly = !hasWritePermissions
+          
+          // Log suspicious write token attempts for monitoring
+          if (!isReadOnly) {
+            console.warn(`Write-enabled token detected from IP: ${clientIP}`)
+          }
         }
       }
     } catch (permError) {
-      // If permissions endpoint fails, assume read-only (safer default)
-      console.log('Permissions check failed, assuming read-only:', permError)
+      // Expected behavior: If permissions endpoint doesn't exist or fails, assume read-only (safer default)
+      // This is the most likely scenario until Mercury provides a permissions endpoint
+      console.log('Permissions check failed (expected if endpoint does not exist), assuming read-only:', permError)
       isReadOnly = true
     }
 

@@ -69,7 +69,7 @@ const MercuryTokenSetup = ({ clientId, onTokenValidated }: MercuryTokenSetupProp
         setValidationResult({
           isValid: false,
           isReadOnly: false,
-          error: "The Mercury API token provided has write permissions. For security reasons, please provide a read-only token to continue."
+          error: "Security Alert: The Mercury API token provided has write permissions. For your security and data protection, please generate and provide a read-only token instead. Write-enabled tokens pose unnecessary security risks for data synchronization."
         });
         onTokenValidated(false);
         return;
