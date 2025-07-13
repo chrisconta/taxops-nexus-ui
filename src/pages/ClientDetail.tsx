@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   ArrowLeft, 
   Save, 
@@ -15,7 +16,8 @@ import {
   XCircle,
   AlertCircle,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  HelpCircle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -176,6 +178,10 @@ const ClientDetail = () => {
   const [isConnectionDialogOpen, setIsConnectionDialogOpen] = useState(false);
   const [selectedConnectionType, setSelectedConnectionType] = useState("");
   const [connectionCredentials, setConnectionCredentials] = useState("");
+  
+  // Mercury-specific state
+  const [mercuryApiToken, setMercuryApiToken] = useState("");
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     if (id) {
@@ -253,6 +259,31 @@ const ClientDetail = () => {
   const handleAddConnection = async () => {
     if (!selectedConnectionType) return;
 
+    // Validate fields based on connection type
+    const errors: { [key: string]: string } = {};
+    let credentials: any = {};
+
+    if (selectedConnectionType === "mercury") {
+      if (!mercuryApiToken.trim()) {
+        errors.apiToken = "Mercury API token is required";
+      }
+      credentials = { api_token: mercuryApiToken.trim() };
+    } else {
+      // For other connection types, use JSON credentials
+      if (!connectionCredentials.trim()) {
+        errors.credentials = "Credentials are required";
+      } else {
+        try {
+          credentials = JSON.parse(connectionCredentials);
+        } catch {
+          errors.credentials = "Invalid JSON format";
+        }
+      }
+    }
+
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
     try {
       const connectionType = connectionTypes.find(ct => ct.code === selectedConnectionType);
       if (!connectionType) return;
@@ -265,7 +296,7 @@ const ClientDetail = () => {
             name: connectionType.name,
             code: connectionType.code,
             status: "pending",
-            credentials: JSON.parse(connectionCredentials || "{}"),
+            credentials: credentials,
           },
         ]);
 
@@ -276,9 +307,12 @@ const ClientDetail = () => {
         description: "Connection added successfully.",
       });
 
+      // Reset form
       setIsConnectionDialogOpen(false);
       setSelectedConnectionType("");
       setConnectionCredentials("");
+      setMercuryApiToken("");
+      setValidationErrors({});
       fetchClientData();
     } catch (error: any) {
       console.error("Error adding connection:", error);
@@ -288,6 +322,79 @@ const ClientDetail = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const resetConnectionForm = () => {
+    setSelectedConnectionType("");
+    setConnectionCredentials("");
+    setMercuryApiToken("");
+    setValidationErrors({});
+  };
+
+  const renderCredentialFields = () => {
+    if (selectedConnectionType === "mercury") {
+      return (
+        <TooltipProvider>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label className="text-white">Mercury API Token</Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <HelpCircle className="w-4 h-4 text-taxops-gray-light" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs">
+                    Generate a read-only API token from your Mercury dashboard under Settings → API Access. 
+                    Read-only tokens are recommended for security.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Input
+              type="password"
+              placeholder="mercury_live_..."
+              value={mercuryApiToken}
+              onChange={(e) => setMercuryApiToken(e.target.value)}
+              className={`bg-glass-bg/30 border-glass-border ${
+                validationErrors.apiToken ? 'border-taxops-error' : ''
+              }`}
+            />
+            {validationErrors.apiToken && (
+              <p className="text-sm text-taxops-error">{validationErrors.apiToken}</p>
+            )}
+            <p className="text-xs text-taxops-gray-light">
+              <strong>Important:</strong> Use a read-only token for security. 
+              <a 
+                href="https://app.mercury.com/settings/api" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline ml-1"
+              >
+                Create token →
+              </a>
+            </p>
+          </div>
+        </TooltipProvider>
+      );
+    }
+
+    // Default JSON input for other connection types
+    return (
+      <div className="space-y-2">
+        <Label className="text-white">Credentials (JSON)</Label>
+        <Textarea
+          placeholder='{"username": "user", "password": "pass", "api_key": "key"}'
+          value={connectionCredentials}
+          onChange={(e) => setConnectionCredentials(e.target.value)}
+          className={`bg-glass-bg/30 border-glass-border min-h-[100px] ${
+            validationErrors.credentials ? 'border-taxops-error' : ''
+          }`}
+        />
+        {validationErrors.credentials && (
+          <p className="text-sm text-taxops-error">{validationErrors.credentials}</p>
+        )}
+      </div>
+    );
   };
 
   const handleDeleteConnection = async (connectionId: string) => {
@@ -436,7 +543,10 @@ const ClientDetail = () => {
       <Card className="p-8 bg-glass-bg/50 backdrop-blur-sm border-glass-border">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-white">Connections</h2>
-          <Dialog open={isConnectionDialogOpen} onOpenChange={setIsConnectionDialogOpen}>
+          <Dialog open={isConnectionDialogOpen} onOpenChange={(open) => {
+            setIsConnectionDialogOpen(open);
+            if (!open) resetConnectionForm();
+          }}>
             <DialogTrigger asChild>
               <Button className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-glow">
                 <Plus className="w-4 h-4" />
@@ -466,15 +576,7 @@ const ClientDetail = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-white">Credentials (JSON)</Label>
-                  <Textarea
-                    placeholder='{"username": "user", "password": "pass", "api_key": "key"}'
-                    value={connectionCredentials}
-                    onChange={(e) => setConnectionCredentials(e.target.value)}
-                    className="bg-glass-bg/30 border-glass-border min-h-[100px]"
-                  />
-                </div>
+                {renderCredentialFields()}
                 <Button onClick={handleAddConnection} className="w-full bg-gradient-to-r from-primary to-primary/80">
                   Add Connection
                 </Button>
