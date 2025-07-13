@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, Clock, Users, Play, CheckCircle, XCircle, AlertCircle, RefreshCw, Trash2, History, Search, Eye } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Users, Play, CheckCircle, XCircle, AlertCircle, RefreshCw, Trash2, History, Search, Eye, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +96,7 @@ const ConnectionSetup = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
+  const [summaryCollapsed, setSummaryCollapsed] = useState(false); // Collapsible state for overview + logs
 
   // Connection metadata based on connectionId
   const getConnectionInfo = (id: string) => {
@@ -984,71 +985,6 @@ const ConnectionSetup = () => {
           
           {selectedSyncRequest && (
             <div className="space-y-6">
-              {/* Request Overview */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Request Overview</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Request ID</Label>
-                    <div className="font-mono text-sm">{selectedSyncRequest.id}</div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Sync Type</Label>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">
-                        {selectedSyncRequest.sync_type === "automatic" ? "Automatic" : "Historical"}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Status</Label>
-                    <div>{getStatusBadge(selectedSyncRequest.status)}</div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Clients Selected</Label>
-                    <div>{selectedSyncRequest.client_ids.length} client(s)</div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Created At</Label>
-                    <div className="text-sm">{formatDate(selectedSyncRequest.created_at)}</div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Last Run</Label>
-                    <div className="text-sm">
-                      {selectedSyncRequest.last_run_at ? formatDate(selectedSyncRequest.last_run_at) : "Never"}
-                    </div>
-                  </div>
-                  {selectedSyncRequest.sync_type === "automatic" && (
-                    <>
-                      <div>
-                        <Label className="text-sm font-medium text-muted-foreground">Frequency</Label>
-                        <div className="text-sm capitalize">{selectedSyncRequest.frequency}</div>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-muted-foreground">Next Scheduled</Label>
-                        <div className="text-sm">
-                          {selectedSyncRequest.next_run_at ? formatDate(selectedSyncRequest.next_run_at) : "Not scheduled"}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                  {selectedSyncRequest.sync_type === "historical" && (
-                    <>
-                      <div>
-                        <Label className="text-sm font-medium text-muted-foreground">Start Date</Label>
-                        <div className="text-sm">{selectedSyncRequest.start_date || "Not specified"}</div>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-muted-foreground">End Date</Label>
-                        <div className="text-sm">{selectedSyncRequest.end_date || "Not specified"}</div>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-
               {/* Error Message */}
               {selectedSyncRequest.error_message && (
                 <Card>
@@ -1065,67 +1001,146 @@ const ConnectionSetup = () => {
                 </Card>
               )}
 
-              {/* Sync Logs */}
+              {/* Request Summary & Logs - Collapsible Card */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Sync Logs</CardTitle>
+                <CardHeader className="cursor-pointer" onClick={() => setSummaryCollapsed(!summaryCollapsed)}>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Request Summary & Logs</CardTitle>
+                    <Button variant="ghost" size="sm" className="p-0 h-auto">
+                      {summaryCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    </Button>
+                  </div>
                   <CardDescription>
-                    Detailed execution logs for each client in this sync request
+                    Overview details and execution logs for this sync request
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  {syncDetailsLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-                      Loading sync details...
+                {!summaryCollapsed && (
+                  <CardContent className="space-y-6 pt-0">
+                    {/* Request Overview Section */}
+                    <div>
+                      <h4 className="font-semibold text-sm text-muted-foreground mb-3 uppercase tracking-wide">Overview</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Request ID</Label>
+                          <div className="font-mono text-sm">{selectedSyncRequest.id}</div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Sync Type</Label>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">
+                              {selectedSyncRequest.sync_type === "automatic" ? "Automatic" : "Historical"}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                          <div>{getStatusBadge(selectedSyncRequest.status)}</div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Clients Selected</Label>
+                          <div>{selectedSyncRequest.client_ids.length} client(s)</div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Created At</Label>
+                          <div className="text-sm">{formatDate(selectedSyncRequest.created_at)}</div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Last Run</Label>
+                          <div className="text-sm">
+                            {selectedSyncRequest.last_run_at ? formatDate(selectedSyncRequest.last_run_at) : "Never"}
+                          </div>
+                        </div>
+                        {selectedSyncRequest.sync_type === "automatic" && (
+                          <>
+                            <div>
+                              <Label className="text-sm font-medium text-muted-foreground">Frequency</Label>
+                              <div className="text-sm capitalize">{selectedSyncRequest.frequency}</div>
+                            </div>
+                            <div>
+                              <Label className="text-sm font-medium text-muted-foreground">Next Scheduled</Label>
+                              <div className="text-sm">
+                                {selectedSyncRequest.next_run_at ? formatDate(selectedSyncRequest.next_run_at) : "Not scheduled"}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                        {selectedSyncRequest.sync_type === "historical" && (
+                          <>
+                            <div>
+                              <Label className="text-sm font-medium text-muted-foreground">Start Date</Label>
+                              <div className="text-sm">{selectedSyncRequest.start_date || "Not specified"}</div>
+                            </div>
+                            <div>
+                              <Label className="text-sm font-medium text-muted-foreground">End Date</Label>
+                              <div className="text-sm">{selectedSyncRequest.end_date || "Not specified"}</div>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  ) : selectedSyncRequest.sync_logs && selectedSyncRequest.sync_logs.length > 0 ? (
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Client ID</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Records Processed</TableHead>
-                            <TableHead>Execution Time</TableHead>
-                            <TableHead>Error Message</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {selectedSyncRequest.sync_logs.map((log, index) => (
-                            <TableRow key={index}>
-                              <TableCell className="font-mono text-sm">
-                                {log.client_id.slice(-8).toUpperCase()}
-                              </TableCell>
-                              <TableCell>
-                                {getStatusBadge(log.status)}
-                              </TableCell>
-                              <TableCell>{log.records_processed || 0}</TableCell>
-                              <TableCell className="text-sm">
-                                {formatDate(log.created_at)}
-                              </TableCell>
-                              <TableCell className="text-sm">
-                                {log.error_message || "None"}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+
+                    {/* Sync Logs Section */}
+                    <div>
+                      <h4 className="font-semibold text-sm text-muted-foreground mb-3 uppercase tracking-wide">Execution Logs</h4>
+                      {syncDetailsLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                          Loading sync details...
+                        </div>
+                      ) : selectedSyncRequest.sync_logs && selectedSyncRequest.sync_logs.length > 0 ? (
+                        <div className="rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Client ID</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Records Processed</TableHead>
+                                <TableHead>Execution Time</TableHead>
+                                <TableHead>Error Message</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {selectedSyncRequest.sync_logs.map((log, index) => (
+                                <TableRow key={index}>
+                                  <TableCell className="font-mono text-sm">
+                                    {log.client_id.slice(-8).toUpperCase()}
+                                  </TableCell>
+                                  <TableCell>
+                                    {getStatusBadge(log.status)}
+                                  </TableCell>
+                                  <TableCell>{log.records_processed || 0}</TableCell>
+                                  <TableCell className="text-sm">
+                                    {formatDate(log.created_at)}
+                                  </TableCell>
+                                  <TableCell className="text-sm">
+                                    {log.error_message || "None"}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          No sync logs available for this request.
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No sync logs available for this request.
-                    </div>
-                  )}
-                </CardContent>
+                  </CardContent>
+                )}
               </Card>
 
-              {/* Transaction Data */}
-              <Card>
+              {/* Transaction Data - Primary Focus */}
+              <Card className="border-2">
                 <CardHeader>
-                  <CardTitle className="text-lg">Transaction Data</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    Transaction Data
+                    <Badge variant="secondary" className="text-xs">
+                      Primary
+                    </Badge>
+                  </CardTitle>
                   <CardDescription>
-                    Actual transaction records fetched during this sync request
+                    Actual transaction records fetched during this sync request - this is the main data output
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
