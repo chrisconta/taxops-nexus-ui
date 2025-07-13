@@ -470,12 +470,31 @@ async function getTransactionData(supabaseClient: any, userId: string, syncId: s
       const url = `https://api.mercury.com/api/v1${endpoint}`
       console.log('Calling Mercury API:', url)
       
+      // Mercury API authentication setup
+      // For tokens starting with "secret-token:", use Bearer auth
+      // For tokens starting with "mercury_", use Basic auth with secret-token: prefix
+      let headers: Record<string, string>;
+      
+      if (mercuryToken.startsWith('secret-token:')) {
+        // Token already includes the secret-token: prefix, use as Bearer token
+        headers = {
+          'Authorization': `Bearer ${mercuryToken}`,
+          'Content-Type': 'application/json',
+        };
+      } else {
+        // Legacy mercury_ tokens, use Basic auth with secret-token: prefix
+        const username = `secret-token:${mercuryToken}`;
+        const password = "";
+        const basicAuthCredentials = btoa(`${username}:${password}`);
+        headers = {
+          'Authorization': `Basic ${basicAuthCredentials}`,
+          'Content-Type': 'application/json',
+        };
+      }
+      
       return await fetch(url, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${mercuryToken}`,
-          'Content-Type': 'application/json'
-        }
+        headers
       })
     }
 
