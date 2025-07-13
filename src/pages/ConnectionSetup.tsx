@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, Clock, Users, Play, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Users, Play, CheckCircle, XCircle, AlertCircle, RefreshCw, Trash2, History } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,10 +23,31 @@ interface Client {
 }
 
 interface SyncSettings {
-  frequency: "daily" | "weekly" | "monthly";
-  historicalPeriod: "last_month" | "last_year" | "custom";
-  customStartDate?: string;
-  customEndDate?: string;
+  syncType: "automatic" | "historical";
+  frequency?: "daily" | "weekly" | "monthly";
+  startDate?: string;
+  endDate?: string;
+}
+
+interface SyncRequest {
+  id: string;
+  sync_type: string;
+  client_ids: string[];
+  frequency?: string;
+  start_date?: string;
+  end_date?: string;
+  status: string;
+  last_run_at?: string;
+  next_run_at?: string;
+  created_at: string;
+  error_message?: string;
+  sync_logs?: Array<{
+    client_id: string;
+    status: string;
+    records_processed: number;
+    error_message?: string;
+    created_at: string;
+  }>;
 }
 
 interface SyncStatus {
@@ -45,9 +66,11 @@ const ConnectionSetup = () => {
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [syncSettings, setSyncSettings] = useState<SyncSettings>({
-    frequency: "daily",
-    historicalPeriod: "last_month"
+    syncType: "automatic",
+    frequency: "daily"
   });
+  const [syncRequests, setSyncRequests] = useState<SyncRequest[]>([]);
+  const [loadingSync, setLoadingSync] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     status: "idle",
     progress: 0,
@@ -155,7 +178,130 @@ const ConnectionSetup = () => {
   useEffect(() => {
     fetchClients();
     checkCredentials();
-  }, []);
+    if (connectionId === "mercury") {
+      fetchSyncRequests();
+    }
+  }, [connectionId]);
+
+  const fetchSyncRequests = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('mercury-sync-manager', {
+        method: 'GET',
+        body: new URLSearchParams({ action: 'list-syncs' })
+      });
+
+      if (error) throw error;
+      setSyncRequests(data.sync_requests || []);
+    } catch (error) {
+      console.error("Error fetching sync requests:", error);
+    }
+  };
+
+  const handleCreateSync = async () => {
+    if (selectedClients.length === 0) {
+      toast({
+        title: "No clients selected",
+        description: "Please select at least one client to sync",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (syncSettings.syncType === "historical" && (!syncSettings.startDate || !syncSettings.endDate)) {
+      toast({
+        title: "Invalid date range",
+        description: "Please select both start and end dates for historical sync",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoadingSync(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('mercury-sync-manager', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'create-sync',
+          connection_code: connectionId,
+          client_ids: selectedClients,
+          sync_type: syncSettings.syncType,
+          frequency: syncSettings.frequency,
+          start_date: syncSettings.startDate,
+          end_date: syncSettings.endDate
+        })
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Sync Request Created",
+        description: `${syncSettings.syncType === "historical" ? "Historical" : "Automatic"} sync request created successfully`,
+      });
+
+      await fetchSyncRequests();
+    } catch (error) {
+      console.error("Error creating sync:", error);
+      toast({
+        title: "Sync Failed",
+        description: "Failed to create sync request. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingSync(false);
+    }
+  };
+
+  const handleCancelSync = async (syncId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('mercury-sync-manager', {
+        method: 'DELETE',
+        body: new URLSearchParams({ 
+          action: 'cancel-sync',
+          sync_id: syncId 
+        })
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Sync Cancelled",
+        description: "Sync request has been cancelled successfully",
+      });
+
+      await fetchSyncRequests();
+    } catch (error) {
+      console.error("Error cancelling sync:", error);
+      toast({
+        title: "Cancel Failed",
+        description: "Failed to cancel sync request. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      pending: { variant: "secondary" as const, label: "Pending" },
+      running: { variant: "default" as const, label: "Running" },
+      success: { variant: "default" as const, label: "Success" },
+      failed: { variant: "destructive" as const, label: "Failed" },
+      cancelled: { variant: "secondary" as const, label: "Cancelled" }
+    };
+    
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+    return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   const fetchClients = async () => {
     try {
@@ -302,42 +448,6 @@ const ConnectionSetup = () => {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Mercury Token Setup */}
-        {connectionId === "mercury" && selectedClients.length > 0 && (
-          <div className="lg:col-span-3 mb-6">
-            <MercuryTokenSetup 
-              clientId={selectedClients[0]} 
-              onTokenValidated={(isValid) => {
-                setCredentialsValid(isValid);
-                if (isValid) {
-                  checkCredentials();
-                }
-              }}
-            />
-          </div>
-        )}
-
-        {/* Mercury Instructions */}
-        {connectionId === "mercury" && selectedClients.length === 0 && (
-          <div className="lg:col-span-3 mb-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Mercury Bank Integration</CardTitle>
-                <CardDescription>
-                  Please select a client first, then you'll be able to configure your Mercury API token.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-muted-foreground space-y-1">
-                  <p>• You'll need a read-only Mercury API token</p>
-                  <p>• Token validation ensures read-only permissions</p>
-                  <p>• Your credentials are encrypted and stored securely</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
         {/* Client Selection */}
         <div className="lg:col-span-2 space-y-6">
           <Card>
@@ -347,7 +457,7 @@ const ConnectionSetup = () => {
                 Client Selection
               </CardTitle>
               <CardDescription>
-                Select clients to sync data for. You can choose multiple clients.
+                Select clients to sync Mercury data for. You can choose multiple clients.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -396,66 +506,65 @@ const ConnectionSetup = () => {
             </CardContent>
           </Card>
 
-          {/* Sync Settings */}
+          {/* Sync Type Selection */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                Automation Settings
+                Sync Type
               </CardTitle>
               <CardDescription>
-                Configure how often data should be synced and the historical period to include.
+                Choose between automatic recurring sync or one-time historical data sync.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div>
-                <Label>Sync Frequency</Label>
-                <RadioGroup
-                  value={syncSettings.frequency}
-                  onValueChange={(value) => setSyncSettings(prev => ({ ...prev, frequency: value as any }))}
-                  className="mt-2"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="daily" id="daily" />
-                    <Label htmlFor="daily">Daily</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="weekly" id="weekly" />
-                    <Label htmlFor="weekly">Weekly</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="monthly" id="monthly" />
-                    <Label htmlFor="monthly">Monthly</Label>
-                  </div>
-                </RadioGroup>
-              </div>
+              <RadioGroup
+                value={syncSettings.syncType}
+                onValueChange={(value) => setSyncSettings(prev => ({ ...prev, syncType: value as any }))}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="automatic" id="automatic" />
+                  <Label htmlFor="automatic">Automatic Sync</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="historical" id="historical" />
+                  <Label htmlFor="historical">Historical Data Sync</Label>
+                </div>
+              </RadioGroup>
 
-              <div>
-                <Label>Historical Data Period</Label>
-                <Select
-                  value={syncSettings.historicalPeriod}
-                  onValueChange={(value) => setSyncSettings(prev => ({ ...prev, historicalPeriod: value as any }))}
-                >
-                  <SelectTrigger className="mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="last_month">Last Month</SelectItem>
-                    <SelectItem value="last_year">Last Year</SelectItem>
-                    <SelectItem value="custom">Custom Date Range</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {syncSettings.syncType === "automatic" && (
+                <div>
+                  <Label>Sync Frequency</Label>
+                  <RadioGroup
+                    value={syncSettings.frequency}
+                    onValueChange={(value) => setSyncSettings(prev => ({ ...prev, frequency: value as any }))}
+                    className="mt-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="daily" id="freq-daily" />
+                      <Label htmlFor="freq-daily">Daily</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="weekly" id="freq-weekly" />
+                      <Label htmlFor="freq-weekly">Weekly</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="monthly" id="freq-monthly" />
+                      <Label htmlFor="freq-monthly">Monthly</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
 
-              {syncSettings.historicalPeriod === "custom" && (
+              {syncSettings.syncType === "historical" && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="start-date">Start Date</Label>
                     <Input
                       id="start-date"
                       type="date"
-                      value={syncSettings.customStartDate || ""}
-                      onChange={(e) => setSyncSettings(prev => ({ ...prev, customStartDate: e.target.value }))}
+                      value={syncSettings.startDate || ""}
+                      onChange={(e) => setSyncSettings(prev => ({ ...prev, startDate: e.target.value }))}
                     />
                   </div>
                   <div>
@@ -463,8 +572,8 @@ const ConnectionSetup = () => {
                     <Input
                       id="end-date"
                       type="date"
-                      value={syncSettings.customEndDate || ""}
-                      onChange={(e) => setSyncSettings(prev => ({ ...prev, customEndDate: e.target.value }))}
+                      value={syncSettings.endDate || ""}
+                      onChange={(e) => setSyncSettings(prev => ({ ...prev, endDate: e.target.value }))}
                     />
                   </div>
                 </div>
@@ -484,18 +593,32 @@ const ConnectionSetup = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <Button
-                onClick={handleSync}
-                disabled={selectedClients.length === 0 || !credentialsValid || syncStatus.status === "in_progress"}
+                onClick={handleCreateSync}
+                disabled={selectedClients.length === 0 || !credentialsValid || loadingSync}
                 className="w-full"
                 size="lg"
               >
-                <Play className="h-4 w-4 mr-2" />
+                {loadingSync ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4 mr-2" />
+                )}
                 Request Data Sync
+              </Button>
+
+              <Button
+                onClick={fetchSyncRequests}
+                variant="outline"
+                className="w-full"
+                size="sm"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Status
               </Button>
 
               {!credentialsValid && (
                 <div className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded border">
-                  ⚠️ No valid credentials found. Please configure connection credentials first.
+                  ⚠️ No valid Mercury credentials found. Please configure connection credentials on the main connections page first.
                 </div>
               )}
 
@@ -506,45 +629,109 @@ const ConnectionSetup = () => {
               )}
             </CardContent>
           </Card>
-
-          {/* Sync Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {getStatusIcon()}
-                Sync Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {syncStatus.status === "in_progress" && (
-                <div className="space-y-2">
-                  <Progress value={syncStatus.progress} />
-                  <div className="text-sm text-center">{syncStatus.progress}%</div>
-                </div>
-              )}
-
-              <div className="text-sm">
-                <div className="font-medium">{syncStatus.message}</div>
-                {syncStatus.details && (
-                  <div className="text-muted-foreground mt-1">{syncStatus.details}</div>
-                )}
-              </div>
-
-              {syncStatus.status === "success" && (
-                <Badge variant="default" className="w-full justify-center">
-                  Sync Completed Successfully
-                </Badge>
-              )}
-
-              {syncStatus.status === "error" && (
-                <Badge variant="destructive" className="w-full justify-center">
-                  Sync Failed
-                </Badge>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
+
+      {/* Sync Requests Table */}
+      {connectionId === "mercury" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Sync Requests History
+            </CardTitle>
+            <CardDescription>
+              Track the status and history of your Mercury data sync requests
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {syncRequests.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No sync requests found. Create your first sync request above.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2">Sync Type</th>
+                      <th className="text-left p-2">Clients</th>
+                      <th className="text-left p-2">Schedule</th>
+                      <th className="text-left p-2">Last Run</th>
+                      <th className="text-left p-2">Next Run</th>
+                      <th className="text-left p-2">Status</th>
+                      <th className="text-left p-2">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {syncRequests.map((request) => (
+                      <tr key={request.id} className="border-b hover:bg-muted/50">
+                        <td className="p-2">
+                          <Badge variant="outline">
+                            {request.sync_type === "automatic" ? "Automatic" : "Historical"}
+                          </Badge>
+                        </td>
+                        <td className="p-2">
+                          <div className="text-sm">
+                            {request.client_ids.length} client(s)
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <div className="text-sm">
+                            {request.sync_type === "automatic" 
+                              ? `${request.frequency?.charAt(0).toUpperCase()}${request.frequency?.slice(1)}`
+                              : request.start_date && request.end_date
+                                ? `${request.start_date} to ${request.end_date}`
+                                : "One-time"
+                            }
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <div className="text-sm">
+                            {request.last_run_at 
+                              ? formatDate(request.last_run_at)
+                              : "Never"
+                            }
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <div className="text-sm">
+                            {request.next_run_at 
+                              ? formatDate(request.next_run_at)
+                              : request.sync_type === "historical" 
+                                ? "N/A" 
+                                : "Not scheduled"
+                            }
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          {getStatusBadge(request.status)}
+                          {request.error_message && (
+                            <div className="text-xs text-red-600 mt-1">
+                              {request.error_message}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          {(request.status === "pending" || request.status === "running") && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleCancelSync(request.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

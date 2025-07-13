@@ -243,6 +243,98 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_logs: {
+        Row: {
+          client_id: string
+          created_at: string
+          error_message: string | null
+          execution_time_ms: number | null
+          id: string
+          records_processed: number | null
+          status: string
+          sync_request_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          records_processed?: number | null
+          status: string
+          sync_request_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          records_processed?: number | null
+          status?: string
+          sync_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_logs_sync_request_id_fkey"
+            columns: ["sync_request_id"]
+            isOneToOne: false
+            referencedRelation: "sync_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sync_requests: {
+        Row: {
+          client_ids: string[]
+          connection_code: string
+          created_at: string
+          end_date: string | null
+          error_message: string | null
+          frequency: string | null
+          id: string
+          last_run_at: string | null
+          next_run_at: string | null
+          start_date: string | null
+          status: string
+          sync_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_ids: string[]
+          connection_code: string
+          created_at?: string
+          end_date?: string | null
+          error_message?: string | null
+          frequency?: string | null
+          id?: string
+          last_run_at?: string | null
+          next_run_at?: string | null
+          start_date?: string | null
+          status?: string
+          sync_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_ids?: string[]
+          connection_code?: string
+          created_at?: string
+          end_date?: string | null
+          error_message?: string | null
+          frequency?: string | null
+          id?: string
+          last_run_at?: string | null
+          next_run_at?: string | null
+          start_date?: string | null
+          status?: string
+          sync_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
