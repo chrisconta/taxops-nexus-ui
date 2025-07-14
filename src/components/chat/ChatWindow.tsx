@@ -1,10 +1,50 @@
+
 import { useState, useEffect, useRef } from "react";
-import { Send, Loader2, Brain, AlertCircle } from "lucide-react";
+import { Send, Loader2, Brain, AlertCircle, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useChatStore } from "@/store/useChatStore";
 import { useSearchParams } from "react-router-dom";
+
+const TypingDots = () => (
+  <div className="flex space-x-1">
+    <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+    <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+    <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+  </div>
+);
+
+const FileLink = ({ url, filename }: { url: string; filename: string }) => (
+  <Badge 
+    variant="secondary" 
+    className="bg-primary/20 text-primary hover:bg-primary/30 cursor-pointer inline-flex items-center gap-1 mt-2"
+    onClick={() => window.open(url, '_blank')}
+  >
+    <Download className="w-3 h-3" />
+    {filename}
+  </Badge>
+);
+
+const MessageContent = ({ content }: { content: string }) => {
+  // Detect file links
+  const parts = content.split(/(\[Download report\]\([^)]+\))/g);
+  
+  return (
+    <div className="whitespace-pre-wrap">
+      {parts.map((part, index) => {
+        const linkMatch = part.match(/\[Download report\]\(([^)]+)\)/);
+        if (linkMatch) {
+          const url = linkMatch[1];
+          const filename = url.split('/').pop() || 'report.csv';
+          return <FileLink key={index} url={url} filename={filename} />;
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </div>
+  );
+};
 
 export const ChatWindow = () => {
   const [input, setInput] = useState("");
@@ -27,7 +67,7 @@ export const ChatWindow = () => {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading || input.length > 2000) return;
+    if (!input.trim() || isLoading || input.length > 4000) return;
     
     const message = input.trim();
     setInput("");
@@ -75,15 +115,9 @@ export const ChatWindow = () => {
                       : 'bg-glass-bg/30 border border-glass-border text-white'
                   }`}>
                     {message.typing ? (
-                      <div className="flex items-center space-x-1">
-                        <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                          <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                          <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                        </div>
-                      </div>
+                      <TypingDots />
                     ) : (
-                      <p className="whitespace-pre-wrap">{message.content}</p>
+                      <MessageContent content={message.content} />
                     )}
                   </div>
                 </div>
@@ -100,15 +134,15 @@ export const ChatWindow = () => {
           <Input 
             value={input} 
             onChange={e => setInput(e.target.value)} 
-            placeholder="Type your message... (max 2000 chars)"
+            placeholder="Type your message... (max 4000 chars)"
             className="flex-1 bg-glass-bg/20 border-glass-border text-white placeholder:text-taxops-gray-light" 
             onKeyPress={handleKeyPress}
             disabled={isLoading}
-            maxLength={2000}
+            maxLength={4000}
           />
           <Button 
             onClick={handleSend} 
-            disabled={!input.trim() || isLoading || input.length > 2000}
+            disabled={!input.trim() || isLoading || input.length > 4000}
             className="bg-primary hover:bg-primary/80"
           >
             {isLoading ? (
@@ -120,7 +154,7 @@ export const ChatWindow = () => {
         </div>
         
         <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
-          <span>{input.length}/2000 characters</span>
+          <span>{input.length}/4000 characters</span>
         </div>
         
         <div className="mt-3 p-3 bg-glass-bg/20 border border-glass-border rounded-lg">

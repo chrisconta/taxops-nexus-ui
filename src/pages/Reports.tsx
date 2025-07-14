@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Search, Filter, Calendar, FileText, Download, MoreHorizontal, MessageSquare, Brain, Users, Calculator, DollarSign, BarChart3, Loader2, CheckCircle, Send, Mic, History, FileSpreadsheet, Building2, User, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -98,9 +97,13 @@ const Reports = () => {
 
   const loadConversations = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('list-conversations');
+      const { data, error } = await supabase
+        .from('ai_conversations')
+        .select('id, title, updated_at')
+        .order('updated_at', { ascending: false });
+        
       if (error) throw error;
-      setConversations(data.conversations || []);
+      setConversations(data || []);
     } catch (error) {
       console.error('Failed to load conversations:', error);
       toast({
@@ -114,6 +117,13 @@ const Reports = () => {
   const handleGenerateReport = (report: any) => {
     setSelectedReport(report);
     setActiveTab('assistant');
+  };
+
+  const handleOpenConversation = (convId: string) => {
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('tab', 'assistant');
+    newSearchParams.set('conv', convId);
+    setSearchParams(newSearchParams);
   };
 
   const filteredReports = reportCards.filter(report => 
@@ -231,9 +241,7 @@ const Reports = () => {
                   <Card 
                     key={conv.id} 
                     className="bg-glass-bg/20 border-glass-border hover:border-primary/30 transition-all cursor-pointer"
-                    onClick={() => {
-                      setSearchParams({ tab: 'assistant', conv: conv.id });
-                    }}
+                    onClick={() => handleOpenConversation(conv.id)}
                   >
                     <div className="p-4">
                       <div className="flex items-center justify-between">

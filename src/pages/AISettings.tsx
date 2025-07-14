@@ -1,51 +1,75 @@
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+import { useState, useEffect } from "react";
+import { ArrowLeft, Key, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Save, ExternalLink, Eye, EyeOff } from "lucide-react";
+import { ReportRulesEditor } from "@/components/settings/ReportRulesEditor";
 
 const AISettings = () => {
   const [apiKey, setApiKey] = useState("");
-  const [showKey, setShowKey] = useState(false);
-  const [loading, setSaving] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const handleSave = async () => {
-    if (!apiKey.trim()) {
+  useEffect(() => {
+    checkExistingKey();
+  }, []);
+
+  const checkExistingKey = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('ai_credentials')
+        .select('id')
+        .eq('provider', 'deepseek')
+        .eq('user_id', user.id)
+        .single();
+
+      if (data) {
+        setApiKey('••••••••••••••••••••••••••••••••');
+      }
+    } catch (error) {
+      console.log('No existing key');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveApiKey = async () => {
+    if (!apiKey || apiKey.startsWith('••••')) {
       toast({
         title: "Error",
-        description: "Please enter your DeepSeek API key",
+        description: "Please enter a valid API key",
         variant: "destructive",
       });
       return;
     }
 
     setSaving(true);
-    
     try {
-      const { error } = await supabase.functions.invoke('save-ai-key', {
-        body: { deepseek_api_key: apiKey.trim() }
+      const { data, error } = await supabase.functions.invoke('save-ai-key', {
+        body: { provider: 'deepseek', apiKey }
       });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
         title: "Success",
         description: "DeepSeek API key saved successfully",
       });
-      
-      setApiKey("");
+
+      setApiKey('••••••••••••••••••••••••••••••••');
     } catch (error) {
-      console.error('Error saving API key:', error);
+      console.error('Failed to save API key:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to save API key",
+        description: error instanceof Error ? error.message : 'Failed to save API key',
         variant: "destructive",
       });
     } finally {
@@ -54,95 +78,82 @@ const AISettings = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">AI Settings</h1>
-        <p className="text-taxops-gray-light mt-2">
-          Configure AI providers for intelligent report generation
-        </p>
-      </div>
-
-      <Card className="bg-glass-bg/50 border-glass-border">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            DeepSeek API Configuration
-          </CardTitle>
-          <CardDescription>
-            Configure your DeepSeek API key to enable AI-powered SQL query generation from natural language
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="deepseek-key" className="text-white">
-              DeepSeek API Key
-            </Label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Input
-                  id="deepseek-key"
-                  type={showKey ? "text" : "password"}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-..."
-                  className="bg-glass-bg/30 border-glass-border text-white pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 text-taxops-gray-light hover:text-white"
-                  onClick={() => setShowKey(!showKey)}
-                >
-                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="border-glass-border bg-glass-bg/30 hover:bg-glass-bg/50"
-                      onClick={() => window.open('https://platform.deepseek.com/api_keys', '_blank')}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Get your API key from DeepSeek</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <p className="text-sm text-taxops-gray-light">
-              Your API key is encrypted and stored securely. It's only used to process your AI requests.
-            </p>
-          </div>
-
-          <Button 
-            onClick={handleSave} 
-            disabled={loading || !apiKey.trim()}
-            className="w-full"
+    <div className="min-h-screen bg-gradient-to-br from-taxops-dark via-taxops-dark-lighter to-taxops-dark p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center space-x-4 mb-8">
+          <Button
+            variant="ghost"
+            onClick={() => window.history.back()}
+            className="text-white hover:bg-glass-bg/50"
           >
-            <Save className="w-4 h-4 mr-2" />
-            {loading ? "Saving..." : "Save API Key"}
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
           </Button>
-        </CardContent>
-      </Card>
+          <h1 className="text-3xl font-bold text-white">AI Settings</h1>
+        </div>
 
-      <Card className="bg-glass-bg/50 border-glass-border">
-        <CardHeader>
-          <CardTitle className="text-white">How it works</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="text-sm text-taxops-gray-light space-y-2">
-            <p>• Ask natural language questions in the AI Reports Assistant</p>
-            <p>• DeepSeek converts your questions into SQL queries</p>
-            <p>• Results are displayed in an interactive table</p>
-            <p>• All queries respect your data access permissions</p>
-          </div>
-        </CardContent>
-      </Card>
+        <Tabs defaultValue="api-keys" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-glass-bg/50 border border-glass-border">
+            <TabsTrigger value="api-keys" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+              <Key className="w-4 h-4 mr-2" />
+              API Keys
+            </TabsTrigger>
+            <TabsTrigger value="report-rules" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+              <FileText className="w-4 h-4 mr-2" />
+              Report Rules
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="api-keys" className="mt-6">
+            <Card className="bg-glass-bg/30 border-glass-border">
+              <CardHeader>
+                <CardTitle className="text-white">DeepSeek API Key</CardTitle>
+                <CardDescription className="text-taxops-gray-light">
+                  Configure your DeepSeek API key to enable AI-powered features.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-white">API Key</label>
+                  <Input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Enter your DeepSeek API key"
+                    className="bg-glass-bg/20 border-glass-border text-white placeholder:text-taxops-gray-light"
+                  />
+                </div>
+
+                <Button 
+                  onClick={saveApiKey}
+                  disabled={saving || loading}
+                  className="bg-primary hover:bg-primary/80"
+                >
+                  {saving ? "Saving..." : "Save API Key"}
+                </Button>
+
+                <div className="mt-4 p-4 bg-glass-bg/20 border border-glass-border rounded-lg">
+                  <p className="text-sm text-taxops-gray-light">
+                    Get your API key from{" "}
+                    <a 
+                      href="https://platform.deepseek.com/api_keys" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary hover:text-primary/80 underline"
+                    >
+                      DeepSeek Platform
+                    </a>
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="report-rules" className="mt-6">
+            <ReportRulesEditor />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };
