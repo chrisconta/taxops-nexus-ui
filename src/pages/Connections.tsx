@@ -350,19 +350,6 @@ const Connections = () => {
         </div>
       </Card>
 
-      {/* Recent Connections */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-foreground">Recent Connections</h2>
-        <Card className="p-4 bg-card/30 border-border">
-          <div className="text-center py-8">
-            <Building className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No recent connections</h3>
-            <p className="text-muted-foreground">
-              Your recent connection activities will appear here.
-            </p>
-          </div>
-        </Card>
-      </div>
     </div>
   );
 };
