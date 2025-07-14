@@ -441,7 +441,8 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
         .insert({ 
           conversation_id: convId, 
           role: 'assistant', 
-          content: `Found ${formattedTransactions.length} transactions for the specified period. Generating report...` 
+          content: `Found ${formattedTransactions.length} transactions for the specified period. Generating report...`,
+          api_logs: {}
         });
     } else {
       // Construct regular messages for DeepSeek
@@ -455,19 +456,21 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
     }
 
     // Call DeepSeek with streaming
+    const requestBody = {
+      model: 'deepseek-chat',
+      temperature: 0.7,
+      max_tokens: 2048,
+      stream: true,
+      messages
+    };
+
     const dsRes = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        temperature: 0.7,
-        max_tokens: 2048,
-        stream: true,
-        messages
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!dsRes.ok) {
@@ -655,13 +658,34 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
             }
           }
 
+          // Prepare API logs
+          const apiLogs = {
+            request: {
+              url: 'https://api.deepseek.com/v1/chat/completions',
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey.slice(0, 10)}...`,
+                'Content-Type': 'application/json'
+              },
+              body: requestBody
+            },
+            response: {
+              status: dsRes.status,
+              statusText: dsRes.statusText,
+              stream: true,
+              content: assistantReply
+            },
+            timestamp: new Date().toISOString()
+          };
+
           // Store assistant reply
           await supabaseClient
             .from('ai_messages')
             .insert({ 
               conversation_id: convId, 
               role: 'assistant', 
-              content: assistantReply 
+              content: assistantReply,
+              api_logs: apiLogs
             });
 
           // Update conversation timestamp

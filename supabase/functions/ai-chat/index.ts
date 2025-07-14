@@ -104,21 +104,23 @@ serve(async (req) => {
     }
 
     // 4) Call DeepSeek
+    const requestBody = {
+      model: 'deepseek-chat',
+      temperature: 0.7,
+      max_tokens: 512,
+      messages: [
+        { role: 'system', content: 'You are a helpful AI assistant.' },
+        { role: 'user', content: message }
+      ]
+    };
+
     const dsRes = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        temperature: 0.7,
-        max_tokens: 512,
-        messages: [
-          { role: 'system', content: 'You are a helpful AI assistant.' },
-          { role: 'user', content: message }
-        ]
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!dsRes.ok) {
@@ -129,13 +131,33 @@ serve(async (req) => {
     const dsData = await dsRes.json();
     const assistant = dsData.choices[0].message.content.trim();
 
+    // Prepare API logs
+    const apiLogs = {
+      request: {
+        url: 'https://api.deepseek.com/v1/chat/completions',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey.slice(0, 10)}...`,
+          'Content-Type': 'application/json'
+        },
+        body: requestBody
+      },
+      response: {
+        status: dsRes.status,
+        statusText: dsRes.statusText,
+        data: dsData
+      },
+      timestamp: new Date().toISOString()
+    };
+
     // 5) Store assistant reply
     const { error: assistantMsgError } = await supabaseClient
       .from('ai_messages')
       .insert({ 
         conversation_id: convId, 
         role: 'assistant', 
-        content: assistant 
+        content: assistant,
+        api_logs: apiLogs
       });
 
     if (assistantMsgError) {
