@@ -98,10 +98,10 @@ export const ReportRulesEditor = () => {
   const saveRules = async () => {
     // Check if any rule exceeds character limit
     for (const [reportId, rules] of Object.entries(rulesData)) {
-      if (rules && rules.length > 5000) {
+      if (rules && rules.length > 50000) {
         toast({
           title: "Error",
-          description: `Rules for ${reportTypes.find(r => r.id === reportId)?.title} cannot exceed 5,000 characters`,
+          description: `Rules for ${reportTypes.find(r => r.id === reportId)?.title} cannot exceed 50,000 characters`,
           variant: "destructive",
         });
         return;
@@ -224,12 +224,12 @@ export const ReportRulesEditor = () => {
                     onChange={(e) => updateRules(report.id, e.target.value)}
                     placeholder={`Enter specific rules for ${report.title} generation...`}
                     className="min-h-[200px] bg-glass-bg/20 border-glass-border text-white placeholder:text-taxops-gray-light resize-none"
-                    maxLength={5000}
+                    maxLength={50000}
                   />
                 )}
                 
                 <div className="flex justify-between text-xs text-taxops-gray-light">
-                  <span>{(rulesData[report.id] || '').length}/5,000 characters</span>
+                  <span>{(rulesData[report.id] || '').length}/50,000 characters</span>
                 </div>
               </div>
             </TabsContent>
