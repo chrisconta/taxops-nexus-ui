@@ -273,7 +273,7 @@ async function executeSyncById(supabaseClient: any, syncId: string) {
             .from('transactions')
             .upsert(transactionRows, { 
               onConflict: 'client_id,connection_code,mercury_transaction_id',
-              ignoreDuplicates: true 
+              ignoreDuplicates: false 
             })
             .select();
 
