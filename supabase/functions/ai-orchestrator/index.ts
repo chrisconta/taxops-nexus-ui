@@ -313,8 +313,9 @@ Please reply with the report name you'd like to generate.`;
     
     // Throw error if empty in transaction path
     if (isTransactionRequest && !combinedRules) {
-      throw new Error(`No report rules for "${transactionParams.reportType}". ` +
-                      `Define user_settings.reports_config.rules['${transactionParams.reportType}']`);
+      const reportType = transactionParams?.reportType || 'unknown';
+      throw new Error(`No report rules for "${reportType}". ` +
+                      `Define user_settings.reports_config.rules['${reportType}'] or ensure the message contains a valid report type.`);
     }
 
     // ===== PARAMETER VALIDATION =====
