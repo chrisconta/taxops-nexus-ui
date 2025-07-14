@@ -512,14 +512,21 @@ async function fetchAllTransactionsForSync(mercuryToken: string, startDate: stri
 
   // Helper function to fetch all transactions with pagination for a specific account
   async function fetchAllTransactions(accountId: string, token: string, startDate: string, endDate: string) {
-    let url = `https://api.mercury.com/api/v1/account/${accountId}/transactions?start_date=${startDate}&end_date=${endDate}&page_size=500`;
+    let cursor: string | undefined;
     const allTransactions: any[] = [];
     let pageCount = 0;
     
     console.log(`Fetching transactions for account ${accountId} from ${startDate} to ${endDate}`);
     
-    while (url) {
+    do {
       pageCount++;
+      const queryParams = 
+        `start_date=${startDate}` +
+        `&end_date=${endDate}` +
+        (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '') +
+        '&page_size=500';
+      
+      const url = `https://api.mercury.com/api/v1/account/${accountId}/transactions?${queryParams}`;
       console.log(`Fetching page ${pageCount} for account ${accountId}:`, url);
       
       const response = await fetch(url, { 
@@ -538,14 +545,10 @@ async function fetchAllTransactionsForSync(mercuryToken: string, startDate: stri
       
       console.log(`Page ${pageCount} fetched: ${transactions.length} transactions (total: ${allTransactions.length})`);
       
-      // Check for next page
-      if (data.next_page_token) {
-        const baseUrl = `https://api.mercury.com/api/v1/account/${accountId}/transactions`;
-        url = `${baseUrl}?page_token=${data.next_page_token}&start_date=${startDate}&end_date=${endDate}&page_size=500`;
-      } else {
-        url = null;
-      }
-    }
+      // Use Mercury's hasMore/nextCursor pattern instead of next_page_token
+      cursor = data.hasMore ? data.nextCursor : undefined;
+      
+    } while (cursor);
     
     console.log(`Finished fetching account ${accountId}: ${allTransactions.length} total transactions across ${pageCount} pages`);
     return allTransactions;
