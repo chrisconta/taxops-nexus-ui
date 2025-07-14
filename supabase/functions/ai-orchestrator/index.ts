@@ -265,12 +265,12 @@ Please reply with the report name you'd like to generate.`;
     // Get user settings for report rules
     const { data: settings } = await supabaseClient
       .from('user_settings')
-      .select('reports_configuration')
+      .select('reports_config')
       .eq('user_id', user.id)
       .single();
 
     // Extract rules for all report types or just general rules
-    const config = settings?.reports_configuration as { rules?: Record<string, string>, markdown?: string } | null;
+    const config = settings?.reports_config as { rules?: Record<string, string>, markdown?: string } | null;
     const reportRules = config?.rules || {};
     const generalRules = config?.markdown || '';
     
