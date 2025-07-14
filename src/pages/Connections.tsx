@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Info, Building, BookOpen, Briefcase, Check, X, AlertTriangle } from "lucide-react";
+import { ArrowRight, Info, Building, BookOpen, Briefcase, Check, X, AlertTriangle, CheckCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -157,6 +157,7 @@ const connectionTypes = [
 
 const categories = [
   { id: "all", label: "All", icon: null },
+  { id: "active", label: "Active", icon: CheckCircle },
   { id: "bookkeeping", label: "Bookkeeping", icon: BookOpen },
   { id: "erp", label: "ERP", icon: Briefcase },
   { id: "banks", label: "Banks", icon: Building },
@@ -188,9 +189,14 @@ const Connections = () => {
     navigate(`/connections/${connectionId}/setup`);
   };
 
-  const filteredConnections = connectionTypes.filter(connection => 
-    activeFilter === "all" || connection.category === activeFilter
-  );
+  const filteredConnections = connectionTypes.filter(connection => {
+    if (activeFilter === "all") return true;
+    if (activeFilter === "active") {
+      const status = getConnectionStatus(connection.id, connection.status);
+      return status === "connected";
+    }
+    return connection.category === activeFilter;
+  });
 
   const getStatusBadge = (connectionId: string, staticStatus: string) => {
     const dynamicStatus = getConnectionStatus(connectionId, staticStatus);
