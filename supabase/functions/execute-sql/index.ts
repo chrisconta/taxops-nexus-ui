@@ -13,23 +13,22 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('No authorization header');
     }
 
-    // Get user from JWT token
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-    
-    if (authError || !user) {
-      throw new Error(`Authentication failed: ${authError?.message || 'No user found'}`);
-    }
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      }
+    );
 
     const { sql } = await req.json();
     
@@ -37,7 +36,7 @@ serve(async (req) => {
       throw new Error('SQL query is required');
     }
 
-    console.log('Executing SQL for user:', user.id, 'Query:', sql);
+    console.log('Executing SQL with auth header present, Query:', sql);
 
     // Execute the SQL using our secure function
     const { data, error } = await supabaseClient.rpc('execute_dynamic_sql', { 
