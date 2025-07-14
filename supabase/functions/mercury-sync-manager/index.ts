@@ -258,6 +258,7 @@ async function executeSyncById(supabaseClient: any, syncId: string) {
           const transactionRows = transactions.map(t => ({
             sync_request_id: syncId,
             client_id: clientId,
+            mercury_transaction_id: t.id, // Use Mercury's transaction ID for uniqueness
             posted_at: t.postedAt,
             amount_cents: Math.round((t.amount || 0) * 100),
             counterparty: t.counterpartyName || 'Unknown',
@@ -269,7 +270,8 @@ async function executeSyncById(supabaseClient: any, syncId: string) {
 
           const { error: txInsertError } = await supabaseClient
             .from('transactions')
-            .insert(transactionRows);
+            .insert(transactionRows)
+            .select(); // Return inserted rows to get accurate count
 
           if (txInsertError) {
             throw new Error(`Failed to insert transactions: ${txInsertError.message}`);

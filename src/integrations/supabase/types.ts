@@ -343,6 +343,7 @@ export type Database = {
           counterparty: string | null
           created_at: string | null
           id: string
+          mercury_transaction_id: string | null
           note: string | null
           posted_at: string
           raw: Json | null
@@ -356,6 +357,7 @@ export type Database = {
           counterparty?: string | null
           created_at?: string | null
           id?: string
+          mercury_transaction_id?: string | null
           note?: string | null
           posted_at: string
           raw?: Json | null
@@ -369,6 +371,7 @@ export type Database = {
           counterparty?: string | null
           created_at?: string | null
           id?: string
+          mercury_transaction_id?: string | null
           note?: string | null
           posted_at?: string
           raw?: Json | null
