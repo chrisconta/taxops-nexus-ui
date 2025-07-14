@@ -140,6 +140,7 @@ export const ChatWindow = () => {
                    {message.requiresData && !message.dataCollected && !dataCollectors.has(message.id) && (
                      <TransactionDataCollector 
                        messageId={message.id}
+                       missingParams={message.missingParams}
                        onDataSubmitted={() => {
                          setDataCollectors(prev => new Set(prev).add(message.id));
                        }}
