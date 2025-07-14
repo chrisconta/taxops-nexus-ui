@@ -189,8 +189,6 @@ serve(async (req) => {
     try {
       const parsed = JSON.parse(message);
       if (parsed.clientId && parsed.startDate && parsed.endDate) {
-        // fill in missing reportType from message if not provided
-        parsed.reportType ||= detectReportType(message);
         isTransactionRequest = true;
         transactionParams = parsed;
       }
@@ -300,23 +298,8 @@ Please reply with the report name you'd like to generate.`;
       }
     }
     
-    // Immediately after setting transactionParams, reassign specificRules
-    if (isTransactionRequest && transactionParams) {
-      specificRules = reportRules[transactionParams.reportType] || '';
-    }
-    
-    // Combine & assert rules
-    const combinedRules = [generalRules, specificRules]
-      .filter(r => r && r.trim())
-      .join('\n\n')
-      .trim();
-    
-    // Throw error if empty in transaction path
-    if (isTransactionRequest && !combinedRules) {
-      const reportType = transactionParams?.reportType || 'unknown';
-      throw new Error(`No report rules for "${reportType}". ` +
-                      `Define user_settings.reports_config.rules['${reportType}'] or ensure the message contains a valid report type.`);
-    }
+    // Combine general rules with specific rules if available
+    const combinedRules = [generalRules, specificRules].filter(Boolean).join('\n\n');
 
     // ===== PARAMETER VALIDATION =====
     // If not a transaction request, check if we have all required parameters
@@ -482,30 +465,6 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
         content: m.content 
       }));
       messages = [systemMsg, ruleMsg, ...history, { role: 'user', content: message }];
-    }
-
-    // Add logging for verification right before calling DeepSeek
-    console.log('🔍 reportType:', transactionParams?.reportType || 'Not a transaction request');
-    console.log('⟳ combinedRules:\n', combinedRules);
-    if (isTransactionRequest && transactionParams) {
-      // Re-fetch formatted transactions for logging
-      const { data: logTransactions } = await supabaseClient
-        .from('transactions')
-        .select('posted_at, amount_cents, counterparty, note, status, connection_code')
-        .eq('client_id', transactionParams.clientId)
-        .gte('posted_at', transactionParams.startDate)
-        .lte('posted_at', transactionParams.endDate + 'T23:59:59')
-        .order('posted_at', { ascending: true });
-      
-      const logFormattedTransactions = (logTransactions || []).map(tx => ({
-        date: tx.posted_at?.split('T')[0],
-        amount: tx.amount_cents / 100,
-        counterparty: tx.counterparty,
-        note: tx.note,
-        status: tx.status,
-        connection: tx.connection_code
-      }));
-      console.log('=== Transactions ===\n', JSON.stringify(logFormattedTransactions, null, 2));
     }
 
     // Call DeepSeek with streaming
