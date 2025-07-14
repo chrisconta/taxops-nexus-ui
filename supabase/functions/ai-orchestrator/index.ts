@@ -136,6 +136,9 @@ serve(async (req) => {
         content: message 
       });
 
+    // Construct messages for DeepSeek
+    let messages;
+
     // Handle transaction request
     if (isTransactionRequest && transactionParams) {
       // Fetch transactions
@@ -169,7 +172,7 @@ serve(async (req) => {
         role: m.role, 
         content: m.content 
       }));
-      const messages = [systemMsg, ruleMsg, dataMsg, ...history, { role: 'user', content: 'Please generate a comprehensive financial report in CSV format using the provided transaction data and report rules. Return the result as a downloadable CSV file.' }];
+      messages = [systemMsg, ruleMsg, dataMsg, ...history, { role: 'user', content: 'Please generate a comprehensive financial report in CSV format using the provided transaction data and report rules. Return the result as a downloadable CSV file.' }];
 
       // Store the transaction data message
       await supabaseClient
@@ -187,7 +190,7 @@ serve(async (req) => {
         role: m.role, 
         content: m.content 
       }));
-      const messages = [systemMsg, ruleMsg, ...history, { role: 'user', content: message }];
+      messages = [systemMsg, ruleMsg, ...history, { role: 'user', content: message }];
     }
 
     // Call DeepSeek with streaming
