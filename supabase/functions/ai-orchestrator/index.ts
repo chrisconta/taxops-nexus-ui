@@ -7,6 +7,115 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Report keywords for intent detection
+const REPORT_KEYWORDS = {
+  'profit-loss': ['profit and loss', 'p&l', 'income statement', 'profit loss'],
+  'balance-sheet': ['balance sheet', 'balance sheet report'],
+  'cash-flow': ['cash flow', 'cash flow statement'],
+  'form-1065': ['form 1065', '1065', 'partnership return'],
+  'form-1120': ['form 1120', '1120', 'corporate return'],
+  'form-1040': ['form 1040', '1040', 'individual return']
+};
+
+// Check if message is a report intent
+function isReportIntent(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  return Object.values(REPORT_KEYWORDS)
+    .flat()
+    .some(keyword => lowerMessage.includes(keyword)) ||
+    lowerMessage.includes('report') ||
+    lowerMessage.includes('generate') ||
+    lowerMessage.includes('create');
+}
+
+// Extract parameters from message using regex
+function extractParamsFromMessage(message: string): { clientId?: string, startDate?: string, endDate?: string } {
+  const params: { clientId?: string, startDate?: string, endDate?: string } = {};
+  
+  // Try to extract dates (YYYY-MM-DD format)
+  const dateRegex = /(\d{4}-\d{2}-\d{2})/g;
+  const dates = message.match(dateRegex);
+  if (dates && dates.length >= 2) {
+    params.startDate = dates[0];
+    params.endDate = dates[1];
+  }
+  
+  // Try to extract client name (basic patterns)
+  const clientPatterns = [
+    /client\s+(\w+)/i,
+    /for\s+(\w+)/i,
+    /company\s+(\w+)/i
+  ];
+  
+  for (const pattern of clientPatterns) {
+    const match = message.match(pattern);
+    if (match) {
+      params.clientId = match[1];
+      break;
+    }
+  }
+  
+  return params;
+}
+
+// Load and filter transaction data
+async function loadTransactionData(
+  supabaseClient: any, 
+  clientId: string, 
+  startDate: string, 
+  endDate: string, 
+  filters?: any
+) {
+  const { data: transactions, error } = await supabaseClient
+    .from('transactions')
+    .select('posted_at, amount_cents, counterparty, note, status, connection_code')
+    .eq('client_id', clientId)
+    .gte('posted_at', startDate)
+    .lte('posted_at', endDate + 'T23:59:59')
+    .order('posted_at', { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to fetch transactions: ${error.message}`);
+  }
+
+  const formattedTransactions = (transactions || []).map(tx => ({
+    date: tx.posted_at?.split('T')[0],
+    amount: tx.amount_cents / 100,
+    counterparty: tx.counterparty,
+    note: tx.note,
+    status: tx.status,
+    connection: tx.connection_code
+  }));
+
+  return applyFilters(formattedTransactions, filters);
+}
+
+// Apply filters to transaction data
+function applyFilters(transactions: any[], filters?: any): any[] {
+  if (!filters) return transactions;
+  
+  return transactions.filter(tx => {
+    // Drop zero amounts if specified
+    if (filters.dropZeroAmounts && tx.amount === 0) return false;
+    
+    // Min amount filter
+    if (filters.minAmount && tx.amount < filters.minAmount) return false;
+    
+    // Transaction type filter
+    if (filters.allowedTransactionTypes && 
+        !filters.allowedTransactionTypes.includes(tx.type)) return false;
+    
+    return true;
+  });
+}
+
+// Simple template replacement
+function processTemplate(template: string, context: any): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    return String(context[key] || '');
+  });
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -36,7 +145,8 @@ serve(async (req) => {
       throw new Error('Invalid message: must be between 1-4000 characters');
     }
 
-    // Check if this is a structured transaction request
+    // ===== REPORTS-ONLY ENFORCEMENT =====
+    // Check if this is a structured transaction request (bypass intent check)
     let isTransactionRequest = false;
     let transactionParams = null;
     try {
@@ -46,7 +156,40 @@ serve(async (req) => {
         transactionParams = parsed;
       }
     } catch {
-      // Not a JSON message, continue normally
+      // Not a JSON message, continue with intent check
+    }
+
+    // If not a transaction request, enforce reports-only
+    if (!isTransactionRequest && !isReportIntent(message)) {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          const content = `I'm specialized solely in generating reports from our predefined list. I can't provide general advice or handle other requests.
+
+Please let me know which report you need (e.g., "Profit & Loss Statement"), and include the client name plus date range.
+
+Available reports:
+• Profit & Loss Statement (P&L)
+• Balance Sheet
+• Cash Flow Statement
+• Form 1065 (Partnership Return)
+• Form 1120 (Corporate Return)
+• Form 1040 (Individual Return)`;
+
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+          controller.close();
+        }
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
     }
 
     // Get DeepSeek API key
@@ -118,6 +261,59 @@ serve(async (req) => {
     
     // Combine general rules with specific rules if available
     const combinedRules = [generalRules, specificRules].filter(Boolean).join('\n\n');
+
+    // ===== PARAMETER VALIDATION =====
+    // If not a transaction request, check if we have all required parameters
+    if (!isTransactionRequest) {
+      // Extract parameters from natural language message
+      const extractedParams = extractParamsFromMessage(message);
+      
+      // Define required parameters for reports
+      const requiredParams = ['clientId', 'startDate', 'endDate'];
+      
+      // Check for missing parameters
+      const missingParams = requiredParams.filter(param => !extractedParams[param]);
+      
+      if (missingParams.length > 0) {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            const content = `To generate a financial report, I need the following information:
+
+${missingParams.includes('clientId') ? '• Client name or ID' : ''}
+${missingParams.includes('startDate') ? '• Start date (YYYY-MM-DD format)' : ''}
+${missingParams.includes('endDate') ? '• End date (YYYY-MM-DD format)' : ''}
+
+Please provide the client name and the date range for the report you'd like to generate.
+
+Example: "Generate a Profit & Loss report for ACME Corp from 2024-01-01 to 2024-03-31"`;
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+              type: 'missing_data', 
+              message: content,
+              missingParams 
+            })}\n\n`));
+            controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+            controller.close();
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        });
+      }
+      
+      // If we have all parameters, convert to transaction request format
+      if (extractedParams.clientId && extractedParams.startDate && extractedParams.endDate) {
+        isTransactionRequest = true;
+        transactionParams = extractedParams;
+      }
+    }
 
     // Get recent conversation history
     const { data: recentMessages } = await supabaseClient

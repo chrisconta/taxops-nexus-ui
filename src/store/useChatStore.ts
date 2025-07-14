@@ -4,11 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface ChatMessage { 
   id: string; 
-  role: 'user' | 'assistant'; 
+  role: 'user' | 'assistant';
   content: string;
   typing?: boolean;
   requiresData?: boolean;
   dataCollected?: boolean;
+  missingParams?: string[];
 }
 
 interface ChatState {
@@ -129,7 +130,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     id: crypto.randomUUID(),
                     role: 'assistant',
                     content: parsed.message,
-                    requiresData: true
+                    requiresData: true,
+                    missingParams: parsed.missingParams || ['clientId', 'startDate', 'endDate']
                   });
                   hasStarted = true;
                 }
