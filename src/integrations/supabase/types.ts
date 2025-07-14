@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_credentials: {
+        Row: {
+          ciphertext: string
+          created_at: string
+          enc_key: string
+          id: string
+          iv: string
+          provider: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ciphertext: string
+          created_at?: string
+          enc_key: string
+          id?: string
+          iv: string
+          provider: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ciphertext?: string
+          created_at?: string
+          enc_key?: string
+          id?: string
+          iv?: string
+          provider?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       client_credentials: {
         Row: {
           client_id: string
@@ -413,6 +446,10 @@ export type Database = {
       encrypt_credentials: {
         Args: { data: Json; key_id?: string }
         Returns: string
+      }
+      execute_dynamic_sql: {
+        Args: { query: string }
+        Returns: Json
       }
       save_client_credentials: {
         Args: {

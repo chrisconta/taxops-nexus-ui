@@ -13,6 +13,7 @@ import ConnectionSetup from "./pages/ConnectionSetup";
 import Reports from "./pages/Reports";
 import Auth from "./pages/Auth";
 import ProfileSettings from "./pages/ProfileSettings";
+import AISettings from "./pages/AISettings";
 import NotFound from "./pages/NotFound";
 import { initSecurity } from "@/lib/security";
 
@@ -41,6 +42,7 @@ const App = () => {
               <Route path="connections/:connectionId/setup" element={<ConnectionSetup />} />
               <Route path="reports" element={<Reports />} />
               <Route path="profile-settings" element={<ProfileSettings />} />
+              <Route path="settings/ai" element={<AISettings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

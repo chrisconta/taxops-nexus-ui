@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Filter, Calendar, FileText, Download, MoreHorizontal, MessageSquare, Brain, Users, Calculator, DollarSign, BarChart3, Loader2, CheckCircle, Send, Mic, History, FileSpreadsheet, Building2, User } from "lucide-react";
+import { Search, Filter, Calendar, FileText, Download, MoreHorizontal, MessageSquare, Brain, Users, Calculator, DollarSign, BarChart3, Loader2, CheckCircle, Send, Mic, History, FileSpreadsheet, Building2, User, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -7,6 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { deepseekChat } from "@/lib/deepseek";
 const Reports = () => {
   const [activeTab, setActiveTab] = useState("reports");
   const [searchTerm, setSearchTerm] = useState("");
@@ -15,6 +19,8 @@ const Reports = () => {
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
   const reportCards = [{
     id: "form-1065",
     title: "Form 1065",
@@ -78,27 +84,91 @@ const Reports = () => {
     };
     setChatMessages([welcomeMessage]);
   };
-  const handleSendMessage = () => {
-    if (!chatInput.trim()) return;
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || isProcessing) return;
+    
     const userMessage = {
       id: Date.now(),
       type: "user",
       content: chatInput,
       timestamp: new Date().toISOString()
     };
+    
     setChatMessages(prev => [...prev, userMessage]);
     setChatInput("");
+    setIsProcessing(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = {
+    try {
+      // Get DeepSeek response
+      const deepseekResponse = await deepseekChat(chatInput);
+      
+      // Parse SQL from response
+      const sqlMatch = deepseekResponse.match(/```sql\n([\s\S]*?)\n```/);
+      
+      if (sqlMatch) {
+        const sql = sqlMatch[1].trim();
+        const explanation = deepseekResponse.replace(/```sql\n[\s\S]*?\n```/, '').trim();
+        
+        // Show AI explanation first
+        const aiResponse = {
+          id: Date.now() + 1,
+          type: "assistant",
+          content: explanation || "I've generated a SQL query to answer your question.",
+          timestamp: new Date().toISOString()
+        };
+        setChatMessages(prev => [...prev, aiResponse]);
+        
+        // Execute SQL
+        const { data, error } = await supabase.functions.invoke('execute-sql', {
+          body: { sql }
+        });
+        
+        if (error) {
+          throw new Error(error.message);
+        }
+        
+        // Show results
+        const resultsMessage = {
+          id: Date.now() + 2,
+          type: "assistant",
+          content: "",
+          timestamp: new Date().toISOString(),
+          sqlResults: data.rows || [],
+          sql: sql
+        };
+        setChatMessages(prev => [...prev, resultsMessage]);
+        
+      } else {
+        // Regular text response
+        const aiResponse = {
+          id: Date.now() + 1,
+          type: "assistant", 
+          content: deepseekResponse,
+          timestamp: new Date().toISOString()
+        };
+        setChatMessages(prev => [...prev, aiResponse]);
+      }
+      
+    } catch (error) {
+      console.error('Error processing message:', error);
+      
+      const errorMessage = {
         id: Date.now() + 1,
         type: "assistant",
-        content: `I'll help you with that. Let me process your ${selectedReport?.title} requirements and generate the report for you.`,
-        timestamp: new Date().toISOString()
+        content: `Sorry, I encountered an error: ${error.message}. ${error.message.includes('DeepSeek API key') ? 'Please configure your DeepSeek API key in Settings.' : ''}`,
+        timestamp: new Date().toISOString(),
+        error: true
       };
-      setChatMessages(prev => [...prev, aiResponse]);
-    }, 1000);
+      setChatMessages(prev => [...prev, errorMessage]);
+      
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
   const filteredReports = reportCards.filter(report => report.title.toLowerCase().includes(searchTerm.toLowerCase()) || report.description.toLowerCase().includes(searchTerm.toLowerCase()));
   const getCardIconColor = (color: string) => {
@@ -190,29 +260,163 @@ const Reports = () => {
 
             {/* Chat Messages */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {chatMessages.length === 0 ? <div className="flex items-center justify-center h-full">
+              {chatMessages.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
                   <div className="text-center">
                     <Brain className="w-16 h-16 text-taxops-gray-light mx-auto mb-4" />
-                    <p className="text-taxops-gray-light">Select a report from the Reports tab to start</p>
+                    <p className="text-taxops-gray-light mb-2">Ask me questions about your transaction data</p>
+                    <p className="text-sm text-taxops-gray-light/70">
+                      Try: "Show me all deposits over $1000 last month" or "Total expenses by category"
+                    </p>
                   </div>
-                </div> : chatMessages.map(message => <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${message.type === 'user' ? 'bg-primary text-white' : 'bg-glass-bg/30 border border-glass-border text-white'}`}>
-                      <p>{message.content}</p>
+                </div>
+              ) : (
+                chatMessages.map(message => (
+                  <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-full ${message.type === 'user' ? 'max-w-xs lg:max-w-md' : 'max-w-4xl'}`}>
+                      <div className={`px-4 py-2 rounded-2xl ${
+                        message.type === 'user' 
+                          ? 'bg-primary text-white' 
+                          : message.error 
+                            ? 'bg-red-900/20 border border-red-500/30 text-red-200'
+                            : 'bg-glass-bg/30 border border-glass-border text-white'
+                      }`}>
+                        {message.content && <p className="whitespace-pre-wrap">{message.content}</p>}
+                        
+                        {/* SQL Results Table */}
+                        {message.sqlResults && (
+                          <div className="mt-4">
+                            {message.sqlResults.length > 0 ? (
+                              <>
+                                {message.sqlResults.length <= 50 ? (
+                                  <div className="bg-glass-bg/20 border border-glass-border rounded-lg overflow-hidden">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          {Object.keys(message.sqlResults[0]).map((key) => (
+                                            <TableHead key={key} className="text-white font-semibold">
+                                              {key}
+                                            </TableHead>
+                                          ))}
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {message.sqlResults.slice(0, 50).map((row: any, index: number) => (
+                                          <TableRow key={index}>
+                                            {Object.values(row).map((value: any, cellIndex: number) => (
+                                              <TableCell key={cellIndex} className="text-white">
+                                                {typeof value === 'number' && value > 1000000 
+                                                  ? `$${(value / 100).toLocaleString()}` 
+                                                  : String(value || '')}
+                                              </TableCell>
+                                            ))}
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                    <div className="p-3 bg-glass-bg/10 border-t border-glass-border">
+                                      <p className="text-sm text-taxops-gray-light">
+                                        Showing {Math.min(50, message.sqlResults.length)} of {message.sqlResults.length} results
+                                      </p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="bg-glass-bg/20 border border-glass-border rounded-lg p-4">
+                                    <p className="text-white mb-2">
+                                      Found {message.sqlResults.length} results (too many to display)
+                                    </p>
+                                    <Button 
+                                      size="sm" 
+                                      onClick={() => {
+                                        const csv = [
+                                          Object.keys(message.sqlResults[0]).join(','),
+                                          ...message.sqlResults.map((row: any) => 
+                                            Object.values(row).map(v => `"${v}"`).join(',')
+                                          )
+                                        ].join('\n');
+                                        const blob = new Blob([csv], { type: 'text/csv' });
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = 'query-results.csv';
+                                        a.click();
+                                      }}
+                                    >
+                                      <Download className="w-4 h-4 mr-2" />
+                                      Download CSV
+                                    </Button>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="bg-glass-bg/20 border border-glass-border rounded-lg p-4">
+                                <p className="text-taxops-gray-light">No results found</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Show SQL query if present */}
+                        {message.sql && (
+                          <details className="mt-2">
+                            <summary className="text-sm text-taxops-gray-light cursor-pointer hover:text-white">
+                              View SQL Query
+                            </summary>
+                            <pre className="mt-2 p-2 bg-glass-bg/20 rounded text-xs overflow-x-auto">
+                              <code>{message.sql}</code>
+                            </pre>
+                          </details>
+                        )}
+                      </div>
                     </div>
-                  </div>)}
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Chat Input */}
             <div className="p-6 border-t border-glass-border bg-glass-bg/30">
               <div className="flex space-x-3">
-                <Input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Type your message..." className="flex-1 bg-glass-bg/20 border-glass-border text-white placeholder:text-taxops-gray-light" onKeyPress={e => e.key === 'Enter' && handleSendMessage()} />
-                <Button onClick={handleSendMessage} disabled={!chatInput.trim()}>
-                  <Send className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" disabled>
-                  <Mic className="w-4 h-4" />
+                <Input 
+                  value={chatInput} 
+                  onChange={e => setChatInput(e.target.value)} 
+                  placeholder="Ask about your transaction data..."
+                  className="flex-1 bg-glass-bg/20 border-glass-border text-white placeholder:text-taxops-gray-light" 
+                  onKeyPress={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                  disabled={isProcessing}
+                />
+                <Button 
+                  onClick={handleSendMessage} 
+                  disabled={!chatInput.trim() || isProcessing}
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
                 </Button>
               </div>
+              
+              {!selectedReport && (
+                <div className="mt-3 p-3 bg-glass-bg/20 border border-glass-border rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-taxops-warning mt-0.5" />
+                    <div className="text-sm">
+                      <p className="text-white font-medium">Configure DeepSeek API Key</p>
+                      <p className="text-taxops-gray-light">
+                        To use AI-powered queries, please add your DeepSeek API key in{" "}
+                        <Button 
+                          variant="link" 
+                          className="p-0 h-auto text-primary hover:text-primary/80"
+                          onClick={() => window.location.href = '/settings/ai'}
+                        >
+                          Settings
+                        </Button>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
         </TabsContent>

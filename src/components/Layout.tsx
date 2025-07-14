@@ -140,7 +140,11 @@ const Layout = () => {
 
         {/* Bottom section */}
         <div className="p-6 border-t border-glass-border">
-          <Button variant="ghost" className="w-full justify-start gap-4 px-6 py-4 text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 transition-all duration-300 group">
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start gap-4 px-6 py-4 text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 transition-all duration-300 group"
+            onClick={() => navigate('/settings/ai')}
+          >
             <Settings className="w-5 h-5 group-hover:scale-110 transition-transform" />
             <span className="font-medium">Settings</span>
           </Button>
