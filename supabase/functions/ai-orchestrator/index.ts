@@ -12,10 +12,20 @@ const REPORT_KEYWORDS = {
   'profit-loss': ['profit and loss', 'p&l', 'income statement', 'profit loss'],
   'balance-sheet': ['balance sheet', 'balance sheet report'],
   'cash-flow': ['cash flow', 'cash flow statement'],
-  'form-1065': ['form 1065', '1065', 'partnership return'],
-  'form-1120': ['form 1120', '1120', 'corporate return'],
-  'form-1040': ['form 1040', '1040', 'individual return']
+  'trial-balance': ['trial balance'],
+  'accounts-receivable': ['accounts receivable', 'ar aging', 'receivable aging'],
+  'general-ledger': ['general ledger', 'gl']
 };
+
+// Available report types with display names
+const AVAILABLE_REPORTS = [
+  { key: 'profit-loss', name: 'Profit & Loss Statement' },
+  { key: 'balance-sheet', name: 'Balance Sheet' },
+  { key: 'cash-flow', name: 'Cash Flow Statement' },
+  { key: 'trial-balance', name: 'Trial Balance' },
+  { key: 'accounts-receivable', name: 'Accounts Receivable Aging' },
+  { key: 'general-ledger', name: 'General Ledger' }
+];
 
 // Check if message is a report intent
 function isReportIntent(message: string): boolean {
@@ -28,9 +38,30 @@ function isReportIntent(message: string): boolean {
     lowerMessage.includes('create');
 }
 
+// Detect specific report type from message
+function detectReportType(message: string): string | null {
+  const lowerMessage = message.toLowerCase();
+  
+  for (const [reportKey, keywords] of Object.entries(REPORT_KEYWORDS)) {
+    if (keywords.some(keyword => lowerMessage.includes(keyword))) {
+      return reportKey;
+    }
+  }
+  
+  return null;
+}
+
 // Extract parameters from message using regex
-function extractParamsFromMessage(message: string): { clientId?: string, startDate?: string, endDate?: string } {
-  const params: { clientId?: string, startDate?: string, endDate?: string } = {};
+function extractParamsFromMessage(message: string): { 
+  reportType?: string, 
+  clientId?: string, 
+  startDate?: string, 
+  endDate?: string 
+} {
+  const params: { reportType?: string, clientId?: string, startDate?: string, endDate?: string } = {};
+  
+  // Detect report type
+  params.reportType = detectReportType(message);
   
   // Try to extract dates (YYYY-MM-DD format)
   const dateRegex = /(\d{4}-\d{2}-\d{2})/g;
@@ -166,15 +197,11 @@ serve(async (req) => {
         start(controller) {
           const content = `I'm specialized solely in generating reports from our predefined list. I can't provide general advice or handle other requests.
 
-Please let me know which report you need (e.g., "Profit & Loss Statement"), and include the client name plus date range.
+Please let me know which report you need:
 
-Available reports:
-• Profit & Loss Statement (P&L)
-• Balance Sheet
-• Cash Flow Statement
-• Form 1065 (Partnership Return)
-• Form 1120 (Corporate Return)
-• Form 1040 (Individual Return)`;
+${AVAILABLE_REPORTS.map((report, i) => `${i + 1}. ${report.name}`).join('\n')}
+
+Please reply with the report name you'd like to generate.`;
 
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
@@ -268,25 +295,49 @@ Available reports:
       // Extract parameters from natural language message
       const extractedParams = extractParamsFromMessage(message);
       
-      // Define required parameters for reports
-      const requiredParams = ['clientId', 'startDate', 'endDate'];
-      
-      // Check for missing parameters
-      const missingParams = requiredParams.filter(param => !extractedParams[param]);
-      
-      if (missingParams.length > 0) {
+      // Step 1: Check if report type is specified
+      if (!extractedParams.reportType) {
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
           start(controller) {
-            const content = `To generate a financial report, I need the following information:
+            const content = `Sure—which report would you like? We currently support:
+
+${AVAILABLE_REPORTS.map((report, i) => `${i + 1}. ${report.name}`).join('\n')}
+
+Please reply with the report name.`;
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+            controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+            controller.close();
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        });
+      }
+
+      // Step 2: Check for missing client/date parameters
+      const requiredParams = ['clientId', 'startDate', 'endDate'];
+      const missingParams = requiredParams.filter(param => !extractedParams[param]);
+      
+      if (missingParams.length > 0) {
+        const reportName = AVAILABLE_REPORTS.find(r => r.key === extractedParams.reportType)?.name;
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            const content = `Great! I'll generate a ${reportName} for you. Please provide:
 
 ${missingParams.includes('clientId') ? '• Client name or ID' : ''}
 ${missingParams.includes('startDate') ? '• Start date (YYYY-MM-DD format)' : ''}
 ${missingParams.includes('endDate') ? '• End date (YYYY-MM-DD format)' : ''}
 
-Please provide the client name and the date range for the report you'd like to generate.
-
-Example: "Generate a Profit & Loss report for ACME Corp from 2024-01-01 to 2024-03-31"`;
+Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
 
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
               type: 'missing_data', 
@@ -308,8 +359,22 @@ Example: "Generate a Profit & Loss report for ACME Corp from 2024-01-01 to 2024-
         });
       }
       
-      // If we have all parameters, convert to transaction request format
-      if (extractedParams.clientId && extractedParams.startDate && extractedParams.endDate) {
+      // Step 3: If we have all parameters, send confirmation and convert to transaction request
+      if (extractedParams.reportType && extractedParams.clientId && extractedParams.startDate && extractedParams.endDate) {
+        const reportName = AVAILABLE_REPORTS.find(r => r.key === extractedParams.reportType)?.name;
+        
+        // Send confirmation message first
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            const content = `Great—generating a ${reportName} for ${extractedParams.clientId} from ${extractedParams.startDate} to ${extractedParams.endDate}. This may take a moment...`;
+            
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+            controller.close();
+          }
+        });
+
+        // Then proceed with transaction request
         isTransactionRequest = true;
         transactionParams = extractedParams;
       }
