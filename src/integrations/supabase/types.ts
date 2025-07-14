@@ -73,6 +73,7 @@ export type Database = {
       }
       ai_messages: {
         Row: {
+          api_logs: Json | null
           content: string
           conversation_id: string
           created_at: string | null
@@ -80,6 +81,7 @@ export type Database = {
           role: string
         }
         Insert: {
+          api_logs?: Json | null
           content: string
           conversation_id: string
           created_at?: string | null
@@ -87,6 +89,7 @@ export type Database = {
           role: string
         }
         Update: {
+          api_logs?: Json | null
           content?: string
           conversation_id?: string
           created_at?: string | null
