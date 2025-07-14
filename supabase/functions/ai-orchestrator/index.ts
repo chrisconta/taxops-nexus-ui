@@ -265,24 +265,30 @@ Please reply with the report name you'd like to generate.`;
     // Get user settings for report rules
     const { data: settings } = await supabaseClient
       .from('user_settings')
-      .select('reports_config')
+      .select('reports_configuration')
       .eq('user_id', user.id)
       .single();
 
     // Extract rules for all report types or just general rules
-    const config = settings?.reports_config as { rules?: Record<string, string>, markdown?: string } | null;
+    const config = settings?.reports_configuration as { rules?: Record<string, string>, markdown?: string } | null;
     const reportRules = config?.rules || {};
     const generalRules = config?.markdown || '';
     
-    // Determine which specific rules to use based on the message content
+    // Determine which specific rules to use based on the message content or transaction request
     let specificRules = '';
     const reportTypes = ['form-1065', 'form-1120', 'form-1040', 'profit-loss', 'balance-sheet', 'cash-flow'];
     
-    for (const reportType of reportTypes) {
-      if (message.toLowerCase().includes(reportType.replace('-', ' ')) || 
-          message.toLowerCase().includes(reportType)) {
-        specificRules = reportRules[reportType] || '';
-        break;
+    // For transaction requests, detect the report type from the request parameters
+    if (isTransactionRequest && transactionParams?.reportType) {
+      specificRules = reportRules[transactionParams.reportType] || '';
+    } else {
+      // For regular messages, detect from content
+      for (const reportType of reportTypes) {
+        if (message.toLowerCase().includes(reportType.replace('-', ' ')) || 
+            message.toLowerCase().includes(reportType)) {
+          specificRules = reportRules[reportType] || '';
+          break;
+        }
       }
     }
     
