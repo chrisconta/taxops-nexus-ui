@@ -7,6 +7,8 @@ interface ChatMessage {
   role: 'user' | 'assistant'; 
   content: string;
   typing?: boolean;
+  requiresData?: boolean;
+  dataCollected?: boolean;
 }
 
 interface ChatState {
@@ -19,6 +21,7 @@ interface ChatState {
   addMessage: (message: ChatMessage) => void;
   updateLastMessage: (content: string) => void;
   removeTyping: () => void;
+  markDataCollected: (messageId: string) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -47,6 +50,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   removeTyping: () => {
     set(state => ({
       messages: state.messages.filter(m => !m.typing)
+    }));
+  },
+  
+  markDataCollected: (messageId: string) => {
+    set(state => ({
+      messages: state.messages.map(m => 
+        m.id === messageId ? { ...m, dataCollected: true } : m
+      )
     }));
   },
   
@@ -110,7 +121,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
             try {
               const parsed = JSON.parse(data);
-              if (parsed.content) {
+              if (parsed.type === 'missing_data') {
+                // Handle missing data request
+                if (!hasStarted) {
+                  get().removeTyping();
+                  get().addMessage({
+                    id: crypto.randomUUID(),
+                    role: 'assistant',
+                    content: parsed.message,
+                    requiresData: true
+                  });
+                  hasStarted = true;
+                }
+              } else if (parsed.content) {
                 if (!hasStarted) {
                   // Remove typing indicator and add real assistant message
                   get().removeTyping();

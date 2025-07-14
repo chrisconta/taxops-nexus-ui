@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useChatStore } from "@/store/useChatStore";
 import { useSearchParams } from "react-router-dom";
+import { TransactionDataCollector } from "./TransactionDataCollector";
 
 const TypingDots = () => (
   <div className="flex space-x-1">
@@ -52,6 +53,9 @@ export const ChatWindow = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { messages, isLoading, send, load } = useChatStore();
   const { toast } = useToast();
+  
+  // Track which messages have data collectors
+  const [dataCollectors, setDataCollectors] = useState<Set<string>>(new Set());
 
   // Load conversation from URL parameter and handle generate requests
   useEffect(() => {
@@ -122,17 +126,25 @@ export const ChatWindow = () => {
             {messages.map(message => (
               <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-full ${message.role === 'user' ? 'max-w-xs lg:max-w-md' : 'max-w-4xl'}`}>
-                  <div className={`px-4 py-2 rounded-2xl ${
-                    message.role === 'user' 
-                      ? 'bg-primary text-white' 
-                      : 'bg-glass-bg/30 border border-glass-border text-white'
-                  }`}>
-                    {message.typing ? (
-                      <TypingDots />
-                    ) : (
-                      <MessageContent content={message.content} />
-                    )}
-                  </div>
+                   <div className={`px-4 py-2 rounded-2xl ${
+                     message.role === 'user' 
+                       ? 'bg-primary text-white' 
+                       : 'bg-glass-bg/30 border border-glass-border text-white'
+                   }`}>
+                     {message.typing ? (
+                       <TypingDots />
+                     ) : (
+                       <MessageContent content={message.content} />
+                     )}
+                   </div>
+                   {message.requiresData && !message.dataCollected && !dataCollectors.has(message.id) && (
+                     <TransactionDataCollector 
+                       messageId={message.id}
+                       onDataSubmitted={() => {
+                         setDataCollectors(prev => new Set(prev).add(message.id));
+                       }}
+                     />
+                   )}
                 </div>
               </div>
             ))}

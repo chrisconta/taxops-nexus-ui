@@ -36,6 +36,19 @@ serve(async (req) => {
       throw new Error('Invalid message: must be between 1-4000 characters');
     }
 
+    // Check if this is a structured transaction request
+    let isTransactionRequest = false;
+    let transactionParams = null;
+    try {
+      const parsed = JSON.parse(message);
+      if (parsed.clientId && parsed.startDate && parsed.endDate) {
+        isTransactionRequest = true;
+        transactionParams = parsed;
+      }
+    } catch {
+      // Not a JSON message, continue normally
+    }
+
     // Get DeepSeek API key
     const { data: keyData, error: keyError } = await supabaseClient
       .from('ai_credentials')
@@ -123,14 +136,59 @@ serve(async (req) => {
         content: message 
       });
 
-    // Construct messages for DeepSeek
-    const systemMsg = { role: 'system', content: 'You are TaxOps AI assistant.' };
-    const ruleMsg = { role: 'system', content: `Report Rules:\n${combinedRules}` };
-    const history = (recentMessages || []).map(m => ({ 
-      role: m.role, 
-      content: m.content 
-    }));
-    const messages = [systemMsg, ruleMsg, ...history, { role: 'user', content: message }];
+    // Handle transaction request
+    if (isTransactionRequest && transactionParams) {
+      // Fetch transactions
+      const { data: transactions, error: txError } = await supabaseClient
+        .from('transactions')
+        .select('posted_at, amount_cents, counterparty, note, status, connection_code')
+        .eq('client_id', transactionParams.clientId)
+        .gte('posted_at', transactionParams.startDate)
+        .lte('posted_at', transactionParams.endDate + 'T23:59:59')
+        .order('posted_at', { ascending: true });
+
+      if (txError) {
+        throw new Error(`Failed to fetch transactions: ${txError.message}`);
+      }
+
+      // Format transactions for AI
+      const formattedTransactions = (transactions || []).map(tx => ({
+        date: tx.posted_at?.split('T')[0],
+        amount: tx.amount_cents / 100,
+        counterparty: tx.counterparty,
+        note: tx.note,
+        status: tx.status,
+        connection: tx.connection_code
+      }));
+
+      // Construct enhanced DeepSeek messages with transaction data
+      const systemMsg = { role: 'system', content: 'You are TaxOps AI assistant specialized in financial reporting.' };
+      const ruleMsg = { role: 'system', content: `Report Rules:\n${combinedRules}` };
+      const dataMsg = { role: 'system', content: `Transaction Data (${formattedTransactions.length} transactions):\n${JSON.stringify(formattedTransactions, null, 2)}` };
+      const history = (recentMessages || []).slice(0, -2).map(m => ({ // Exclude the last 2 messages (user's missing data request and our response)
+        role: m.role, 
+        content: m.content 
+      }));
+      const messages = [systemMsg, ruleMsg, dataMsg, ...history, { role: 'user', content: 'Please generate a comprehensive financial report in CSV format using the provided transaction data and report rules. Return the result as a downloadable CSV file.' }];
+
+      // Store the transaction data message
+      await supabaseClient
+        .from('ai_messages')
+        .insert({ 
+          conversation_id: convId, 
+          role: 'assistant', 
+          content: `Found ${formattedTransactions.length} transactions for the specified period. Generating report...` 
+        });
+    } else {
+      // Construct regular messages for DeepSeek
+      const systemMsg = { role: 'system', content: 'You are TaxOps AI assistant.' };
+      const ruleMsg = { role: 'system', content: `Report Rules:\n${combinedRules}` };
+      const history = (recentMessages || []).map(m => ({ 
+        role: m.role, 
+        content: m.content 
+      }));
+      const messages = [systemMsg, ruleMsg, ...history, { role: 'user', content: message }];
+    }
 
     // Call DeepSeek with streaming
     const dsRes = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -186,6 +244,71 @@ serve(async (req) => {
                   // Skip invalid JSON
                 }
               }
+            }
+          }
+
+          // Check for missing data request
+          const missingDataKeywords = [
+            'provide transaction data',
+            'need transaction',
+            'missing transaction',
+            'which client',
+            'what date range',
+            'specific client and date',
+            'I would need'
+          ];
+          
+          const hasMissingDataRequest = missingDataKeywords.some(keyword => 
+            assistantReply.toLowerCase().includes(keyword.toLowerCase())
+          );
+
+          if (hasMissingDataRequest && !isTransactionRequest) {
+            // Send missing data event
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+              type: 'missing_data', 
+              message: assistantReply 
+            })}\n\n`));
+          }
+
+          // Handle CSV generation for transaction-based reports
+          if (isTransactionRequest && transactionParams) {
+            try {
+              // Generate CSV from transactions
+              const { data: transactions } = await supabaseClient
+                .from('transactions')
+                .select('posted_at, amount_cents, counterparty, note, status, connection_code')
+                .eq('client_id', transactionParams.clientId)
+                .gte('posted_at', transactionParams.startDate)
+                .lte('posted_at', transactionParams.endDate + 'T23:59:59')
+                .order('posted_at', { ascending: true });
+
+              if (transactions && transactions.length > 0) {
+                // Format for CSV
+                const csvData = convertTransactionsToCsv(transactions);
+                
+                // Upload to storage
+                const filename = `report_${transactionParams.clientId}_${transactionParams.startDate}_to_${transactionParams.endDate}.csv`;
+                const filePath = `${user.id}/${convId}/${filename}`;
+                const { error: uploadError } = await supabaseClient.storage
+                  .from('reports')
+                  .upload(filePath, new Blob([csvData], { type: 'text/csv' }), {
+                    upsert: true
+                  });
+
+                if (!uploadError) {
+                  // Get public URL
+                  const { data: urlData } = supabaseClient.storage
+                    .from('reports')
+                    .getPublicUrl(filePath);
+
+                  const downloadLink = `\n\n[Download ${filename}](${urlData.publicUrl})`;
+                  assistantReply += downloadLink;
+                  
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: downloadLink })}\n\n`));
+                }
+              }
+            } catch (error) {
+              console.error('CSV generation error:', error);
             }
           }
 
@@ -292,4 +415,29 @@ function convertToCSV(data: any[]): string {
   );
   
   return [headers.join(','), ...rows].join('\n');
+}
+
+function convertTransactionsToCsv(transactions: any[]): string {
+  if (!transactions || transactions.length === 0) return '';
+  
+  const headers = ['Date', 'Amount', 'Counterparty', 'Note', 'Status', 'Connection'];
+  const rows = transactions.map(tx => [
+    tx.posted_at?.split('T')[0] || '',
+    (tx.amount_cents / 100).toFixed(2),
+    tx.counterparty || '',
+    tx.note || '',
+    tx.status || '',
+    tx.connection_code || ''
+  ]);
+  
+  const csvRows = rows.map(row => 
+    row.map(cell => {
+      if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"') || cell.includes('\n'))) {
+        return `"${cell.replace(/"/g, '""')}"`;
+      }
+      return String(cell);
+    }).join(',')
+  );
+  
+  return [headers.join(','), ...csvRows].join('\n');
 }
