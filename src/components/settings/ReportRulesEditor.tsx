@@ -11,36 +11,42 @@ const reportTypes = [
   {
     id: "form-1065",
     title: "Form 1065",
+    shortTitle: "1065",
     description: "U.S. Return of Partnership Income",
     icon: Building2,
   },
   {
     id: "form-1120", 
     title: "Form 1120",
+    shortTitle: "1120",
     description: "U.S. Corporation Income Tax Return",
     icon: Building2,
   },
   {
     id: "form-1040",
-    title: "Form 1040", 
+    title: "Form 1040",
+    shortTitle: "1040", 
     description: "U.S. Individual Income Tax Return",
     icon: User,
   },
   {
     id: "profit-loss",
     title: "Profit and Loss Statement",
+    shortTitle: "P&L",
     description: "Summarized view of income and expenses",
     icon: BarChart3,
   },
   {
     id: "balance-sheet",
-    title: "Balance Sheet Statement", 
+    title: "Balance Sheet Statement",
+    shortTitle: "Balance Sheet", 
     description: "Snapshot of company's assets, liabilities, and equity",
     icon: FileSpreadsheet,
   },
   {
     id: "cash-flow",
     title: "Cash Flow Statement",
+    shortTitle: "Cash Flow",
     description: "Tracks cash inflows and outflows",
     icon: DollarSign,
   }
@@ -167,17 +173,17 @@ export const ReportRulesEditor = () => {
       </CardHeader>
       <CardContent className="space-y-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid grid-cols-3 lg:grid-cols-6 bg-glass-bg/50 border border-glass-border">
+          <TabsList className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 bg-glass-bg/50 border border-glass-border w-full">
             {reportTypes.map((report) => {
               const Icon = report.icon;
               return (
                 <TabsTrigger 
                   key={report.id} 
                   value={report.id}
-                  className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary flex flex-col items-center gap-1 p-2"
+                  className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary flex flex-col items-center gap-1 p-3 min-h-[60px] text-center"
                 >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-xs">{report.title.split(' ')[1] || report.title}</span>
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-xs leading-tight whitespace-nowrap overflow-hidden">{report.shortTitle}</span>
                 </TabsTrigger>
               );
             })}
