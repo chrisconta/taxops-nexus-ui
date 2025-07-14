@@ -70,19 +70,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      // Start SSE connection
-      const eventSource = new EventSource(
-        `${supabase.supabaseUrl}/functions/v1/ai-orchestrator`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      // Send initial request
-      fetch(`${supabase.supabaseUrl}/functions/v1/ai-orchestrator`, {
+      // Use the function invoke method to call the edge function
+      const response = await fetch('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/ai-orchestrator', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -94,50 +83,54 @@ export const useChatStore = create<ChatState>((set, get) => ({
         })
       });
 
-      let assistantReply = '';
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
       let hasStarted = false;
 
-      eventSource.onmessage = (event) => {
-        if (event.data === '[DONE]') {
-          eventSource.close();
-          set({ isLoading: false });
-          return;
-        }
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-        try {
-          const parsed = JSON.parse(event.data);
-          if (parsed.content) {
-            if (!hasStarted) {
-              // Remove typing indicator and add real assistant message
-              get().removeTyping();
-              get().addMessage({
-                id: crypto.randomUUID(),
-                role: 'assistant',
-                content: parsed.content
-              });
-              hasStarted = true;
-            } else {
-              // Update existing message
-              get().updateLastMessage(parsed.content);
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') {
+              set({ isLoading: false });
+              return;
             }
-            assistantReply += parsed.content;
-          }
-        } catch (e) {
-          console.error('Failed to parse SSE data:', e);
-        }
-      };
 
-      eventSource.onerror = (error) => {
-        console.error('SSE error:', error);
-        eventSource.close();
-        get().removeTyping();
-        get().addMessage({
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: 'Sorry, I encountered an error. Please try again.'
-        });
-        set({ isLoading: false });
-      };
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                if (!hasStarted) {
+                  // Remove typing indicator and add real assistant message
+                  get().removeTyping();
+                  get().addMessage({
+                    id: crypto.randomUUID(),
+                    role: 'assistant',
+                    content: parsed.content
+                  });
+                  hasStarted = true;
+                } else {
+                  // Update existing message
+                  get().updateLastMessage(parsed.content);
+                }
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE data:', e);
+            }
+          }
+        }
+      }
 
     } catch (error) {
       console.error('Chat error:', error);

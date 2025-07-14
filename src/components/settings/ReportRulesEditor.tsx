@@ -33,7 +33,9 @@ export const ReportRulesEditor = () => {
         throw error;
       }
 
-      const markdown = data?.reports_config?.markdown || '';
+      // Safely access the markdown property with proper type checking
+      const config = data?.reports_config as { markdown?: string } | null;
+      const markdown = config?.markdown || '';
       setRules(markdown);
     } catch (error) {
       console.error('Failed to load rules:', error);
