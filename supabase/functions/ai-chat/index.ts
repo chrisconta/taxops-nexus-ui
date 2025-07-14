@@ -150,7 +150,8 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       conversation_id: convId, 
-      assistant 
+      assistant,
+      user: message
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

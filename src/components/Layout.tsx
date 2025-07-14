@@ -72,6 +72,8 @@ const Layout = () => {
         return "Connections";
       case "/reports":
         return "AI Reports";
+      case "/assistant":
+        return "AI Assistant";
       default:
         return "Dashboard";
     }
@@ -85,6 +87,8 @@ const Layout = () => {
         return "Connect and manage financial service integrations";
       case "/reports":
         return "Generate tax and financial reports from your data sources using generative AI";
+      case "/assistant":
+        return "Chat with the AI assistant for tax and accounting questions";
       default:
         return "Welcome to TaxOps";
     }
@@ -98,6 +102,10 @@ const Layout = () => {
     to: "/connections",
     label: "Connections",
     icon: Link2
+  }, {
+    to: "/assistant",
+    label: "AI Assistant",
+    icon: Bot
   }, {
     to: "/reports",
     label: "AI Reports",
