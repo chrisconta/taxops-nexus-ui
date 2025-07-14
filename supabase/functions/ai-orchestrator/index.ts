@@ -551,7 +551,8 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
                 const csvData = convertTransactionsToCsv(transactions);
                 
                 // Upload to storage
-                const filename = `report_${transactionParams.clientId}_${transactionParams.startDate}_to_${transactionParams.endDate}.csv`;
+                const reportName = AVAILABLE_REPORTS.find(r => r.key === transactionParams.reportType)?.name || 'Financial Report';
+                const filename = `${reportName.replace(/\s+/g, '_')}_${transactionParams.clientId}_${transactionParams.startDate}_to_${transactionParams.endDate}.csv`;
                 const filePath = `${user.id}/${convId}/${filename}`;
                 const { error: uploadError } = await supabaseClient.storage
                   .from('reports')
@@ -565,14 +566,26 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
                     .from('reports')
                     .getPublicUrl(filePath);
 
-                  const downloadLink = `\n\n[Download ${filename}](${urlData.publicUrl})`;
-                  assistantReply += downloadLink;
+                  // Send download link and closing message
+                  const downloadMessage = `\n\n[Download ${filename}](${urlData.publicUrl})\n\nLet me know if you need anything else or another report.`;
+                  assistantReply += downloadMessage;
                   
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: downloadLink })}\n\n`));
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: downloadMessage })}\n\n`));
+                } else {
+                  const errorMsg = `\n\nError uploading report: ${uploadError.message}`;
+                  assistantReply += errorMsg;
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: errorMsg })}\n\n`));
                 }
+              } else {
+                const noDataMsg = `\n\nNo transactions found for the specified period. Please verify the client name and date range.`;
+                assistantReply += noDataMsg;
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: noDataMsg })}\n\n`));
               }
             } catch (error) {
               console.error('CSV generation error:', error);
+              const errorMsg = `\n\nError generating report: ${error.message}`;
+              assistantReply += errorMsg;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: errorMsg })}\n\n`));
             }
           }
 
