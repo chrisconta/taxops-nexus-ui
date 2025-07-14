@@ -7,24 +7,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Report keywords for intent detection
+// Only wire up the types that have rules in user_settings.reports_config
 const REPORT_KEYWORDS = {
-  'profit-loss': ['profit and loss', 'p&l', 'income statement', 'profit loss'],
-  'balance-sheet': ['balance sheet', 'balance sheet report'],
-  'cash-flow': ['cash flow', 'cash flow statement'],
-  'trial-balance': ['trial balance'],
-  'accounts-receivable': ['accounts receivable', 'ar aging', 'receivable aging'],
-  'general-ledger': ['general ledger', 'gl']
+  'cash-flow':      ['cash flow', 'cash flow statement', 'cash-flow'],
+  'form-1040':      ['form 1040', '1040', 'individual income tax'],
+  'form-1065':      ['form 1065', '1065', 'partnership return'],
+  'form-1120':      ['form 1120', '1120', 'corporation income tax']
 };
 
 // Available report types with display names
 const AVAILABLE_REPORTS = [
-  { key: 'profit-loss', name: 'Profit & Loss Statement' },
-  { key: 'balance-sheet', name: 'Balance Sheet' },
-  { key: 'cash-flow', name: 'Cash Flow Statement' },
-  { key: 'trial-balance', name: 'Trial Balance' },
-  { key: 'accounts-receivable', name: 'Accounts Receivable Aging' },
-  { key: 'general-ledger', name: 'General Ledger' }
+  { key: 'cash-flow',  name: 'Cash Flow Statement'            },
+  { key: 'form-1040',  name: 'IRS Form 1040 (Individual Tax)' },
+  { key: 'form-1065',  name: 'IRS Form 1065 (Partnership)'    },
+  { key: 'form-1120',  name: 'IRS Form 1120 (C Corp Tax)'     }
 ];
 
 // Check if message is a report intent
