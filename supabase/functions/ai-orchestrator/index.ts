@@ -7,9 +7,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Only wire up the types that have rules in user_settings.reports_config
+// Report keywords for intent detection
 const REPORT_KEYWORDS = {
+  // Financial statements
+  'profit-loss':    ['profit and loss', 'p&l', 'income statement', 'profit loss'],
+  'balance-sheet':  ['balance sheet', 'balance sheet statement'],
   'cash-flow':      ['cash flow', 'cash flow statement', 'cash-flow'],
+
+  // Tax returns
   'form-1040':      ['form 1040', '1040', 'individual income tax'],
   'form-1065':      ['form 1065', '1065', 'partnership return'],
   'form-1120':      ['form 1120', '1120', 'corporation income tax']
@@ -17,10 +22,15 @@ const REPORT_KEYWORDS = {
 
 // Available report types with display names
 const AVAILABLE_REPORTS = [
-  { key: 'cash-flow',  name: 'Cash Flow Statement'            },
-  { key: 'form-1040',  name: 'IRS Form 1040 (Individual Tax)' },
-  { key: 'form-1065',  name: 'IRS Form 1065 (Partnership)'    },
-  { key: 'form-1120',  name: 'IRS Form 1120 (C Corp Tax)'     }
+  // Financial statements
+  { key: 'profit-loss',    name: 'Profit & Loss Statement'    },
+  { key: 'balance-sheet',  name: 'Balance Sheet Statement'    },
+  { key: 'cash-flow',      name: 'Cash Flow Statement'        },
+
+  // Tax returns
+  { key: 'form-1040',      name: 'IRS Form 1040 (Individual)' },
+  { key: 'form-1065',      name: 'IRS Form 1065 (Partnership)'},
+  { key: 'form-1120',      name: 'IRS Form 1120 (C Corp)'     }
 ];
 
 // Check if message is a report intent
