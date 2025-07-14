@@ -53,13 +53,26 @@ export const ChatWindow = () => {
   const { messages, isLoading, send, load } = useChatStore();
   const { toast } = useToast();
 
-  // Load conversation from URL parameter
+  // Load conversation from URL parameter and handle generate requests
   useEffect(() => {
     const convId = searchParams.get('conv');
+    const generate = searchParams.get('generate');
+    
     if (convId) {
       load(convId);
     }
-  }, [searchParams, load]);
+    
+    // Auto-generate report request if specified
+    if (generate) {
+      const reportPrompt = `Please generate a ${generate} report based on the available data and rules.`;
+      send(reportPrompt);
+      
+      // Clear the generate parameter from URL
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('generate');
+      window.history.replaceState({}, '', `${window.location.pathname}?${newSearchParams.toString()}`);
+    }
+  }, [searchParams, load, send]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -91,9 +104,9 @@ export const ChatWindow = () => {
   };
 
   return (
-    <>
+    <div className="flex flex-col h-full max-h-[600px]">
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -129,7 +142,7 @@ export const ChatWindow = () => {
       </div>
 
       {/* Chat Input */}
-      <div className="p-6 border-t border-glass-border bg-glass-bg/30">
+      <div className="flex-shrink-0 p-6 border-t border-glass-border bg-glass-bg/30">
         <div className="flex space-x-3">
           <Input 
             value={input} 
@@ -176,6 +189,6 @@ export const ChatWindow = () => {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };

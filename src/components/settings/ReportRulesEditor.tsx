@@ -1,17 +1,57 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Save, Eye } from "lucide-react";
+import { Loader2, Save, Eye, Building2, User, BarChart3, FileSpreadsheet, DollarSign } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const reportTypes = [
+  {
+    id: "form-1065",
+    title: "Form 1065",
+    description: "U.S. Return of Partnership Income",
+    icon: Building2,
+  },
+  {
+    id: "form-1120", 
+    title: "Form 1120",
+    description: "U.S. Corporation Income Tax Return",
+    icon: Building2,
+  },
+  {
+    id: "form-1040",
+    title: "Form 1040", 
+    description: "U.S. Individual Income Tax Return",
+    icon: User,
+  },
+  {
+    id: "profit-loss",
+    title: "Profit and Loss Statement",
+    description: "Summarized view of income and expenses",
+    icon: BarChart3,
+  },
+  {
+    id: "balance-sheet",
+    title: "Balance Sheet Statement", 
+    description: "Snapshot of company's assets, liabilities, and equity",
+    icon: FileSpreadsheet,
+  },
+  {
+    id: "cash-flow",
+    title: "Cash Flow Statement",
+    description: "Tracks cash inflows and outflows",
+    icon: DollarSign,
+  }
+];
 
 export const ReportRulesEditor = () => {
-  const [rules, setRules] = useState("");
+  const [rulesData, setRulesData] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState("form-1065");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -33,10 +73,10 @@ export const ReportRulesEditor = () => {
         throw error;
       }
 
-      // Safely access the markdown property with proper type checking
-      const config = data?.reports_config as { markdown?: string } | null;
-      const markdown = config?.markdown || '';
-      setRules(markdown);
+      // Safely access the rules property with proper type checking
+      const config = data?.reports_config as { rules?: Record<string, string> } | null;
+      const rules = config?.rules || {};
+      setRulesData(rules);
     } catch (error) {
       console.error('Failed to load rules:', error);
       toast({
@@ -50,13 +90,16 @@ export const ReportRulesEditor = () => {
   };
 
   const saveRules = async () => {
-    if (rules.length > 10000) {
-      toast({
-        title: "Error",
-        description: "Report rules cannot exceed 10,000 characters",
-        variant: "destructive",
-      });
-      return;
+    // Check if any rule exceeds character limit
+    for (const [reportId, rules] of Object.entries(rulesData)) {
+      if (rules && rules.length > 5000) {
+        toast({
+          title: "Error",
+          description: `Rules for ${reportTypes.find(r => r.id === reportId)?.title} cannot exceed 5,000 characters`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setSaving(true);
@@ -68,7 +111,7 @@ export const ReportRulesEditor = () => {
         .from('user_settings')
         .upsert({
           user_id: user.id,
-          reports_config: { markdown: rules }
+          reports_config: { rules: rulesData }
         }, {
           onConflict: 'user_id'
         });
@@ -91,6 +134,20 @@ export const ReportRulesEditor = () => {
     }
   };
 
+  const updateRules = (reportId: string, value: string) => {
+    setRulesData(prev => ({
+      ...prev,
+      [reportId]: value
+    }));
+  };
+
+  const togglePreview = (reportId: string) => {
+    setShowPreview(prev => ({
+      ...prev,
+      [reportId]: !prev[reportId]
+    }));
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -104,53 +161,76 @@ export const ReportRulesEditor = () => {
       <CardHeader>
         <CardTitle className="text-white">Report Rules</CardTitle>
         <CardDescription className="text-taxops-gray-light">
-          Define markdown instructions for the AI assistant when generating reports.
-          These rules will be included in every AI conversation.
+          Define specific markdown instructions for each report type. These rules will be included 
+          when the AI assistant generates the corresponding reports.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <label className="text-sm font-medium text-white">Instructions</label>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowPreview(!showPreview)}
-                className="border-glass-border text-white hover:bg-glass-bg/50"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                {showPreview ? 'Edit' : 'Preview'}
-              </Button>
-            </div>
-          </div>
-          
-          {showPreview ? (
-            <div className="min-h-[300px] p-4 bg-glass-bg/20 border border-glass-border rounded-md">
-              <div className="prose prose-invert max-w-none">
-                {rules ? (
-                  <pre className="whitespace-pre-wrap text-sm text-white">{rules}</pre>
-                ) : (
-                  <p className="text-taxops-gray-light italic">No rules defined yet</p>
-                )}
-              </div>
-            </div>
-          ) : (
-            <Textarea
-              value={rules}
-              onChange={(e) => setRules(e.target.value)}
-              placeholder="Enter your report generation rules in markdown format..."
-              className="min-h-[300px] bg-glass-bg/20 border-glass-border text-white placeholder:text-taxops-gray-light resize-none"
-              maxLength={10000}
-            />
-          )}
-          
-          <div className="flex justify-between text-xs text-taxops-gray-light">
-            <span>{rules.length}/10,000 characters</span>
-          </div>
-        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid grid-cols-3 lg:grid-cols-6 bg-glass-bg/50 border border-glass-border">
+            {reportTypes.map((report) => {
+              const Icon = report.icon;
+              return (
+                <TabsTrigger 
+                  key={report.id} 
+                  value={report.id}
+                  className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary flex flex-col items-center gap-1 p-2"
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-xs">{report.title.split(' ')[1] || report.title}</span>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
 
-        <div className="flex justify-end">
+          {reportTypes.map((report) => (
+            <TabsContent key={report.id} value={report.id} className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-medium text-white">{report.title}</h3>
+                    <p className="text-sm text-taxops-gray-light">{report.description}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => togglePreview(report.id)}
+                    className="border-glass-border text-white hover:bg-glass-bg/50"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    {showPreview[report.id] ? 'Edit' : 'Preview'}
+                  </Button>
+                </div>
+                
+                {showPreview[report.id] ? (
+                  <div className="min-h-[200px] p-4 bg-glass-bg/20 border border-glass-border rounded-md">
+                    <div className="prose prose-invert max-w-none">
+                      {rulesData[report.id] ? (
+                        <pre className="whitespace-pre-wrap text-sm text-white">{rulesData[report.id]}</pre>
+                      ) : (
+                        <p className="text-taxops-gray-light italic">No rules defined for this report type</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <Textarea
+                    value={rulesData[report.id] || ''}
+                    onChange={(e) => updateRules(report.id, e.target.value)}
+                    placeholder={`Enter specific rules for ${report.title} generation...`}
+                    className="min-h-[200px] bg-glass-bg/20 border-glass-border text-white placeholder:text-taxops-gray-light resize-none"
+                    maxLength={5000}
+                  />
+                )}
+                
+                <div className="flex justify-between text-xs text-taxops-gray-light">
+                  <span>{(rulesData[report.id] || '').length}/5,000 characters</span>
+                </div>
+              </div>
+            </TabsContent>
+          ))}
+        </Tabs>
+
+        <div className="flex justify-end pt-4 border-t border-glass-border">
           <Button 
             onClick={saveRules}
             disabled={saving}
@@ -161,7 +241,7 @@ export const ReportRulesEditor = () => {
             ) : (
               <Save className="w-4 h-4 mr-2" />
             )}
-            Save Rules
+            Save All Rules
           </Button>
         </div>
       </CardContent>

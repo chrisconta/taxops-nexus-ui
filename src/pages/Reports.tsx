@@ -116,7 +116,10 @@ const Reports = () => {
 
   const handleGenerateReport = (report: any) => {
     setSelectedReport(report);
-    setActiveTab('assistant');
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('tab', 'assistant');
+    newSearchParams.set('generate', report.id);
+    setSearchParams(newSearchParams);
   };
 
   const handleOpenConversation = (convId: string) => {

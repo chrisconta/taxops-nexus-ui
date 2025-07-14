@@ -86,7 +86,25 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .single();
 
-    const rules = settings?.reports_config?.markdown ?? '';
+    // Extract rules for all report types or just general rules
+    const config = settings?.reports_config as { rules?: Record<string, string>, markdown?: string } | null;
+    const reportRules = config?.rules || {};
+    const generalRules = config?.markdown || '';
+    
+    // Determine which specific rules to use based on the message content
+    let specificRules = '';
+    const reportTypes = ['form-1065', 'form-1120', 'form-1040', 'profit-loss', 'balance-sheet', 'cash-flow'];
+    
+    for (const reportType of reportTypes) {
+      if (message.toLowerCase().includes(reportType.replace('-', ' ')) || 
+          message.toLowerCase().includes(reportType)) {
+        specificRules = reportRules[reportType] || '';
+        break;
+      }
+    }
+    
+    // Combine general rules with specific rules if available
+    const combinedRules = [generalRules, specificRules].filter(Boolean).join('\n\n');
 
     // Get recent conversation history
     const { data: recentMessages } = await supabaseClient
@@ -107,7 +125,7 @@ serve(async (req) => {
 
     // Construct messages for DeepSeek
     const systemMsg = { role: 'system', content: 'You are TaxOps AI assistant.' };
-    const ruleMsg = { role: 'system', content: `Report Rules:\n${rules}` };
+    const ruleMsg = { role: 'system', content: `Report Rules:\n${combinedRules}` };
     const history = (recentMessages || []).map(m => ({ 
       role: m.role, 
       content: m.content 
