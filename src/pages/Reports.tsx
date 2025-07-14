@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Search, Filter, Calendar, FileText, Download, MoreHorizontal, MessageSquare, Brain, Users, Calculator, DollarSign, BarChart3, Loader2, CheckCircle, Send, Mic, History, FileSpreadsheet, Building2, User, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,9 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useSearchParams } from "react-router-dom";
+import { ChatWindow } from "@/components/chat/ChatWindow";
 
 const Reports = () => {
-  const [activeTab, setActiveTab] = useState("reports");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'reports';
   const [searchTerm, setSearchTerm] = useState("");
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
   const [generatedReports, setGeneratedReports] = useState<string[]>([]);
@@ -22,6 +26,16 @@ const Reports = () => {
   const [conversations, setConversations] = useState<any[]>([]);
   
   const { toast } = useToast();
+
+  const setActiveTab = (tab: string) => {
+    const newSearchParams = new URLSearchParams(searchParams);
+    if (tab === 'reports') {
+      newSearchParams.delete('tab');
+    } else {
+      newSearchParams.set('tab', tab);
+    }
+    setSearchParams(newSearchParams);
+  };
 
   const reportCards = [{
     id: "form-1065",
@@ -99,7 +113,7 @@ const Reports = () => {
 
   const handleGenerateReport = (report: any) => {
     setSelectedReport(report);
-    window.location.href = '/assistant';
+    setActiveTab('assistant');
   };
 
   const filteredReports = reportCards.filter(report => 
@@ -188,18 +202,22 @@ const Reports = () => {
 
         {/* Assistant Tab */}
         <TabsContent value="assistant" className="flex-1 flex flex-col mt-6">
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <Brain className="w-16 h-16 text-taxops-gray-light mx-auto mb-4" />
-              <p className="text-taxops-gray-light mb-4">The assistant has been moved to its own page</p>
-              <Button 
-                onClick={() => window.location.href = '/assistant'}
-                className="bg-primary hover:bg-primary/80"
-              >
-                Go to Assistant
-              </Button>
+          <Card className="flex-1 bg-glass-bg/50 backdrop-blur-xl border-glass-border shadow-glass overflow-hidden flex flex-col">
+            {/* Chat Header */}
+            <div className="p-6 border-b border-glass-border bg-gradient-to-r from-primary/10 to-primary/5">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center animate-glow-pulse">
+                  <Brain className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">AI Tax Assistant</h2>
+                  <p className="text-sm text-taxops-gray-light">Ready to help you with your questions</p>
+                </div>
+              </div>
             </div>
-          </div>
+
+            <ChatWindow />
+          </Card>
         </TabsContent>
 
         {/* History Tab */}
@@ -213,7 +231,9 @@ const Reports = () => {
                   <Card 
                     key={conv.id} 
                     className="bg-glass-bg/20 border-glass-border hover:border-primary/30 transition-all cursor-pointer"
-                    onClick={() => window.location.href = `/assistant?conv=${conv.id}`}
+                    onClick={() => {
+                      setSearchParams({ tab: 'assistant', conv: conv.id });
+                    }}
                   >
                     <div className="p-4">
                       <div className="flex items-center justify-between">
@@ -239,7 +259,7 @@ const Reports = () => {
                     <p className="text-taxops-gray-light text-sm">No conversations yet</p>
                     <Button 
                       className="mt-4 bg-primary hover:bg-primary/80"
-                      onClick={() => window.location.href = '/assistant'}
+                      onClick={() => setActiveTab('assistant')}
                     >
                       Start First Chat
                     </Button>

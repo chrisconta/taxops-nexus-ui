@@ -5,6 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
+
 const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -72,8 +73,6 @@ const Layout = () => {
         return "Connections";
       case "/reports":
         return "AI Reports";
-      case "/assistant":
-        return "AI Assistant";
       default:
         return "Dashboard";
     }
@@ -87,8 +86,6 @@ const Layout = () => {
         return "Connect and manage financial service integrations";
       case "/reports":
         return "Generate tax and financial reports from your data sources using generative AI";
-      case "/assistant":
-        return "Chat with the AI assistant for tax and accounting questions";
       default:
         return "Welcome to TaxOps";
     }
@@ -103,14 +100,11 @@ const Layout = () => {
     label: "Connections",
     icon: Link2
   }, {
-    to: "/assistant",
-    label: "AI Assistant",
-    icon: Bot
-  }, {
     to: "/reports",
     label: "AI Reports",
     icon: Brain
   }];
+
   return <div className="min-h-screen bg-background flex">
       {/* AI-driven sidebar */}
       <aside className="fixed left-0 top-0 h-screen w-72 bg-glass-bg/95 backdrop-blur-xl border-r border-glass-border shadow-glass flex flex-col z-10">

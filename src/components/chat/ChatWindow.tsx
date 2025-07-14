@@ -4,12 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useChatStore } from "@/store/useChatStore";
+import { useSearchParams } from "react-router-dom";
 
 export const ChatWindow = () => {
   const [input, setInput] = useState("");
+  const [searchParams] = useSearchParams();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { messages, isLoading, send } = useChatStore();
+  const { messages, isLoading, send, load } = useChatStore();
   const { toast } = useToast();
+
+  // Load conversation from URL parameter
+  useEffect(() => {
+    const convId = searchParams.get('conv');
+    if (convId) {
+      load(convId);
+    }
+  }, [searchParams, load]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
