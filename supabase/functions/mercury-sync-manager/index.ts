@@ -268,10 +268,14 @@ async function executeSyncById(supabaseClient: any, syncId: string) {
             connection_code: 'mercury'
           }));
 
-          const { error: txInsertError } = await supabaseClient
+          // Use upsert to handle duplicates based on our unique constraint
+          const { data: insertedRows, error: txInsertError } = await supabaseClient
             .from('transactions')
-            .insert(transactionRows)
-            .select(); // Return inserted rows to get accurate count
+            .upsert(transactionRows, { 
+              onConflict: 'client_id,connection_code,mercury_transaction_id',
+              ignoreDuplicates: true 
+            })
+            .select();
 
           if (txInsertError) {
             throw new Error(`Failed to insert transactions: ${txInsertError.message}`);
@@ -515,23 +519,19 @@ async function fetchAllTransactionsForSync(mercuryToken: string, startDate: stri
 
   // Helper function to fetch all transactions with pagination for a specific account
   async function fetchAllTransactions(accountId: string, token: string, startDate: string, endDate: string) {
-    const base = `https://api.mercury.com/api/v1/account/${accountId}/transactions`;
-    let cursor: string | undefined;
+    const base = `https://api.mercury.com`;
+    let url = `/api/v1/account/${accountId}/transactions?start_date=${startDate}&end_date=${endDate}&page_size=500`;
     const bucket: any[] = [];
     let page = 0;
     
     console.log(`Fetching transactions for account ${accountId} from ${startDate} to ${endDate}`);
     
-    do {
+    while (url) {
       page++;
-      const queryParams = 
-        `start_date=${startDate}&end_date=${endDate}&page_size=500` +
-        (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '');
+      const fullUrl = base + url;
+      console.log(`Fetching page ${page} for account ${accountId}: ${fullUrl}`);
       
-      const url = base + '?' + queryParams;
-      console.log(`Fetching page ${page} for account ${accountId}:`, url);
-      
-      const response = await fetch(url, { 
+      const response = await fetch(fullUrl, { 
         method: 'GET',
         headers: mercuryHeaders(token) 
       });
@@ -541,15 +541,17 @@ async function fetchAllTransactionsForSync(mercuryToken: string, startDate: stri
         throw new Error(`Transaction API error for account ${accountId}: ${response.status} ${response.statusText} - ${errorText}`);
       }
       
-      const { transactions, hasMore, nextCursor } = await response.json();
-      bucket.push(...transactions);
+      const responseData = await response.json();
+      const transactions = responseData.transactions || [];
       
+      bucket.push(...transactions);
       console.log(`Page ${page} fetched: ${transactions.length} transactions (total: ${bucket.length})`);
       
-      // Use Mercury's hasMore/nextCursor pattern
-      cursor = hasMore ? nextCursor : undefined;
-      
-    } while (cursor);
+      // Use Mercury's next_page_token pattern as per official docs
+      url = responseData.next_page_token
+        ? `/api/v1/account/${accountId}/transactions?page_token=${responseData.next_page_token}&start_date=${startDate}&end_date=${endDate}&page_size=500`
+        : null;
+    }
     
     console.log(`Finished fetching account ${accountId}: ${bucket.length} total transactions across ${page} pages`);
     return bucket;
