@@ -173,17 +173,17 @@ export const ReportRulesEditor = () => {
       </CardHeader>
       <CardContent className="space-y-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 bg-glass-bg/50 border border-glass-border w-full">
+          <TabsList className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 bg-glass-bg/50 border border-glass-border w-full h-auto">
             {reportTypes.map((report) => {
               const Icon = report.icon;
               return (
                 <TabsTrigger 
                   key={report.id} 
                   value={report.id}
-                  className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary flex flex-col items-center gap-1 p-3 min-h-[60px] text-center"
+                  className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary flex flex-col items-center gap-1 p-2 h-12 text-center text-xs"
                 >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span className="text-xs leading-tight whitespace-nowrap overflow-hidden">{report.shortTitle}</span>
+                  <Icon className="w-3 h-3 flex-shrink-0" />
+                  <span className="leading-tight whitespace-nowrap overflow-hidden text-[10px]">{report.shortTitle}</span>
                 </TabsTrigger>
               );
             })}
