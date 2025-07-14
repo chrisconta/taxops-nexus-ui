@@ -537,6 +537,12 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
           // Handle CSV generation for transaction-based reports
           if (isTransactionRequest && transactionParams) {
             try {
+              // Send confirmation message before starting CSV generation
+              const reportName = AVAILABLE_REPORTS.find(r => r.key === transactionParams.reportType)?.name || 'Financial Report';
+              const confirmationMsg = `\n\nGenerating your ${reportName} for ${transactionParams.clientId} from ${transactionParams.startDate} to ${transactionParams.endDate}… This usually takes a few seconds.`;
+              assistantReply += confirmationMsg;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: confirmationMsg })}\n\n`));
+              
               // Generate CSV from transactions
               const { data: transactions } = await supabaseClient
                 .from('transactions')
@@ -566,11 +572,27 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
                     .from('reports')
                     .getPublicUrl(filePath);
 
-                  // Send download link and closing message
-                  const downloadMessage = `\n\n[Download ${filename}](${urlData.publicUrl})\n\nLet me know if you need anything else or another report.`;
-                  assistantReply += downloadMessage;
+                  // Send download button message
+                  const reportName = AVAILABLE_REPORTS.find(r => r.key === transactionParams.reportType)?.name || 'Financial Report';
+                  const confirmationMessage = `✅ Here's your ${reportName} for ${transactionParams.clientId} (${transactionParams.startDate} to ${transactionParams.endDate}):`;
                   
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: downloadMessage })}\n\n`));
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+                    type: 'assistant_message',
+                    content: {
+                      text: confirmationMessage,
+                      downloadButton: {
+                        label: "Download CSV",
+                        url: urlData.publicUrl,
+                        filename: filename
+                      }
+                    }
+                  })}\n\n`));
+                  
+                  // Send closing message
+                  const closingMessage = "\n\nLet me know if you need anything else or another report.";
+                  assistantReply += confirmationMessage + closingMessage;
+                  
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: closingMessage })}\n\n`));
                 } else {
                   const errorMsg = `\n\nError uploading report: ${uploadError.message}`;
                   assistantReply += errorMsg;

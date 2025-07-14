@@ -28,9 +28,39 @@ const FileLink = ({ url, filename }: { url: string; filename: string }) => (
   </Badge>
 );
 
-const MessageContent = ({ content }: { content: string }) => {
+const DownloadButton = ({ label, url, filename }: { label: string; url: string; filename: string }) => (
+  <div className="mt-4 mb-2">
+    <p className="text-sm text-white/70 mb-3">Here is the report to download:</p>
+    <button
+      onClick={() => window.open(url, '_blank')}
+      className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"
+    >
+      <Download className="w-5 h-5" />
+      {label}
+    </button>
+  </div>
+);
+
+const MessageContent = ({ content }: { content: string | { text: string; downloadButton?: { label: string; url: string; filename: string } } }) => {
+  // Handle structured content with download button
+  if (typeof content === 'object' && content.downloadButton) {
+    return (
+      <div className="whitespace-pre-wrap">
+        <span>{content.text}</span>
+        <DownloadButton 
+          label={content.downloadButton.label}
+          url={content.downloadButton.url}
+          filename={content.downloadButton.filename}
+        />
+      </div>
+    );
+  }
+  
+  // Handle string content (backward compatibility)
+  const stringContent = typeof content === 'string' ? content : content.text;
+  
   // Detect file links
-  const parts = content.split(/(\[Download report\]\([^)]+\))/g);
+  const parts = stringContent.split(/(\[Download report\]\([^)]+\))/g);
   
   return (
     <div className="whitespace-pre-wrap">

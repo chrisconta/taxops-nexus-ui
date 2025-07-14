@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface ChatMessage { 
   id: string; 
   role: 'user' | 'assistant';
-  content: string;
+  content: string | { text: string; downloadButton?: { label: string; url: string; filename: string } };
   typing?: boolean;
   requiresData?: boolean;
   dataCollected?: boolean;
@@ -42,7 +42,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const messages = [...state.messages];
       const lastMsg = messages[messages.length - 1];
       if (lastMsg && lastMsg.role === 'assistant') {
-        lastMsg.content += content;
+        // Handle string content updates
+        if (typeof lastMsg.content === 'string') {
+          lastMsg.content += content;
+        } else {
+          // If it's structured content, append to the text part
+          lastMsg.content.text += content;
+        }
       }
       return { messages };
     });
@@ -134,6 +140,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     missingParams: parsed.missingParams || ['clientId', 'startDate', 'endDate']
                   });
                   hasStarted = true;
+                }
+              } else if (parsed.type === 'assistant_message') {
+                // Handle structured message with download button
+                if (!hasStarted) {
+                  get().removeTyping();
+                  get().addMessage({
+                    id: crypto.randomUUID(),
+                    role: 'assistant',
+                    content: parsed.content
+                  });
+                  hasStarted = true;
+                } else {
+                  // For structured messages, replace the current message
+                  const messages = get().messages;
+                  const lastMsg = messages[messages.length - 1];
+                  if (lastMsg && lastMsg.role === 'assistant') {
+                    lastMsg.content = parsed.content;
+                  }
                 }
               } else if (parsed.content) {
                 if (!hasStarted) {
