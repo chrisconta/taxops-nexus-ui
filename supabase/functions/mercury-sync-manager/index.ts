@@ -259,13 +259,15 @@ async function executeSyncById(supabaseClient: any, syncId: string) {
             sync_request_id: syncId,
             client_id: clientId,
             mercury_transaction_id: t.id, // Use Mercury's transaction ID for uniqueness
-            posted_at: t.postedAt,
+            posted_at: t.postedAt ?? null, // Allow null values for pending/system transactions
+            effective_at: t.postedAt ?? t.createdAt ?? new Date().toISOString(), // Fallback timestamp
             amount_cents: Math.round((t.amount || 0) * 100),
             counterparty: t.counterpartyName || 'Unknown',
             note: t.note || '',
             status: t.status || 'posted',
             raw: t,
-            connection_code: 'mercury'
+            connection_code: 'mercury',
+            transaction_type: 'mercury'
           }));
 
           // Use upsert to handle duplicates based on our unique constraint
@@ -548,8 +550,9 @@ async function fetchAllTransactionsForSync(mercuryToken: string, startDate: stri
       console.log(`Page ${page} fetched: ${transactions.length} transactions (total: ${bucket.length})`);
       
       // Use Mercury's next_page_token pattern as per official docs
+      // Only use page_token on subsequent calls, no date filters per Mercury docs
       url = responseData.next_page_token
-        ? `/api/v1/account/${accountId}/transactions?page_token=${responseData.next_page_token}&start_date=${startDate}&end_date=${endDate}&page_size=500`
+        ? `/api/v1/account/${accountId}/transactions?page_token=${responseData.next_page_token}&page_size=500`
         : null;
     }
     
@@ -618,9 +621,9 @@ async function getTransactionData(supabaseClient: any, userId: string, syncId: s
   // Serve transactions from database instead of calling Mercury API
   const { data: transactions, error: txError } = await supabaseClient
     .from('transactions')
-    .select('posted_at, amount_cents, counterparty, note, status')
+    .select('posted_at, effective_at, amount_cents, counterparty, note, status')
     .eq('sync_request_id', syncId)
-    .order('posted_at', { ascending: false })
+    .order('effective_at', { ascending: false })
 
   if (txError) {
     throw new Error(`Failed to fetch transactions from database: ${txError.message}`)

@@ -342,13 +342,15 @@ export type Database = {
           connection_code: string
           counterparty: string | null
           created_at: string | null
+          effective_at: string | null
           id: string
           mercury_transaction_id: string
           note: string | null
-          posted_at: string
+          posted_at: string | null
           raw: Json | null
           status: string | null
           sync_request_id: string
+          transaction_type: string | null
         }
         Insert: {
           amount_cents: number
@@ -356,13 +358,15 @@ export type Database = {
           connection_code?: string
           counterparty?: string | null
           created_at?: string | null
+          effective_at?: string | null
           id?: string
           mercury_transaction_id?: string
           note?: string | null
-          posted_at: string
+          posted_at?: string | null
           raw?: Json | null
           status?: string | null
           sync_request_id: string
+          transaction_type?: string | null
         }
         Update: {
           amount_cents?: number
@@ -370,13 +374,15 @@ export type Database = {
           connection_code?: string
           counterparty?: string | null
           created_at?: string | null
+          effective_at?: string | null
           id?: string
           mercury_transaction_id?: string
           note?: string | null
-          posted_at?: string
+          posted_at?: string | null
           raw?: Json | null
           status?: string | null
           sync_request_id?: string
+          transaction_type?: string | null
         }
         Relationships: [
           {
