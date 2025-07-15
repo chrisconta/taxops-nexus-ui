@@ -837,53 +837,55 @@ function processData(data) {
                       </div>
                     ) : (
                       <ScrollArea className="max-h-96 w-full">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              {Object.keys(dataPreview[0] || {}).map((column) => (
-                                <TableHead key={column} className="text-foreground whitespace-nowrap">
-                                  {column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                </TableHead>
-                              ))}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {dataPreview.map((row, index) => (
-                              <TableRow key={index}>
-                                {Object.entries(row).map(([column, value]) => (
-                                   <TableCell key={column} className="whitespace-nowrap">
-                                     {value === null || value === undefined ? (
-                                       <span className="text-muted-foreground">—</span>
-                                     ) : column.includes('amount') && typeof value === 'number' ? (
-                                       new Intl.NumberFormat('en-US', {
-                                         style: 'currency',
-                                         currency: 'USD'
-                                       }).format(value / 100)
-                                     ) : column.includes('_at') || column.includes('date') ? (
-                                       (() => {
-                                         try {
-                                           return new Date(value as string).toLocaleDateString('en-US', {
-                                             month: 'short',
-                                             day: 'numeric',
-                                             year: 'numeric'
-                                           });
-                                         } catch {
-                                           return String(value);
-                                         }
-                                       })()
-                                     ) : typeof value === 'boolean' ? (
-                                       <Badge variant={value ? "default" : "secondary"}>
-                                         {value ? 'Yes' : 'No'}
-                                       </Badge>
-                                     ) : (
-                                       String(value)
-                                     )}
-                                   </TableCell>
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                {Object.keys(dataPreview[0] || {}).map((column) => (
+                                  <TableHead key={column} className="text-foreground whitespace-nowrap">
+                                    {column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                  </TableHead>
                                 ))}
                               </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                            </TableHeader>
+                            <TableBody>
+                              {dataPreview.map((row, index) => (
+                                <TableRow key={index}>
+                                  {Object.entries(row).map(([column, value]) => (
+                                     <TableCell key={column} className="whitespace-nowrap">
+                                       {value === null || value === undefined ? (
+                                         <span className="text-muted-foreground">—</span>
+                                       ) : column.includes('amount') && typeof value === 'number' ? (
+                                         new Intl.NumberFormat('en-US', {
+                                           style: 'currency',
+                                           currency: 'USD'
+                                         }).format(value / 100)
+                                       ) : column.includes('_at') || column.includes('date') ? (
+                                         (() => {
+                                           try {
+                                             return new Date(value as string).toLocaleDateString('en-US', {
+                                               month: 'short',
+                                               day: 'numeric',
+                                               year: 'numeric'
+                                             });
+                                           } catch {
+                                             return String(value);
+                                           }
+                                         })()
+                                       ) : typeof value === 'boolean' ? (
+                                         <Badge variant={value ? "default" : "secondary"}>
+                                           {value ? 'Yes' : 'No'}
+                                         </Badge>
+                                       ) : (
+                                         String(value)
+                                       )}
+                                     </TableCell>
+                                  ))}
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
                       </ScrollArea>
                     )}
                   </CardContent>
