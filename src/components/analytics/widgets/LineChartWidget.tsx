@@ -10,6 +10,7 @@ interface LineChartWidgetProps {
 }
 
 export const LineChartWidget = ({ widget }: LineChartWidgetProps) => {
+  console.log("LineChartWidget received columns ➞", widget.columns);
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +41,7 @@ export const LineChartWidget = ({ widget }: LineChartWidgetProps) => {
 
       // Process data for line chart
       const processedData = processLineData(result || [], xAxis, yAxis, aggregation);
+      console.log("Sample row keys ➞", Object.keys((result || [])[0] || {}));
       setData(processedData);
     } catch (err: any) {
       console.error('Error loading line chart data:', err);

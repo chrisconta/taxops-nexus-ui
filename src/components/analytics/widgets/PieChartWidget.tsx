@@ -23,6 +23,7 @@ const COLORS = [
 ];
 
 export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
+  console.log("PieChartWidget received columns ➞", widget.columns);
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +58,7 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
 
       // Process data for pie chart
       const processedData = processPieData(result || [], xAxis, yAxis, aggregation);
+      console.log("Sample row keys ➞", Object.keys((result || [])[0] || {}));
       setData(processedData);
     } catch (err: any) {
       console.error('Error loading pie chart data:', err);

@@ -10,6 +10,7 @@ interface BarChartProps {
 }
 
 export const BarChart = ({ widget }: BarChartProps) => {
+  console.log("BarChart received columns ➞", widget.columns);
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +40,7 @@ export const BarChart = ({ widget }: BarChartProps) => {
 
       // Process data for chart
       const processedData = processChartData(result || [], xAxis, yAxis, aggregation);
+      console.log("Sample row keys ➞", Object.keys((result || [])[0] || {}));
       setData(processedData);
     } catch (err: any) {
       console.error('Error loading chart data:', err);
