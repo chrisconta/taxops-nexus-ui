@@ -11,6 +11,7 @@ import { DashboardCanvas } from "@/components/analytics/DashboardCanvas";
 import { ElementPalette } from "@/components/analytics/ElementPalette";
 import { ConfigurationPanel } from "@/components/analytics/ConfigurationPanel";
 import { DashboardList } from "@/components/analytics/DashboardList";
+import { ScriptEditorModal } from "@/components/analytics/ScriptEditorModal";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -34,6 +35,7 @@ export interface Widget {
     yAxis?: string;
     aggregation?: string;
   };
+  script?: string;
   position: { x: number; y: number };
   size: { width: number; height: number };
 }
@@ -53,6 +55,10 @@ const Analytics = () => {
   const [showNewDashboard, setShowNewDashboard] = useState(false);
   const [dashboardName, setDashboardName] = useState("");
   const [showDashboards, setShowDashboards] = useState(false);
+  const [scriptModalState, setScriptModalState] = useState<{
+    visible: boolean;
+    widget: Widget | null;
+  }>({ visible: false, widget: null });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -192,6 +198,34 @@ const Analytics = () => {
     }
   };
 
+  const handleEditScript = (widgetId: string) => {
+    if (!currentDashboard) return;
+    
+    const widget = currentDashboard.config.widgets.find(w => w.id === widgetId);
+    if (widget) {
+      setScriptModalState({ visible: true, widget });
+    }
+  };
+
+  const handleSaveScript = (widgetId: string, script: string) => {
+    if (!currentDashboard) return;
+
+    const updatedWidgets = currentDashboard.config.widgets.map(w => 
+      w.id === widgetId ? { ...w, script } : w
+    );
+
+    setCurrentDashboard({
+      ...currentDashboard,
+      config: { widgets: updatedWidgets }
+    });
+
+    setScriptModalState({ visible: false, widget: null });
+  };
+
+  const handleCloseScriptModal = () => {
+    setScriptModalState({ visible: false, widget: null });
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
@@ -312,6 +346,8 @@ const Analytics = () => {
                   onSelectWidget={setSelectedWidget}
                   onUpdateWidget={updateWidget}
                   onDeleteWidget={deleteWidget}
+                  onEditScript={handleEditScript}
+                  isFrozen={scriptModalState.visible}
                 />
               </div>
             </ResizablePanel>
@@ -375,6 +411,14 @@ const Analytics = () => {
         onClose={() => setShowDashboards(false)}
         onSelectDashboard={loadDashboard}
         onDeleteDashboard={loadDashboards}
+      />
+
+      {/* Script Editor Modal */}
+      <ScriptEditorModal
+        visible={scriptModalState.visible}
+        widget={scriptModalState.widget}
+        onClose={handleCloseScriptModal}
+        onSave={handleSaveScript}
       />
     </div>
   );

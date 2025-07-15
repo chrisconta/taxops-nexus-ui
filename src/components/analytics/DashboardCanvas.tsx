@@ -8,6 +8,8 @@ interface DashboardCanvasProps {
   onSelectWidget: (widget: Widget | null) => void;
   onUpdateWidget: (widget: Widget) => void;
   onDeleteWidget: (widgetId: string) => void;
+  onEditScript: (widgetId: string) => void;
+  isFrozen?: boolean;
 }
 
 export const DashboardCanvas = ({ 
@@ -15,7 +17,9 @@ export const DashboardCanvas = ({
   selectedWidget, 
   onSelectWidget, 
   onUpdateWidget,
-  onDeleteWidget 
+  onDeleteWidget,
+  onEditScript,
+  isFrozen = false
 }: DashboardCanvasProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [draggedWidget, setDraggedWidget] = useState<Widget | null>(null);
@@ -76,7 +80,9 @@ export const DashboardCanvas = ({
   return (
     <div 
       ref={canvasRef}
-      className="h-full w-full relative overflow-hidden bg-gradient-to-br from-background/50 to-background/30"
+      className={`h-full w-full relative overflow-hidden bg-gradient-to-br from-background/50 to-background/30 transition-all duration-200 ${
+        isFrozen ? 'pointer-events-none opacity-60' : ''
+      }`}
       onClick={handleCanvasClick}
     >
       {/* Grid background */}
@@ -112,6 +118,7 @@ export const DashboardCanvas = ({
           <WidgetRenderer 
             widget={widget} 
             onDelete={() => onDeleteWidget(widget.id)}
+            onEditScript={() => onEditScript(widget.id)}
             isSelected={selectedWidget?.id === widget.id}
           />
         </div>

@@ -1,4 +1,4 @@
-import { X, Settings, BarChart3, LineChart, PieChart, Table as TableIcon } from "lucide-react";
+import { X, Settings, BarChart3, LineChart, PieChart, Table as TableIcon, Code } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "./widgets/DataTable";
@@ -10,6 +10,7 @@ import type { Widget } from "@/pages/Analytics";
 interface WidgetRendererProps {
   widget: Widget;
   onDelete: () => void;
+  onEditScript: () => void;
   isSelected: boolean;
 }
 
@@ -20,7 +21,7 @@ const widgetIcons = {
   'pie-chart': PieChart,
 };
 
-export const WidgetRenderer = ({ widget, onDelete, isSelected }: WidgetRendererProps) => {
+export const WidgetRenderer = ({ widget, onDelete, onEditScript, isSelected }: WidgetRendererProps) => {
   const Icon = widgetIcons[widget.type];
 
   const renderWidget = () => {
@@ -54,6 +55,17 @@ export const WidgetRenderer = ({ widget, onDelete, isSelected }: WidgetRendererP
         </CardTitle>
         {isSelected && (
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 text-taxops-gray-light hover:text-white"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditScript();
+              }}
+            >
+              <Code className="w-3 h-3" />
+            </Button>
             <Button
               variant="ghost"
               size="sm"
