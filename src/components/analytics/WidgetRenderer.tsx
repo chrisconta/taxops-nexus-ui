@@ -81,8 +81,8 @@ export const WidgetRenderer = ({ widget, onDelete, onSelect, onEdit, isSelected 
           )}
         </div>
       </CardHeader>
-      <CardContent className="flex-1 p-4 pt-0">
-        <div className="h-full">
+      <CardContent className="flex-1 p-4 pt-0 overflow-hidden">
+        <div className="h-full overflow-auto">
           {renderWidget()}
         </div>
       </CardContent>

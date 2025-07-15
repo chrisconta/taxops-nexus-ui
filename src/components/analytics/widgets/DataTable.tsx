@@ -66,7 +66,7 @@ export const DataTable = ({ widget }: DataTableProps) => {
         });
       }
 
-      const { data: result, error } = await query.limit(100);
+      const { data: result, error } = await query;
 
       if (error) throw error;
 

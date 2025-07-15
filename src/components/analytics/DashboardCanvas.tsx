@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from "react";
+import { GripVertical } from "lucide-react";
 import { WidgetRenderer } from "./WidgetRenderer";
 import type { Widget, Dashboard } from "@/pages/Analytics";
 
@@ -23,7 +24,10 @@ export const DashboardCanvas = ({
 }: DashboardCanvasProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [draggedWidget, setDraggedWidget] = useState<Widget | null>(null);
+  const [resizingWidget, setResizingWidget] = useState<Widget | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 });
+  const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
 
   const handleWidgetMouseDown = (widget: Widget, e: React.MouseEvent) => {
     e.preventDefault();
@@ -38,26 +42,58 @@ export const DashboardCanvas = ({
     // Don't select widget on mouse down, only on drag
   };
 
+  const handleResizeMouseDown = (widget: Widget, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setResizeStartSize({
+      width: widget.size.width,
+      height: widget.size.height
+    });
+    setResizeStartPos({
+      x: e.clientX,
+      y: e.clientY
+    });
+    setResizingWidget(widget);
+  };
+
   const handleMouseMove = (e: MouseEvent) => {
-    if (!draggedWidget || !canvasRef.current) return;
+    if (resizingWidget && canvasRef.current) {
+      const deltaX = e.clientX - resizeStartPos.x;
+      const deltaY = e.clientY - resizeStartPos.y;
+      
+      const newSize = {
+        width: Math.max(200, resizeStartSize.width + deltaX),
+        height: Math.max(150, resizeStartSize.height + deltaY)
+      };
 
-    const canvasRect = canvasRef.current.getBoundingClientRect();
-    const newPosition = {
-      x: Math.max(0, Math.min(canvasRect.width - draggedWidget.size.width, e.clientX - canvasRect.left - dragOffset.x)),
-      y: Math.max(0, Math.min(canvasRect.height - draggedWidget.size.height, e.clientY - canvasRect.top - dragOffset.y))
-    };
+      const updatedWidget = {
+        ...resizingWidget,
+        size: newSize
+      };
 
-    const updatedWidget = {
-      ...draggedWidget,
-      position: newPosition
-    };
+      onUpdateWidget(updatedWidget);
+      setResizingWidget(updatedWidget);
+    } else if (draggedWidget && canvasRef.current) {
+      const canvasRect = canvasRef.current.getBoundingClientRect();
+      const newPosition = {
+        x: Math.max(0, Math.min(canvasRect.width - draggedWidget.size.width, e.clientX - canvasRect.left - dragOffset.x)),
+        y: Math.max(0, Math.min(canvasRect.height - draggedWidget.size.height, e.clientY - canvasRect.top - dragOffset.y))
+      };
 
-    onUpdateWidget(updatedWidget);
-    setDraggedWidget(updatedWidget);
+      const updatedWidget = {
+        ...draggedWidget,
+        position: newPosition
+      };
+
+      onUpdateWidget(updatedWidget);
+      setDraggedWidget(updatedWidget);
+    }
   };
 
   const handleMouseUp = () => {
     setDraggedWidget(null);
+    setResizingWidget(null);
   };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
@@ -67,7 +103,7 @@ export const DashboardCanvas = ({
   };
 
   useEffect(() => {
-    if (draggedWidget) {
+    if (draggedWidget || resizingWidget) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       return () => {
@@ -75,7 +111,7 @@ export const DashboardCanvas = ({
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [draggedWidget, dragOffset]);
+  }, [draggedWidget, resizingWidget, dragOffset, resizeStartSize, resizeStartPos]);
 
   return (
     <div 
@@ -122,6 +158,14 @@ export const DashboardCanvas = ({
             onEdit={() => onEditWidget(widget)}
             isSelected={selectedWidget?.id === widget.id}
           />
+          
+          {/* Resize handle */}
+          <div
+            className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize opacity-50 hover:opacity-100 transition-opacity"
+            onMouseDown={(e) => handleResizeMouseDown(widget, e)}
+          >
+            <GripVertical className="w-3 h-3 text-white transform rotate-45" />
+          </div>
         </div>
       ))}
 
