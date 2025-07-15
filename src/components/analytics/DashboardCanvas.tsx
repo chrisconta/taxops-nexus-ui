@@ -63,12 +63,17 @@ export const DashboardCanvas = ({
 
   const handleMouseMove = (e: MouseEvent) => {
     if (resizingWidget && canvasRef.current) {
+      const canvasRect = canvasRef.current.getBoundingClientRect();
       const deltaX = e.clientX - resizeStartPos.x;
       const deltaY = e.clientY - resizeStartPos.y;
       
+      // Calculate new size with boundaries
+      const maxWidth = canvasRect.width - resizingWidget.position.x;
+      const maxHeight = canvasRect.height - resizingWidget.position.y;
+      
       const newSize = {
-        width: Math.max(200, resizeStartSize.width + deltaX),
-        height: Math.max(150, resizeStartSize.height + deltaY)
+        width: Math.max(200, Math.min(maxWidth, resizeStartSize.width + deltaX)),
+        height: Math.max(150, Math.min(maxHeight, resizeStartSize.height + deltaY))
       };
 
       const updatedWidget = {
@@ -80,6 +85,8 @@ export const DashboardCanvas = ({
       setResizingWidget(updatedWidget);
     } else if (draggedWidget && canvasRef.current) {
       const canvasRect = canvasRef.current.getBoundingClientRect();
+      
+      // Constrain position within canvas boundaries
       const newPosition = {
         x: Math.max(0, Math.min(canvasRect.width - draggedWidget.size.width, e.clientX - canvasRect.left - dragOffset.x)),
         y: Math.max(0, Math.min(canvasRect.height - draggedWidget.size.height, e.clientY - canvasRect.top - dragOffset.y))
