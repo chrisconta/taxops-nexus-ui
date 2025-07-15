@@ -66,19 +66,17 @@ export const WidgetRenderer = ({ widget, onDelete, onSelect, onEdit, isSelected 
           >
             <Settings className="w-3 h-3" />
           </Button>
-          {isSelected && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 text-taxops-gray-light hover:text-white"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-            >
-              <X className="w-3 h-3" />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-taxops-gray-light hover:text-white"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+          >
+            <X className="w-3 h-3" />
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="flex-1 p-4 pt-0 overflow-hidden">
