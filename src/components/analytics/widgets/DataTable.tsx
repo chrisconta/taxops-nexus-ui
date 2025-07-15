@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Database } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Widget } from "@/pages/Analytics";
@@ -242,40 +243,42 @@ export const DataTable = ({ widget }: DataTableProps) => {
   }
 
   return (
-    <div className="h-full overflow-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {getAllColumns().map((column) => (
-              <TableHead key={column} className="text-foreground">
-                {column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.length === 0 ? (
+    <ScrollArea className="h-full w-full">
+      <div className="min-w-full">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell 
-                colSpan={getAllColumns().length} 
-                className="text-center text-muted-foreground py-8"
-              >
-                No data available
-              </TableCell>
+              {getAllColumns().map((column) => (
+                <TableHead key={column} className="text-foreground whitespace-nowrap">
+                  {column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </TableHead>
+              ))}
             </TableRow>
-          ) : (
-            data.map((row, index) => (
-              <TableRow key={index}>
-                {getAllColumns().map((column) => (
-                  <TableCell key={column}>
-                    {formatCellValue(row[column], column)}
-                  </TableCell>
-                ))}
+          </TableHeader>
+          <TableBody>
+            {data.length === 0 ? (
+              <TableRow>
+                <TableCell 
+                  colSpan={getAllColumns().length} 
+                  className="text-center text-muted-foreground py-8"
+                >
+                  No data available
+                </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </div>
+            ) : (
+              data.map((row, index) => (
+                <TableRow key={index}>
+                  {getAllColumns().map((column) => (
+                    <TableCell key={column} className="whitespace-nowrap">
+                      {formatCellValue(row[column], column)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </ScrollArea>
   );
 };
