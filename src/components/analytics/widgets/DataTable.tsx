@@ -143,9 +143,10 @@ export const DataTable = ({ widget }: DataTableProps) => {
   };
 
   const getAllColumns = () => {
-    const baseColumns = widget.columns || [];
-    const transformationColumns = widget.transformations?.map(t => t.name) || [];
-    return [...baseColumns, ...transformationColumns];
+    return (widget.columns || []).map(colKey => ({
+      key: colKey,
+      title: colKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    }));
   };
 
   const formatCellValue = (value: any, columnName: string) => {
@@ -261,9 +262,9 @@ export const DataTable = ({ widget }: DataTableProps) => {
       <Table>
         <TableHeader>
           <TableRow>
-            {getAllColumns().map((column) => (
-              <TableHead key={column} className="text-foreground whitespace-nowrap">
-                {column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+            {getAllColumns().map((col) => (
+              <TableHead key={col.key} className="text-foreground whitespace-nowrap">
+                {col.title}
               </TableHead>
             ))}
           </TableRow>
@@ -281,9 +282,9 @@ export const DataTable = ({ widget }: DataTableProps) => {
           ) : (
             data.map((row, index) => (
               <TableRow key={index}>
-                {getAllColumns().map((column) => (
-                  <TableCell key={column} className="whitespace-nowrap">
-                    {formatCellValue(row[column], column)}
+                {getAllColumns().map((col) => (
+                  <TableCell key={col.key} className="whitespace-nowrap">
+                    {formatCellValue(row[col.key], col.key)}
                   </TableCell>
                 ))}
               </TableRow>
