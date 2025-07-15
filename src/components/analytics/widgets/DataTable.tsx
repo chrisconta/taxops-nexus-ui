@@ -205,7 +205,7 @@ export const DataTable = ({ widget }: DataTableProps) => {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
         <div className="text-center">
-          <Table className="w-8 h-8 mx-auto mb-2" />
+          <Database className="w-8 h-8 mx-auto mb-2" />
           <p className="text-sm">Select columns to display</p>
         </div>
       </div>

@@ -293,20 +293,59 @@ const Analytics = () => {
   };
 
   const handleUpdateWidget = async (widget: Widget) => {
-    if (!widget.dataSource || !widget.transformations?.length) {
+    if (!widget.dataSource) {
       toast({
         title: "Error",
-        description: "Widget needs to be configured with a data source and transformations",
+        description: "Widget needs to be configured with a data source",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      // Execute the SQL query to fetch updated data
-      const { data, error } = await supabase.rpc('execute_dynamic_sql', {
-        query: widget.dataSource
-      });
+      // Use Supabase query builder instead of raw SQL for better reliability
+      let query = supabase
+        .from(widget.dataSource as any)
+        .select('*'); // Select all columns to get fresh data
+
+      // Apply filters if they exist
+      if (widget.filters) {
+        widget.filters.forEach(filter => {
+          if (filter.column && filter.operator && filter.value) {
+            switch (filter.operator) {
+              case '=':
+                query = query.eq(filter.column, filter.value);
+                break;
+              case '!=':
+                query = query.neq(filter.column, filter.value);
+                break;
+              case '>':
+                query = query.gt(filter.column, filter.value);
+                break;
+              case '<':
+                query = query.lt(filter.column, filter.value);
+                break;
+              case '>=':
+                query = query.gte(filter.column, filter.value);
+                break;
+              case '<=':
+                query = query.lte(filter.column, filter.value);
+                break;
+              case 'LIKE':
+                query = query.ilike(filter.column, `%${filter.value}%`);
+                break;
+              case 'NOT LIKE':
+                query = query.not('column', 'ilike', `%${filter.value}%`);
+                break;
+            }
+          }
+        });
+      }
+
+      // Add limit for performance
+      query = query.limit(1000);
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -315,7 +354,7 @@ const Analytics = () => {
         description: `Widget "${widget.name}" updated successfully`,
       });
       
-      // Force re-render by updating the widget
+      // Force re-render by updating the widget (this will trigger useEffect in widget components)
       updateWidget({ ...widget });
     } catch (error) {
       console.error('Error updating widget:', error);
