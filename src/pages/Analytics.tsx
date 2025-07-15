@@ -172,6 +172,11 @@ const Analytics = () => {
       ...currentDashboard,
       config: { widgets: updatedWidgets }
     });
+
+    // Update selected widget if it's the one being edited
+    if (selectedWidget?.id === updatedWidget.id) {
+      setSelectedWidget(updatedWidget);
+    }
   };
 
   const addWidget = (widget: Widget) => {

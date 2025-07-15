@@ -92,7 +92,8 @@ export const ConfigurationPanel = ({ widget, onUpdateWidget, onClose }: Configur
   };
 
   const updateWidget = (updates: Partial<Widget>) => {
-    onUpdateWidget({ ...widget, ...updates });
+    const updatedWidget = { ...widget, ...updates };
+    onUpdateWidget(updatedWidget);
   };
 
   const addFilter = () => {
