@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import type { Widget } from "@/pages/Analytics";
@@ -836,57 +836,60 @@ function processData(data) {
                         <div className="text-sm text-muted-foreground">No data found</div>
                       </div>
                     ) : (
-                      <ScrollArea className="max-h-96 w-full">
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                {Object.keys(dataPreview[0] || {}).map((column) => (
-                                  <TableHead key={column} className="text-foreground whitespace-nowrap">
-                                    {column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                  </TableHead>
-                                ))}
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {dataPreview.map((row, index) => (
-                                <TableRow key={index}>
-                                  {Object.entries(row).map(([column, value]) => (
-                                     <TableCell key={column} className="whitespace-nowrap">
-                                       {value === null || value === undefined ? (
-                                         <span className="text-muted-foreground">—</span>
-                                       ) : column.includes('amount') && typeof value === 'number' ? (
-                                         new Intl.NumberFormat('en-US', {
-                                           style: 'currency',
-                                           currency: 'USD'
-                                         }).format(value / 100)
-                                       ) : column.includes('_at') || column.includes('date') ? (
-                                         (() => {
-                                           try {
-                                             return new Date(value as string).toLocaleDateString('en-US', {
-                                               month: 'short',
-                                               day: 'numeric',
-                                               year: 'numeric'
-                                             });
-                                           } catch {
-                                             return String(value);
-                                           }
-                                         })()
-                                       ) : typeof value === 'boolean' ? (
-                                         <Badge variant={value ? "default" : "secondary"}>
-                                           {value ? 'Yes' : 'No'}
-                                         </Badge>
-                                       ) : (
-                                         String(value)
-                                       )}
-                                     </TableCell>
+                      <div className="border rounded-md">
+                        <ScrollArea className="h-96 w-full">
+                          <div className="min-w-max">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  {Object.keys(dataPreview[0] || {}).map((column) => (
+                                    <TableHead key={column} className="text-foreground whitespace-nowrap min-w-[120px]">
+                                      {column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                    </TableHead>
                                   ))}
                                 </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </ScrollArea>
+                              </TableHeader>
+                              <TableBody>
+                                {dataPreview.map((row, index) => (
+                                  <TableRow key={index}>
+                                    {Object.entries(row).map(([column, value]) => (
+                                       <TableCell key={column} className="whitespace-nowrap min-w-[120px]">
+                                         {value === null || value === undefined ? (
+                                           <span className="text-muted-foreground">—</span>
+                                         ) : column.includes('amount') && typeof value === 'number' ? (
+                                           new Intl.NumberFormat('en-US', {
+                                             style: 'currency',
+                                             currency: 'USD'
+                                           }).format(value / 100)
+                                         ) : column.includes('_at') || column.includes('date') ? (
+                                           (() => {
+                                             try {
+                                               return new Date(value as string).toLocaleDateString('en-US', {
+                                                 month: 'short',
+                                                 day: 'numeric',
+                                                 year: 'numeric'
+                                               });
+                                             } catch {
+                                               return String(value);
+                                             }
+                                           })()
+                                         ) : typeof value === 'boolean' ? (
+                                           <Badge variant={value ? "default" : "secondary"}>
+                                             {value ? 'Yes' : 'No'}
+                                           </Badge>
+                                         ) : (
+                                           String(value)
+                                         )}
+                                       </TableCell>
+                                    ))}
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                          <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
