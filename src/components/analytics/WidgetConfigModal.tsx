@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import type { Widget } from "@/pages/Analytics";
 
@@ -25,8 +27,6 @@ interface WidgetConfigModalProps {
 const availableTables = [
   { name: 'transactions', label: 'Transactions' },
   { name: 'clients', label: 'Clients' },
-  { name: 'sync_requests', label: 'Sync Requests' },
-  { name: 'reports', label: 'Reports' },
 ];
 
 const operators = [
@@ -202,6 +202,9 @@ export const WidgetConfigModal = ({ visible, widget, onClose, onSave }: WidgetCo
   const [tableColumns, setTableColumns] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [scriptContent, setScriptContent] = useState("");
+  const [dataPreview, setDataPreview] = useState<any[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [selectedDataSource, setSelectedDataSource] = useState<string>("");
 
   useEffect(() => {
     if (widget) {
@@ -263,6 +266,27 @@ function processData(data) {
       console.error('Error loading columns:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load data preview for the Data tab
+  const loadDataPreview = async (tableName: string) => {
+    if (!tableName) return;
+    
+    setDataLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from(tableName as any)
+        .select('*')
+        .limit(20); // Show first 20 rows
+
+      if (error) throw error;
+      setDataPreview(data || []);
+    } catch (error) {
+      console.error('Error loading data preview:', error);
+      setDataPreview([]);
+    } finally {
+      setDataLoading(false);
     }
   };
 
@@ -374,7 +398,7 @@ function processData(data) {
 
   return (
     <Dialog open={visible} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] bg-card border-border">
+      <DialogContent className="max-w-6xl max-h-[90vh] bg-card border-border">{/* Made modal bigger */}
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -386,7 +410,7 @@ function processData(data) {
         </DialogHeader>
 
         <Tabs defaultValue="configuration" className="flex-1 overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="configuration" className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
               Configuration
@@ -394,6 +418,10 @@ function processData(data) {
             <TabsTrigger value="script" className="flex items-center gap-2">
               <Code className="w-4 h-4" />
               Script
+            </TabsTrigger>
+            <TabsTrigger value="data" className="flex items-center gap-2">
+              <Database className="w-4 h-4" />
+              Data
             </TabsTrigger>
           </TabsList>
 
@@ -744,6 +772,123 @@ function processData(data) {
                   }}
                 />
               </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="data" className="mt-4 overflow-auto max-h-[60vh]">
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-medium">Data Preview</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  View the actual data from your database tables
+                </p>
+              </div>
+
+              {/* Data Source Selection for Preview */}
+              <div>
+                <Label>Select Data Source</Label>
+                <Select
+                  value={selectedDataSource}
+                  onValueChange={(value) => {
+                    setSelectedDataSource(value);
+                    loadDataPreview(value);
+                  }}
+                >
+                  <SelectTrigger className="bg-background border-border">
+                    <SelectValue placeholder="Choose a table to preview">
+                      <div className="flex items-center gap-2">
+                        <Database className="w-4 h-4" />
+                        {availableTables.find(t => t.name === selectedDataSource)?.label || 'Choose a table to preview'}
+                      </div>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTables.map((table) => (
+                      <SelectItem key={table.name} value={table.name}>
+                        <div className="flex items-center gap-2">
+                          <Database className="w-4 h-4" />
+                          {table.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Data Preview Table */}
+              {selectedDataSource && (
+                <Card className="bg-glass-bg/30 border-glass-border">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm text-white">
+                      {availableTables.find(t => t.name === selectedDataSource)?.label} Data Preview
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Showing first 20 rows from the {selectedDataSource} table
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {dataLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="text-sm text-muted-foreground">Loading data...</div>
+                      </div>
+                    ) : dataPreview.length === 0 ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="text-sm text-muted-foreground">No data found</div>
+                      </div>
+                    ) : (
+                      <ScrollArea className="max-h-96 w-full">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              {Object.keys(dataPreview[0] || {}).map((column) => (
+                                <TableHead key={column} className="text-foreground whitespace-nowrap">
+                                  {column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </TableHead>
+                              ))}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {dataPreview.map((row, index) => (
+                              <TableRow key={index}>
+                                {Object.entries(row).map(([column, value]) => (
+                                   <TableCell key={column} className="whitespace-nowrap">
+                                     {value === null || value === undefined ? (
+                                       <span className="text-muted-foreground">—</span>
+                                     ) : column.includes('amount') && typeof value === 'number' ? (
+                                       new Intl.NumberFormat('en-US', {
+                                         style: 'currency',
+                                         currency: 'USD'
+                                       }).format(value / 100)
+                                     ) : column.includes('_at') || column.includes('date') ? (
+                                       (() => {
+                                         try {
+                                           return new Date(value as string).toLocaleDateString('en-US', {
+                                             month: 'short',
+                                             day: 'numeric',
+                                             year: 'numeric'
+                                           });
+                                         } catch {
+                                           return String(value);
+                                         }
+                                       })()
+                                     ) : typeof value === 'boolean' ? (
+                                       <Badge variant={value ? "default" : "secondary"}>
+                                         {value ? 'Yes' : 'No'}
+                                       </Badge>
+                                     ) : (
+                                       String(value)
+                                     )}
+                                   </TableCell>
+                                ))}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </ScrollArea>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </TabsContent>
         </Tabs>
