@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import type { Widget } from "@/pages/Analytics";
 
@@ -187,11 +187,11 @@ const generateTransformationCode = (transformation: any): string => {
   
   switch (func) {
     case 'sum':
-      return `newRow['${name}'] = filteredData.reduce((sum, r) => sum + (r['${column}'] || 0), 0);`;
+      return `newRow['${name}'] = row['${column}'] || 0; // Individual row value for sum aggregation`;
     case 'average':
-      return `newRow['${name}'] = filteredData.reduce((sum, r) => sum + (r['${column}'] || 0), 0) / filteredData.length;`;
+      return `newRow['${name}'] = row['${column}'] || 0; // Individual row value for average aggregation`;
     case 'count':
-      return `newRow['${name}'] = filteredData.length;`;
+      return `newRow['${name}'] = 1; // Count each row as 1`;
     default:
       return `newRow['${name}'] = row['${column}'];`;
   }
@@ -380,6 +380,9 @@ function processData(data) {
             <Settings className="w-5 h-5" />
             Configure Widget: {currentWidget.name}
           </DialogTitle>
+          <DialogDescription>
+            Configure your widget settings, data sources, transformations, and custom scripts.
+          </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="configuration" className="flex-1 overflow-hidden">

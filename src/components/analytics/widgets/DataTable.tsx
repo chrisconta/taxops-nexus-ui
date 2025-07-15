@@ -20,7 +20,7 @@ export const DataTable = ({ widget }: DataTableProps) => {
     if (widget.dataSource && widget.columns && widget.columns.length > 0) {
       loadData();
     }
-  }, [widget.dataSource, widget.columns, widget.filters, widget.transformations]);
+  }, [widget.dataSource, widget.columns, widget.filters, widget.transformations, widget.script]);
 
   const loadData = async () => {
     if (!widget.dataSource || !widget.columns || widget.columns.length === 0) return;
@@ -71,8 +71,8 @@ export const DataTable = ({ widget }: DataTableProps) => {
 
       if (error) throw error;
 
-      // Apply transformations
-      const transformedData = applyTransformations(result || []);
+      // Apply transformations or execute custom script
+      const transformedData = executeScript(result || []);
       setData(transformedData);
     } catch (err: any) {
       console.error('Error loading data:', err);
@@ -82,7 +82,41 @@ export const DataTable = ({ widget }: DataTableProps) => {
     }
   };
 
-  const applyTransformations = (data: any[]) => {
+  const executeScript = (data: any[]) => {
+    // First, try to execute custom script if available
+    if (widget.script && widget.script.trim()) {
+      try {
+        console.log('Executing custom script for widget:', widget.name);
+        console.log('Raw data:', data);
+        
+        // Create a safe execution environment
+        const scriptFunction = new Function('data', 'widget', `
+          ${widget.script}
+          
+          // Call processData function if it exists
+          if (typeof processData === 'function') {
+            return processData(data);
+          }
+          
+          // Otherwise return original data
+          return data;
+        `);
+        
+        const processedData = scriptFunction(data, widget);
+        console.log('Processed data:', processedData);
+        return processedData;
+      } catch (scriptError) {
+        console.error('Error executing custom script:', scriptError);
+        setError(`Script execution error: ${scriptError.message}`);
+        // Fall back to basic transformation if script fails
+      }
+    }
+    
+    // Fallback to basic transformations if no script or script fails
+    return applyBasicTransformations(data);
+  };
+
+  const applyBasicTransformations = (data: any[]) => {
     if (!widget.transformations || widget.transformations.length === 0) {
       return data;
     }
