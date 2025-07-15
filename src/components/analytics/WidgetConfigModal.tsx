@@ -56,6 +56,147 @@ const transformationFunctions = [
   { value: 'count', label: 'Count' },
 ];
 
+// Generate script from transformations
+const generateScriptFromTransformations = (widget: Widget): string => {
+  const lines: string[] = [];
+  
+  lines.push('// Auto-generated script from transformations');
+  lines.push('// Edit this script to add custom data processing logic');
+  lines.push('');
+  lines.push('function processData(data) {');
+  lines.push('  // Apply filters');
+  
+  if (widget.filters && widget.filters.length > 0) {
+    lines.push('  let filteredData = data.filter(row => {');
+    lines.push('    return true'); // Start with true for AND logic
+    widget.filters.forEach((filter, index) => {
+      if (filter.column && filter.operator && filter.value) {
+        const condition = generateFilterCondition(filter);
+        lines.push(`      && ${condition}`);
+      }
+    });
+    lines.push('  });');
+  } else {
+    lines.push('  let filteredData = data;');
+  }
+  
+  lines.push('');
+  lines.push('  // Apply transformations');
+  
+  if (widget.transformations && widget.transformations.length > 0) {
+    lines.push('  let transformedData = filteredData.map(row => {');
+    lines.push('    let newRow = { ...row };');
+    
+    widget.transformations.forEach((transformation: any) => {
+      if (transformation.name && transformation.function && transformation.column) {
+        const transformationCode = generateTransformationCode(transformation);
+        lines.push(`    ${transformationCode}`);
+      }
+    });
+    
+    lines.push('    return newRow;');
+    lines.push('  });');
+  } else {
+    lines.push('  let transformedData = filteredData;');
+  }
+  
+  lines.push('');
+  lines.push('  // Apply aggregations if needed');
+  lines.push('  if (widget.chartConfig && widget.chartConfig.aggregation) {');
+  lines.push('    transformedData = applyAggregation(transformedData, widget.chartConfig);');
+  lines.push('  }');
+  lines.push('');
+  lines.push('  return transformedData;');
+  lines.push('}');
+  lines.push('');
+  
+  // Add helper functions
+  lines.push('function applyAggregation(data, config) {');
+  lines.push('  // Group by X-axis if specified');
+  lines.push('  if (config.xAxis && config.yAxis) {');
+  lines.push('    const grouped = data.reduce((acc, row) => {');
+  lines.push('      const key = row[config.xAxis];');
+  lines.push('      if (!acc[key]) acc[key] = [];');
+  lines.push('      acc[key].push(row);');
+  lines.push('      return acc;');
+  lines.push('    }, {});');
+  lines.push('');
+  lines.push('    return Object.entries(grouped).map(([key, values]) => {');
+  lines.push('      const aggregated = {};');
+  lines.push('      aggregated[config.xAxis] = key;');
+  lines.push('      ');
+  lines.push('      switch (config.aggregation) {');
+  lines.push('        case "sum":');
+  lines.push('          aggregated[config.yAxis] = values.reduce((sum, row) => sum + (row[config.yAxis] || 0), 0);');
+  lines.push('          break;');
+  lines.push('        case "avg":');
+  lines.push('          aggregated[config.yAxis] = values.reduce((sum, row) => sum + (row[config.yAxis] || 0), 0) / values.length;');
+  lines.push('          break;');
+  lines.push('        case "count":');
+  lines.push('          aggregated[config.yAxis] = values.length;');
+  lines.push('          break;');
+  lines.push('        case "min":');
+  lines.push('          aggregated[config.yAxis] = Math.min(...values.map(row => row[config.yAxis] || 0));');
+  lines.push('          break;');
+  lines.push('        case "max":');
+  lines.push('          aggregated[config.yAxis] = Math.max(...values.map(row => row[config.yAxis] || 0));');
+  lines.push('          break;');
+  lines.push('        default:');
+  lines.push('          aggregated[config.yAxis] = values.length;');
+  lines.push('      }');
+  lines.push('      return aggregated;');
+  lines.push('    });');
+  lines.push('  }');
+  lines.push('  return data;');
+  lines.push('}');
+  
+  return lines.join('\n');
+};
+
+const generateFilterCondition = (filter: any): string => {
+  const { column, operator, value } = filter;
+  
+  switch (operator) {
+    case '=':
+      return `row['${column}'] === '${value}'`;
+    case '!=':
+      return `row['${column}'] !== '${value}'`;
+    case '>':
+      return `row['${column}'] > ${value}`;
+    case '<':
+      return `row['${column}'] < ${value}`;
+    case '>=':
+      return `row['${column}'] >= ${value}`;
+    case '<=':
+      return `row['${column}'] <= ${value}`;
+    case 'LIKE':
+      return `row['${column}'] && row['${column}'].toString().toLowerCase().includes('${value.toLowerCase()}')`;
+    case 'NOT LIKE':
+      return `!row['${column}'] || !row['${column}'].toString().toLowerCase().includes('${value.toLowerCase()}')`;
+    case 'IN':
+      return `[${value.split(',').map(v => `'${v.trim()}'`).join(', ')}].includes(row['${column}'])`;
+    case 'NOT IN':
+      return `![${value.split(',').map(v => `'${v.trim()}'`).join(', ')}].includes(row['${column}'])`;
+    default:
+      return `row['${column}'] === '${value}'`;
+  }
+};
+
+const generateTransformationCode = (transformation: any): string => {
+  const { name, function: func, column } = transformation;
+  
+  switch (func) {
+    case 'sum':
+      return `newRow['${name}'] = filteredData.reduce((sum, r) => sum + (r['${column}'] || 0), 0);`;
+    case 'average':
+      return `newRow['${name}'] = filteredData.reduce((sum, r) => sum + (r['${column}'] || 0), 0) / filteredData.length;`;
+    case 'count':
+      return `newRow['${name}'] = filteredData.length;`;
+    default:
+      return `newRow['${name}'] = row['${column}'];`;
+  }
+};
+
 export const WidgetConfigModal = ({ visible, widget, onClose, onSave }: WidgetConfigModalProps) => {
   const [currentWidget, setCurrentWidget] = useState<Widget | null>(null);
   const [tableColumns, setTableColumns] = useState<string[]>([]);
@@ -71,6 +212,14 @@ export const WidgetConfigModal = ({ visible, widget, onClose, onSave }: WidgetCo
       }
     }
   }, [widget]);
+
+  // Auto-generate script when transformations change
+  useEffect(() => {
+    if (currentWidget && currentWidget.transformations && currentWidget.transformations.length > 0) {
+      const generatedScript = generateScriptFromTransformations(currentWidget);
+      setScriptContent(generatedScript);
+    }
+  }, [currentWidget?.transformations, currentWidget?.filters, currentWidget?.columns]);
 
   const loadTableColumns = async (tableName: string) => {
     setLoading(true);
