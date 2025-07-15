@@ -216,8 +216,27 @@ export const WidgetConfigModal = ({ visible, widget, onClose, onSave }: WidgetCo
   // Auto-generate script when transformations change
   useEffect(() => {
     if (currentWidget && currentWidget.transformations && currentWidget.transformations.length > 0) {
+      console.log('Generating script for transformations:', currentWidget.transformations);
       const generatedScript = generateScriptFromTransformations(currentWidget);
+      console.log('Generated script:', generatedScript);
       setScriptContent(generatedScript);
+    } else if (currentWidget && (!currentWidget.transformations || currentWidget.transformations.length === 0)) {
+      // If no transformations, provide a basic template
+      const basicScript = `// Basic data processing script
+function processData(data) {
+  // Your custom data processing logic here
+  return data;
+}
+
+// Example: Filter data
+// return data.filter(row => row.status === 'active');
+
+// Example: Transform data
+// return data.map(row => ({
+//   ...row,
+//   formatted_amount: (row.amount_cents / 100).toFixed(2)
+// }));`;
+      setScriptContent(basicScript);
     }
   }, [currentWidget?.transformations, currentWidget?.filters, currentWidget?.columns]);
 
