@@ -19,7 +19,7 @@ export const DataTable = ({ widget }: DataTableProps) => {
     if (widget.dataSource && widget.columns && widget.columns.length > 0) {
       loadData();
     }
-  }, [widget.dataSource, widget.columns, widget.filters]);
+  }, [widget.dataSource, widget.columns, widget.filters, widget.transformations]);
 
   const loadData = async () => {
     if (!widget.dataSource || !widget.columns || widget.columns.length === 0) return;
@@ -70,13 +70,67 @@ export const DataTable = ({ widget }: DataTableProps) => {
 
       if (error) throw error;
 
-      setData(result || []);
+      // Apply transformations
+      const transformedData = applyTransformations(result || []);
+      setData(transformedData);
     } catch (err: any) {
       console.error('Error loading data:', err);
       setError(err.message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyTransformations = (data: any[]) => {
+    if (!widget.transformations || widget.transformations.length === 0) {
+      return data;
+    }
+
+    return data.map(row => {
+      const transformedRow = { ...row };
+      
+      widget.transformations?.forEach(transformation => {
+        const func = (transformation as any).function;
+        const column = (transformation as any).column;
+        const name = transformation.name;
+        
+        if (func && column && name) {
+          const values = data.map(r => r[column]).filter(v => v !== null && v !== undefined);
+          
+          switch (func) {
+            case 'sum':
+              transformedRow[name] = values.reduce((sum, val) => sum + (Number(val) || 0), 0);
+              break;
+            case 'average':
+              transformedRow[name] = values.length > 0 ? 
+                values.reduce((sum, val) => sum + (Number(val) || 0), 0) / values.length : 0;
+              break;
+            case 'count':
+              transformedRow[name] = values.length;
+              break;
+            default:
+              // Fallback to expression evaluation if available
+              if (transformation.expression) {
+                try {
+                  transformedRow[name] = eval(transformation.expression.replace(/\w+/g, (match) => {
+                    return `row.${match}`;
+                  }));
+                } catch (e) {
+                  transformedRow[name] = 'Error';
+                }
+              }
+          }
+        }
+      });
+      
+      return transformedRow;
+    });
+  };
+
+  const getAllColumns = () => {
+    const baseColumns = widget.columns || [];
+    const transformationColumns = widget.transformations?.map(t => t.name) || [];
+    return [...baseColumns, ...transformationColumns];
   };
 
   const formatCellValue = (value: any, columnName: string) => {
@@ -158,16 +212,17 @@ export const DataTable = ({ widget }: DataTableProps) => {
   }
 
   if (loading) {
+    const allColumns = getAllColumns();
     return (
       <div className="space-y-3">
         <div className="flex gap-4">
-          {widget.columns.map((_, i) => (
+          {allColumns.map((_, i) => (
             <Skeleton key={i} className="h-4 flex-1" />
           ))}
         </div>
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="flex gap-4">
-            {widget.columns!.map((_, j) => (
+            {allColumns.map((_, j) => (
               <Skeleton key={j} className="h-4 flex-1" />
             ))}
           </div>
@@ -191,7 +246,7 @@ export const DataTable = ({ widget }: DataTableProps) => {
       <Table>
         <TableHeader>
           <TableRow>
-            {widget.columns.map((column) => (
+            {getAllColumns().map((column) => (
               <TableHead key={column} className="text-foreground">
                 {column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
               </TableHead>
@@ -202,7 +257,7 @@ export const DataTable = ({ widget }: DataTableProps) => {
           {data.length === 0 ? (
             <TableRow>
               <TableCell 
-                colSpan={widget.columns.length} 
+                colSpan={getAllColumns().length} 
                 className="text-center text-muted-foreground py-8"
               >
                 No data available
@@ -211,7 +266,7 @@ export const DataTable = ({ widget }: DataTableProps) => {
           ) : (
             data.map((row, index) => (
               <TableRow key={index}>
-                {widget.columns!.map((column) => (
+                {getAllColumns().map((column) => (
                   <TableCell key={column}>
                     {formatCellValue(row[column], column)}
                   </TableCell>

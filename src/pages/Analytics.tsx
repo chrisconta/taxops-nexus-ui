@@ -28,6 +28,8 @@ export interface Widget {
   transformations?: Array<{
     name: string;
     expression: string;
+    function?: string;
+    column?: string;
   }>;
   chartConfig?: {
     xAxis?: string;
