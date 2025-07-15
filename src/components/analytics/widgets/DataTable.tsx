@@ -17,6 +17,13 @@ export const DataTable = ({ widget }: DataTableProps) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('DataTable useEffect triggered:', {
+      dataSource: widget.dataSource,
+      columns: widget.columns,
+      columnsLength: widget.columns?.length,
+      transformations: widget.transformations
+    });
+    
     if (widget.dataSource && widget.columns && widget.columns.length > 0) {
       loadData();
     }
