@@ -544,7 +544,7 @@ const Analytics = () => {
             
             {/* Minimized Widgets Area */}
             {minimizedWidgets.length > 0 && (
-              <div className="absolute bottom-4 left-72 right-4 bg-glass-bg/90 backdrop-blur-sm border border-glass-border rounded-lg p-3 z-10">
+              <div className="absolute bottom-4 left-80 right-4 bg-glass-bg/90 backdrop-blur-sm border border-glass-border rounded-lg p-3 z-10">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm text-muted-foreground mr-2">Minimized:</span>
                   {minimizedWidgets.map((widget) => {
