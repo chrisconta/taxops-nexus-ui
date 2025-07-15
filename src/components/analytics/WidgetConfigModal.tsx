@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Database, Filter, Plus, Trash2, Code, Settings, AlertTriangle } from "lucide-react";
+import { X, Database, Plus, Trash2, Code, Settings, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,18 +29,6 @@ const availableTables = [
   { name: 'clients', label: 'Clients' },
 ];
 
-const operators = [
-  { value: '=', label: 'Equals' },
-  { value: '!=', label: 'Not Equals' },
-  { value: '>', label: 'Greater Than' },
-  { value: '<', label: 'Less Than' },
-  { value: '>=', label: 'Greater Or Equal' },
-  { value: '<=', label: 'Less Or Equal' },
-  { value: 'LIKE', label: 'Contains' },
-  { value: 'NOT LIKE', label: 'Does Not Contain' },
-  { value: 'IN', label: 'In List' },
-  { value: 'NOT IN', label: 'Not In List' },
-];
 
 const aggregations = [
   { value: 'count', label: 'Count' },
@@ -64,22 +52,8 @@ const generateScriptFromTransformations = (widget: Widget): string => {
   lines.push('// Edit this script to add custom data processing logic');
   lines.push('');
   lines.push('function processData(data) {');
-  lines.push('  // Apply filters');
-  
-  if (widget.filters && widget.filters.length > 0) {
-    lines.push('  let filteredData = data.filter(row => {');
-    lines.push('    return true'); // Start with true for AND logic
-    widget.filters.forEach((filter, index) => {
-      if (filter.column && filter.operator && filter.value) {
-        const condition = generateFilterCondition(filter);
-        lines.push(`      && ${condition}`);
-      }
-    });
-    lines.push('  });');
-  } else {
-    lines.push('  let filteredData = data;');
-  }
-  
+  lines.push('  // Process data without filters');
+  lines.push('  let filteredData = data;');
   lines.push('');
   lines.push('  // Apply transformations');
   
@@ -153,34 +127,6 @@ const generateScriptFromTransformations = (widget: Widget): string => {
   return lines.join('\n');
 };
 
-const generateFilterCondition = (filter: any): string => {
-  const { column, operator, value } = filter;
-  
-  switch (operator) {
-    case '=':
-      return `row['${column}'] === '${value}'`;
-    case '!=':
-      return `row['${column}'] !== '${value}'`;
-    case '>':
-      return `row['${column}'] > ${value}`;
-    case '<':
-      return `row['${column}'] < ${value}`;
-    case '>=':
-      return `row['${column}'] >= ${value}`;
-    case '<=':
-      return `row['${column}'] <= ${value}`;
-    case 'LIKE':
-      return `row['${column}'] && row['${column}'].toString().toLowerCase().includes('${value.toLowerCase()}')`;
-    case 'NOT LIKE':
-      return `!row['${column}'] || !row['${column}'].toString().toLowerCase().includes('${value.toLowerCase()}')`;
-    case 'IN':
-      return `[${value.split(',').map(v => `'${v.trim()}'`).join(', ')}].includes(row['${column}'])`;
-    case 'NOT IN':
-      return `![${value.split(',').map(v => `'${v.trim()}'`).join(', ')}].includes(row['${column}'])`;
-    default:
-      return `row['${column}'] === '${value}'`;
-  }
-};
 
 const generateTransformationCode = (transformation: any): string => {
   const { name, function: func, column } = transformation;
@@ -241,7 +187,7 @@ function processData(data) {
 // }));`;
       setScriptContent(basicScript);
     }
-  }, [currentWidget?.transformations, currentWidget?.filters, currentWidget?.columns]);
+  }, [currentWidget?.transformations, currentWidget?.columns]);
 
   const loadTableColumns = async (tableName: string) => {
     setLoading(true);
@@ -314,31 +260,6 @@ function processData(data) {
     setCurrentWidget(updatedWidget);
   };
 
-  const addFilter = () => {
-    if (!currentWidget) return;
-    const newFilter = {
-      column: '',
-      operator: '=',
-      value: ''
-    };
-
-    updateWidget({
-      filters: [...(currentWidget.filters || []), newFilter]
-    });
-  };
-
-  const updateFilter = (index: number, field: string, value: string) => {
-    if (!currentWidget) return;
-    const updatedFilters = [...(currentWidget.filters || [])];
-    updatedFilters[index] = { ...updatedFilters[index], [field]: value };
-    updateWidget({ filters: updatedFilters });
-  };
-
-  const removeFilter = (index: number) => {
-    if (!currentWidget) return;
-    const updatedFilters = currentWidget.filters?.filter((_, i) => i !== index) || [];
-    updateWidget({ filters: updatedFilters });
-  };
 
   const addTransformation = () => {
     if (!currentWidget) return;
@@ -570,83 +491,6 @@ function processData(data) {
                 </Card>
               )}
 
-              {/* Filters */}
-              <Card className="bg-glass-bg/30 border-glass-border">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-sm text-white">Filters</CardTitle>
-                      <CardDescription className="text-xs">
-                        Add conditions to filter your data
-                      </CardDescription>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={addFilter}
-                      className="border-primary/30 text-primary hover:bg-primary/10"
-                    >
-                      <Plus className="w-3 h-3 mr-1" />
-                      Add
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {currentWidget.filters?.map((filter, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Select
-                        value={filter.column}
-                        onValueChange={(value) => updateFilter(index, 'column', value)}
-                      >
-                        <SelectTrigger className="bg-background border-border flex-1">
-                          <SelectValue placeholder="Column" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {tableColumns.map((column) => (
-                            <SelectItem key={column} value={column}>
-                              {column}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      <Select
-                        value={filter.operator}
-                        onValueChange={(value) => updateFilter(index, 'operator', value)}
-                      >
-                        <SelectTrigger className="bg-background border-border w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {operators.map((op) => (
-                            <SelectItem key={op.value} value={op.value}>
-                              {op.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      <Input
-                        value={filter.value}
-                        onChange={(e) => updateFilter(index, 'value', e.target.value)}
-                        placeholder="Value"
-                        className="bg-background border-border flex-1"
-                      />
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFilter(index)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  )) || (
-                    <p className="text-xs text-taxops-gray-light">No filters applied</p>
-                  )}
-                </CardContent>
-              </Card>
 
               {/* Transformations */}
               <Card className="bg-glass-bg/30 border-glass-border">

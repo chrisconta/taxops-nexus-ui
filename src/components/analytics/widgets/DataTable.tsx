@@ -20,7 +20,7 @@ export const DataTable = ({ widget }: DataTableProps) => {
     if (widget.dataSource && widget.columns && widget.columns.length > 0) {
       loadData();
     }
-  }, [widget.dataSource, widget.columns, widget.filters, widget.transformations, widget.script]);
+  }, [widget.dataSource, widget.columns, widget.transformations, widget.script]);
 
   const loadData = async () => {
     if (!widget.dataSource || !widget.columns || widget.columns.length === 0) return;
@@ -37,40 +37,6 @@ export const DataTable = ({ widget }: DataTableProps) => {
       let query = supabase
         .from(widget.dataSource as any)
         .select(uniqueColumns.join(', '));
-
-      // Apply filters
-      if (widget.filters) {
-        widget.filters.forEach(filter => {
-          if (filter.column && filter.operator && filter.value) {
-            switch (filter.operator) {
-              case '=':
-                query = query.eq(filter.column, filter.value);
-                break;
-              case '!=':
-                query = query.neq(filter.column, filter.value);
-                break;
-              case '>':
-                query = query.gt(filter.column, filter.value);
-                break;
-              case '<':
-                query = query.lt(filter.column, filter.value);
-                break;
-              case '>=':
-                query = query.gte(filter.column, filter.value);
-                break;
-              case '<=':
-                query = query.lte(filter.column, filter.value);
-                break;
-              case 'LIKE':
-                query = query.ilike(filter.column, `%${filter.value}%`);
-                break;
-              case 'NOT LIKE':
-                query = query.not('column', 'ilike', `%${filter.value}%`);
-                break;
-            }
-          }
-        });
-      }
 
       const { data: result, error } = await query;
 

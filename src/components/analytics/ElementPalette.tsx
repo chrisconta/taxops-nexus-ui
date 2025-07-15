@@ -42,7 +42,6 @@ export const ElementPalette = ({ onAddWidget }: ElementPaletteProps) => {
       name: `New ${elementTypes.find(t => t.type === type)?.name || 'Widget'}`,
       position: { x: 50, y: 50 },
       size: { width: 400, height: 300 },
-      filters: [],
       transformations: [],
     };
 

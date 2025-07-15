@@ -31,7 +31,7 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
     if (widget.dataSource && widget.chartConfig?.xAxis) {
       loadData();
     }
-  }, [widget.dataSource, widget.chartConfig, widget.filters]);
+  }, [widget.dataSource, widget.chartConfig]);
 
   const loadData = async () => {
     if (!widget.dataSource || !widget.chartConfig?.xAxis) return;
@@ -50,37 +50,6 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
       let query = supabase
         .from(widget.dataSource as any)
         .select(selectColumns);
-
-      // Apply filters
-      if (widget.filters) {
-        widget.filters.forEach(filter => {
-          if (filter.column && filter.operator && filter.value) {
-            switch (filter.operator) {
-              case '=':
-                query = query.eq(filter.column, filter.value);
-                break;
-              case '!=':
-                query = query.neq(filter.column, filter.value);
-                break;
-              case '>':
-                query = query.gt(filter.column, filter.value);
-                break;
-              case '<':
-                query = query.lt(filter.column, filter.value);
-                break;
-              case '>=':
-                query = query.gte(filter.column, filter.value);
-                break;
-              case '<=':
-                query = query.lte(filter.column, filter.value);
-                break;
-              case 'LIKE':
-                query = query.ilike(filter.column, `%${filter.value}%`);
-                break;
-            }
-          }
-        });
-      }
 
       const { data: result, error } = await query.limit(1000);
 
