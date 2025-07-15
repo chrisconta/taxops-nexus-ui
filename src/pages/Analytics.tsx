@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Plus, Download, Save, Trash2, BarChart3, LineChart, PieChart, Table as TableIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,11 +60,83 @@ const Analytics = () => {
     visible: boolean;
     widget: Widget | null;
   }>({ visible: false, widget: null });
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+
+  // Auto-save timer reference
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadDashboards();
   }, []);
+
+  // Auto-save functionality
+  const autoSaveDashboard = async () => {
+    if (!currentDashboard) return;
+
+    setIsSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const dashboardData = {
+        name: currentDashboard.name,
+        config: currentDashboard.config as any,
+        user_id: user.id
+      };
+
+      if (currentDashboard.id) {
+        const { error } = await supabase
+          .from('dashboards')
+          .update(dashboardData)
+          .eq('id', currentDashboard.id);
+
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from('dashboards')
+          .insert(dashboardData)
+          .select()
+          .single();
+
+        if (error) throw error;
+        setCurrentDashboard({ ...currentDashboard, id: data.id });
+      }
+
+      await loadDashboards();
+    } catch (error) {
+      console.error('Error auto-saving dashboard:', error);
+      toast({
+        title: "Auto-save Error",
+        description: "Failed to auto-save dashboard changes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Watch for dashboard changes and auto-save
+  useEffect(() => {
+    if (!currentDashboard) return;
+
+    // Clear previous timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Set new timeout for auto-save (2 seconds after last change)
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      autoSaveDashboard();
+    }, 2000);
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [currentDashboard]);
 
   const loadDashboards = async () => {
     try {
@@ -290,10 +362,11 @@ const Analytics = () => {
                   variant="outline"
                   size="sm"
                   onClick={saveDashboard}
+                  disabled={isSaving}
                   className="border-primary/30 text-primary hover:bg-primary/10"
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  Save
+                  {isSaving ? "Saving..." : "Save"}
                 </Button>
 
                 <DropdownMenu>
