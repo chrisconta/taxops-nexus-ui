@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
-import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User, LogOut, ChevronDown, Brain } from "lucide-react";
+import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User, LogOut, ChevronDown, Brain, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
@@ -73,6 +73,8 @@ const Layout = () => {
         return "Connections";
       case "/reports":
         return "AI Reports";
+      case "/analytics":
+        return "Analytics";
       default:
         return "Dashboard";
     }
@@ -86,6 +88,8 @@ const Layout = () => {
         return "Connect and manage financial service integrations";
       case "/reports":
         return "Generate tax and financial reports from your data sources using generative AI";
+      case "/analytics":
+        return "Create interactive dashboards and visualizations from your financial data";
       default:
         return "Welcome to TaxOps";
     }
@@ -103,6 +107,10 @@ const Layout = () => {
     to: "/reports",
     label: "AI Reports",
     icon: Brain
+  }, {
+    to: "/analytics",
+    label: "Analytics",
+    icon: Zap
   }];
 
   return <div className="min-h-screen bg-background flex">

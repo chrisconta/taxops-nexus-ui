@@ -12,6 +12,7 @@ import ClientDetail from "./pages/ClientDetail";
 import Connections from "./pages/Connections";
 import ConnectionSetup from "./pages/ConnectionSetup";
 import Reports from "./pages/Reports";
+import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
 import ProfileSettings from "./pages/ProfileSettings";
 import AISettings from "./pages/AISettings";
@@ -42,6 +43,7 @@ const App = () => {
               <Route path="connections" element={<Connections />} />
               <Route path="connections/:connectionId/setup" element={<ConnectionSetup />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="analytics" element={<Analytics />} />
               <Route path="profile-settings" element={<ProfileSettings />} />
               <Route path="settings/ai" element={<AISettings />} />
             </Route>
