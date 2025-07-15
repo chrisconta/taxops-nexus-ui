@@ -11,6 +11,7 @@ interface WidgetRendererProps {
   widget: Widget;
   onDelete: () => void;
   onSelect: () => void;
+  onEdit: () => void;
   isSelected: boolean;
 }
 
@@ -21,7 +22,7 @@ const widgetIcons = {
   'pie-chart': PieChart,
 };
 
-export const WidgetRenderer = ({ widget, onDelete, onSelect, isSelected }: WidgetRendererProps) => {
+export const WidgetRenderer = ({ widget, onDelete, onSelect, onEdit, isSelected }: WidgetRendererProps) => {
   const Icon = widgetIcons[widget.type];
 
   const renderWidget = () => {
@@ -53,19 +54,19 @@ export const WidgetRenderer = ({ widget, onDelete, onSelect, isSelected }: Widge
           <Icon className="w-4 h-4 text-primary" />
           {widget.name}
         </CardTitle>
-        {isSelected && (
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 text-taxops-gray-light hover:text-white"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect();
-              }}
-            >
-              <Settings className="w-3 h-3" />
-            </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-taxops-gray-light hover:text-white"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+          >
+            <Settings className="w-3 h-3" />
+          </Button>
+          {isSelected && (
             <Button
               variant="ghost"
               size="sm"
@@ -77,8 +78,8 @@ export const WidgetRenderer = ({ widget, onDelete, onSelect, isSelected }: Widge
             >
               <X className="w-3 h-3" />
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </CardHeader>
       <CardContent className="flex-1 p-4 pt-0">
         <div className="h-full">

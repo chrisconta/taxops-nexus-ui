@@ -335,6 +335,7 @@ const Analytics = () => {
                   onSelectWidget={handleConfigModal}
                   onUpdateWidget={updateWidget}
                   onDeleteWidget={deleteWidget}
+                  onEditWidget={handleConfigModal}
                   isFrozen={configModalState.visible}
                 />
               </div>
