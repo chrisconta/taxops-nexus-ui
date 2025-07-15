@@ -12,6 +12,7 @@ interface DataTableProps {
 }
 
 export const DataTable = ({ widget }: DataTableProps) => {
+  console.log("DataTable received columns ➞", widget.columns);
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +52,7 @@ export const DataTable = ({ widget }: DataTableProps) => {
 
       // Apply transformations or execute custom script
       const transformedData = executeScript(result || []);
+      console.log("Sample row keys ➞", Object.keys(transformedData[0] || {}));
       setData(transformedData);
     } catch (err: any) {
       console.error('Error loading data:', err);
