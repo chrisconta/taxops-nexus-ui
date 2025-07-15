@@ -29,9 +29,14 @@ export const DataTable = ({ widget }: DataTableProps) => {
     setError(null);
 
     try {
+      // Get all columns needed for transformations
+      const transformationColumns = widget.transformations?.map(t => (t as any).column).filter(Boolean) || [];
+      const allColumns = [...widget.columns, ...transformationColumns];
+      const uniqueColumns = [...new Set(allColumns)];
+      
       let query = supabase
         .from(widget.dataSource as any)
-        .select(widget.columns.join(', '));
+        .select(uniqueColumns.join(', '));
 
       // Apply filters
       if (widget.filters) {
