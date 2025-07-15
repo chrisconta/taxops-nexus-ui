@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Database, Filter, Plus, Trash2, Code, Settings } from "lucide-react";
+import { X, Database, Filter, Plus, Trash2, Code, Settings, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,12 @@ const aggregations = [
   { value: 'max', label: 'Maximum' },
 ];
 
+const transformationFunctions = [
+  { value: 'sum', label: 'Sum' },
+  { value: 'average', label: 'Average' },
+  { value: 'count', label: 'Count' },
+];
+
 export const WidgetConfigModal = ({ visible, widget, onClose, onSave }: WidgetConfigModalProps) => {
   const [currentWidget, setCurrentWidget] = useState<Widget | null>(null);
   const [tableColumns, setTableColumns] = useState<string[]>([]);
@@ -92,6 +98,24 @@ export const WidgetConfigModal = ({ visible, widget, onClose, onSave }: WidgetCo
     }
   };
 
+  // Helper function to detect numeric columns
+  const getNumericColumns = () => {
+    const numericColumnNames = ['amount_cents', 'id', 'records_processed', 'execution_time_ms'];
+    return tableColumns.filter(column => 
+      numericColumnNames.includes(column) || 
+      column.includes('_cents') || 
+      column.includes('_ms') || 
+      column.includes('_id') ||
+      column.includes('amount') ||
+      column.includes('count')
+    );
+  };
+
+  // Helper function to check if a column is numeric
+  const isNumericColumn = (column: string) => {
+    return getNumericColumns().includes(column);
+  };
+
   const updateWidget = (updates: Partial<Widget>) => {
     if (!currentWidget) return;
     const updatedWidget = { ...currentWidget, ...updates };
@@ -128,7 +152,9 @@ export const WidgetConfigModal = ({ visible, widget, onClose, onSave }: WidgetCo
     if (!currentWidget) return;
     const newTransformation = {
       name: '',
-      expression: ''
+      function: '',
+      column: '',
+      expression: '' // Keep for backward compatibility
     };
 
     updateWidget({
@@ -445,32 +471,76 @@ export const WidgetConfigModal = ({ visible, widget, onClose, onSave }: WidgetCo
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {currentWidget.transformations?.map((transformation, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={transformation.name}
-                          onChange={(e) => updateTransformation(index, 'name', e.target.value)}
-                          placeholder="Column name"
-                          className="bg-background border-border flex-1"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeTransformation(index)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                  {currentWidget.transformations?.map((transformation, index) => {
+                    const selectedColumn = (transformation as any).column || '';
+                    const selectedFunction = (transformation as any).function || '';
+                    const needsNumericColumn = ['sum', 'average'].includes(selectedFunction);
+                    const isValidColumn = !needsNumericColumn || isNumericColumn(selectedColumn);
+                    
+                    return (
+                      <div key={index} className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={transformation.name}
+                            onChange={(e) => updateTransformation(index, 'name', e.target.value)}
+                            placeholder="Column name"
+                            className="bg-background border-border flex-1"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeTransformation(index)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={selectedFunction}
+                            onValueChange={(value) => updateTransformation(index, 'function', value)}
+                          >
+                            <SelectTrigger className="bg-background border-border flex-1">
+                              <SelectValue placeholder="Select function" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background border-border z-50">
+                              {transformationFunctions.map((func) => (
+                                <SelectItem key={func.value} value={func.value}>
+                                  {func.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          <Select
+                            value={selectedColumn}
+                            onValueChange={(value) => updateTransformation(index, 'column', value)}
+                          >
+                            <SelectTrigger className="bg-background border-border flex-1">
+                              <SelectValue placeholder="Select column" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background border-border z-50">
+                              {tableColumns.map((column) => (
+                                <SelectItem key={column} value={column}>
+                                  {column}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        {needsNumericColumn && selectedColumn && !isValidColumn && (
+                          <div className="flex items-center gap-2 p-2 bg-destructive/10 border border-destructive/20 rounded-md">
+                            <AlertTriangle className="w-4 h-4 text-destructive" />
+                            <span className="text-xs text-destructive">
+                              Only numeric columns can be used with {selectedFunction} function
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      <Input
-                        value={transformation.expression}
-                        onChange={(e) => updateTransformation(index, 'expression', e.target.value)}
-                        placeholder="e.g., amount_cents / 100"
-                        className="bg-background border-border"
-                      />
-                    </div>
-                  )) || (
+                    );
+                  }) || (
                     <p className="text-xs text-taxops-gray-light">No transformations applied</p>
                   )}
                 </CardContent>
