@@ -178,14 +178,30 @@ export const ConfigurationPanel = ({ widget, onUpdateWidget, onClose }: Configur
 
           {/* Data Source Selection */}
           <div>
-            <Label htmlFor="data-source">Data Source</Label>
-            <Input
-              id="data-source"
+            <Label>Data Source</Label>
+            <Select
               value={widget.dataSource || ''}
-              onChange={(e) => updateWidget({ dataSource: e.target.value, columns: [] })}
-              placeholder="Enter table name"
-              className="bg-background border-border"
-            />
+              onValueChange={(value) => updateWidget({ dataSource: value, columns: [] })}
+            >
+              <SelectTrigger className="bg-background border-border">
+                <SelectValue placeholder="Select a table">
+                  <div className="flex items-center gap-2">
+                    <Database className="w-4 h-4" />
+                    {availableTables.find(t => t.name === widget.dataSource)?.label || 'Select a table'}
+                  </div>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {availableTables.map((table) => (
+                  <SelectItem key={table.name} value={table.name}>
+                    <div className="flex items-center gap-2">
+                      <Database className="w-4 h-4" />
+                      {table.label}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
