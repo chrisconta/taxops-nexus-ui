@@ -244,41 +244,39 @@ export const DataTable = ({ widget }: DataTableProps) => {
 
   return (
     <ScrollArea className="h-full w-full">
-      <div className="min-w-full">
-        <Table>
-          <TableHeader>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {getAllColumns().map((column) => (
+              <TableHead key={column} className="text-foreground whitespace-nowrap">
+                {column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.length === 0 ? (
             <TableRow>
-              {getAllColumns().map((column) => (
-                <TableHead key={column} className="text-foreground whitespace-nowrap">
-                  {column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </TableHead>
-              ))}
+              <TableCell 
+                colSpan={getAllColumns().length} 
+                className="text-center text-muted-foreground py-8"
+              >
+                No data available
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.length === 0 ? (
-              <TableRow>
-                <TableCell 
-                  colSpan={getAllColumns().length} 
-                  className="text-center text-muted-foreground py-8"
-                >
-                  No data available
-                </TableCell>
+          ) : (
+            data.map((row, index) => (
+              <TableRow key={index}>
+                {getAllColumns().map((column) => (
+                  <TableCell key={column} className="whitespace-nowrap">
+                    {formatCellValue(row[column], column)}
+                  </TableCell>
+                ))}
               </TableRow>
-            ) : (
-              data.map((row, index) => (
-                <TableRow key={index}>
-                  {getAllColumns().map((column) => (
-                    <TableCell key={column} className="whitespace-nowrap">
-                      {formatCellValue(row[column], column)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            ))
+          )}
+        </TableBody>
+      </Table>
       <ScrollBar orientation="horizontal" />
       <ScrollBar orientation="vertical" />
     </ScrollArea>
