@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Download, Save, Trash2, BarChart3, LineChart, PieChart, Table as TableIcon } from "lucide-react";
+import { Plus, Download, Save, Trash2, BarChart3, LineChart, PieChart, Table as TableIcon, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DashboardCanvas } from "@/components/analytics/DashboardCanvas";
-import { ElementPalette } from "@/components/analytics/ElementPalette";
 import { DashboardList } from "@/components/analytics/DashboardList";
 import { WidgetConfigModal } from "@/components/analytics/WidgetConfigModal";
 import { useToast } from "@/hooks/use-toast";
@@ -289,187 +288,250 @@ const Analytics = () => {
     setConfigModalState({ visible: false, widget: null });
   };
 
+  // Element types for palette
+  const elementTypes = [
+    {
+      type: 'table' as const,
+      name: 'Data Table',
+      description: 'Display data in rows and columns',
+      icon: TableIcon,
+    },
+    {
+      type: 'bar-chart' as const,
+      name: 'Bar Chart',
+      description: 'Compare values across categories',
+      icon: BarChart3,
+    },
+    {
+      type: 'line-chart' as const,
+      name: 'Line Chart',
+      description: 'Show trends over time',
+      icon: LineChart,
+    },
+    {
+      type: 'pie-chart' as const,
+      name: 'Pie Chart',
+      description: 'Show proportions of a whole',
+      icon: PieChart,
+    },
+  ];
+
+  const handleAddWidget = (type: Widget['type']) => {
+    const newWidget: Widget = {
+      id: `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type,
+      name: `New ${elementTypes.find(t => t.type === type)?.name || 'Widget'}`,
+      position: { x: 50, y: 50 },
+      size: { width: 400, height: 300 },
+      filters: [],
+      transformations: [],
+    };
+
+    addWidget(newWidget);
+  };
+
   return (
-    <div className="h-full flex flex-col">
-      {/* Toolbar */}
-      <div className="border-b border-glass-border bg-glass-bg/30 backdrop-blur-sm p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold text-white flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center">
-                <BarChart3 className="w-4 h-4 text-white" />
-              </div>
-              Analytics Dashboard
-            </h1>
-            {currentDashboard && (
-              <span className="text-sm text-taxops-gray-light">
-                {currentDashboard.name}
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowDashboards(true)}
-              className="text-taxops-gray-light hover:text-white"
-            >
-              <TableIcon className="w-4 h-4 mr-2" />
-              Dashboards
-            </Button>
-
-            <Dialog open={showNewDashboard} onOpenChange={setShowNewDashboard}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="bg-primary hover:bg-primary/90">
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Dashboard
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-card border-border">
-                <DialogHeader>
-                  <DialogTitle>Create New Dashboard</DialogTitle>
-                  <DialogDescription>
-                    Enter a name for your new dashboard
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="dashboard-name">Dashboard Name</Label>
-                    <Input
-                      id="dashboard-name"
-                      value={dashboardName}
-                      onChange={(e) => setDashboardName(e.target.value)}
-                      placeholder="My Analytics Dashboard"
-                      className="bg-background border-border"
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setShowNewDashboard(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={createNewDashboard} disabled={!dashboardName.trim()}>
-                      Create
-                    </Button>
-                  </div>
+    <TooltipProvider>
+      <div className="h-full flex flex-col">
+        {/* Toolbar */}
+        <div className="border-b border-glass-border bg-glass-bg/30 backdrop-blur-sm p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h1 className="text-xl font-bold text-white flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="w-4 h-4 text-white" />
                 </div>
-              </DialogContent>
-            </Dialog>
+                {currentDashboard ? currentDashboard.name : 'Analytics Dashboard'}
+              </h1>
+            </div>
 
-            {currentDashboard && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={saveDashboard}
-                  disabled={isSaving}
-                  className="border-primary/30 text-primary hover:bg-primary/10"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  {isSaving ? "Saving..." : "Save"}
-                </Button>
+            <div className="flex items-center gap-4">
+              {/* Components Palette */}
+              {currentDashboard && (
+                <div className="flex items-center gap-2 border-r border-glass-border pr-4">
+                  {elementTypes.map((element) => {
+                    const Icon = element.icon;
+                    return (
+                      <Tooltip key={element.type}>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleAddWidget(element.type)}
+                            className="w-10 h-10 p-0 hover:bg-primary/10"
+                          >
+                            <Icon className="w-5 h-5 text-primary" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">{element.name}</p>
+                          <p className="text-xs text-muted-foreground">{element.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              )}
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Download className="w-4 h-4 mr-2" />
-                      Export
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem>Export as PDF</DropdownMenuItem>
-                    <DropdownMenuItem>Export as PNG</DropdownMenuItem>
-                    <DropdownMenuItem>Export Data as CSV</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            )}
+              {/* Actions Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => setShowNewDashboard(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Dashboard
+                  </DropdownMenuItem>
+                  {currentDashboard && (
+                    <>
+                      <DropdownMenuItem onClick={saveDashboard} disabled={isSaving}>
+                        <Save className="w-4 h-4 mr-2" />
+                        {isSaving ? "Saving..." : "Save"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Download className="w-4 h-4 mr-2" />
+                        Export as PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Download className="w-4 h-4 mr-2" />
+                        Export as PNG
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Download className="w-4 h-4 mr-2" />
+                        Export Data as CSV
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowDashboards(true)}>
+                    <TableIcon className="w-4 h-4 mr-2" />
+                    Dashboards
+                  </DropdownMenuItem>
+                  {dashboards.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      {dashboards.slice(0, 5).map((dashboard) => (
+                        <DropdownMenuItem 
+                          key={dashboard.id} 
+                          onClick={() => loadDashboard(dashboard)}
+                        >
+                          {dashboard.name}
+                        </DropdownMenuItem>
+                      ))}
+                      {dashboards.length > 5 && (
+                        <DropdownMenuItem onClick={() => setShowDashboards(true)}>
+                          View all dashboards...
+                        </DropdownMenuItem>
+                      )}
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      {currentDashboard ? (
-        <div className="flex-1 flex">
-          <ResizablePanelGroup direction="horizontal" className="flex-1">
-            {/* Element Palette */}
-            <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-              <div className="h-full border-r border-glass-border bg-glass-bg/20">
-                <ElementPalette onAddWidget={addWidget} />
-              </div>
-            </ResizablePanel>
+        {/* Main Content */}
+        {currentDashboard ? (
+          <div className="flex-1 bg-background/50">
+            <DashboardCanvas
+              dashboard={currentDashboard}
+              selectedWidget={selectedWidget}
+              onSelectWidget={handleConfigModal}
+              onUpdateWidget={updateWidget}
+              onDeleteWidget={deleteWidget}
+              onEditWidget={handleConfigModal}
+              isFrozen={configModalState.visible}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <Card className="w-96 bg-card border-border">
+              <CardHeader className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <BarChart3 className="w-8 h-8 text-white" />
+                </div>
+                <CardTitle>Welcome to Analytics</CardTitle>
+                <CardDescription>
+                  Create interactive dashboards with drag-and-drop widgets
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button 
+                  onClick={() => setShowNewDashboard(true)}
+                  className="w-full bg-primary hover:bg-primary/90"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Your First Dashboard
+                </Button>
+                {dashboards.length > 0 && (
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowDashboards(true)}
+                    className="w-full"
+                  >
+                    <TableIcon className="w-4 h-4 mr-2" />
+                    View Existing Dashboards
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-            <ResizableHandle withHandle />
-
-            {/* Canvas */}
-            <ResizablePanel defaultSize={80}>
-              <div className="h-full bg-background/50">
-                <DashboardCanvas
-                  dashboard={currentDashboard}
-                  selectedWidget={selectedWidget}
-                  onSelectWidget={handleConfigModal}
-                  onUpdateWidget={updateWidget}
-                  onDeleteWidget={deleteWidget}
-                  onEditWidget={handleConfigModal}
-                  isFrozen={configModalState.visible}
+        {/* New Dashboard Dialog */}
+        <Dialog open={showNewDashboard} onOpenChange={setShowNewDashboard}>
+          <DialogContent className="bg-card border-border">
+            <DialogHeader>
+              <DialogTitle>Create New Dashboard</DialogTitle>
+              <DialogDescription>
+                Enter a name for your new dashboard
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="dashboard-name">Dashboard Name</Label>
+                <Input
+                  id="dashboard-name"
+                  value={dashboardName}
+                  onChange={(e) => setDashboardName(e.target.value)}
+                  placeholder="My Analytics Dashboard"
+                  className="bg-background border-border"
                 />
               </div>
-            </ResizablePanel>
-
-          </ResizablePanelGroup>
-        </div>
-      ) : (
-        <div className="flex-1 flex items-center justify-center">
-          <Card className="w-96 bg-card border-border">
-            <CardHeader className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <BarChart3 className="w-8 h-8 text-white" />
-              </div>
-              <CardTitle>Welcome to Analytics</CardTitle>
-              <CardDescription>
-                Create interactive dashboards with drag-and-drop widgets
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button 
-                onClick={() => setShowNewDashboard(true)}
-                className="w-full bg-primary hover:bg-primary/90"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Your First Dashboard
-              </Button>
-              {dashboards.length > 0 && (
-                <Button 
-                  variant="outline"
-                  onClick={() => setShowDashboards(true)}
-                  className="w-full"
-                >
-                  <TableIcon className="w-4 h-4 mr-2" />
-                  View Existing Dashboards
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowNewDashboard(false)}>
+                  Cancel
                 </Button>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+                <Button onClick={createNewDashboard} disabled={!dashboardName.trim()}>
+                  Create
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
-      {/* Dashboard List Dialog */}
-      <DashboardList
-        dashboards={dashboards}
-        isOpen={showDashboards}
-        onClose={() => setShowDashboards(false)}
-        onSelectDashboard={loadDashboard}
-        onDeleteDashboard={loadDashboards}
-      />
+        {/* Dashboard List Dialog */}
+        <DashboardList
+          dashboards={dashboards}
+          isOpen={showDashboards}
+          onClose={() => setShowDashboards(false)}
+          onSelectDashboard={loadDashboard}
+          onDeleteDashboard={loadDashboards}
+        />
 
-      {/* Widget Configuration Modal */}
-      <WidgetConfigModal
-        visible={configModalState.visible}
-        widget={configModalState.widget}
-        onClose={handleCloseConfigModal}
-        onSave={handleSaveWidget}
-      />
-    </div>
+        {/* Widget Configuration Modal */}
+        <WidgetConfigModal
+          visible={configModalState.visible}
+          widget={configModalState.widget}
+          onClose={handleCloseConfigModal}
+          onSave={handleSaveWidget}
+        />
+      </div>
+    </TooltipProvider>
   );
 };
 
