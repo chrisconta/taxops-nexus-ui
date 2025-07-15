@@ -38,6 +38,9 @@ export interface Widget {
   script?: string;
   position: { x: number; y: number };
   size: { width: number; height: number };
+  isMinimized?: boolean;
+  previousPosition?: { x: number; y: number };
+  previousSize?: { width: number; height: number };
 }
 
 export interface Dashboard {
@@ -60,6 +63,7 @@ const Analytics = () => {
     widget: Widget | null;
   }>({ visible: false, widget: null });
   const [isSaving, setIsSaving] = useState(false);
+  const [minimizedWidgets, setMinimizedWidgets] = useState<Widget[]>([]);
   const { toast } = useToast();
 
   // Auto-save timer reference
@@ -288,6 +292,93 @@ const Analytics = () => {
     setConfigModalState({ visible: false, widget: null });
   };
 
+  const handleUpdateWidget = async (widget: Widget) => {
+    if (!widget.dataSource || !widget.transformations?.length) {
+      toast({
+        title: "Error",
+        description: "Widget needs to be configured with a data source and transformations",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Execute the SQL query to fetch updated data
+      const { data, error } = await supabase.rpc('execute_dynamic_sql', {
+        query: widget.dataSource
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Widget "${widget.name}" updated successfully`,
+      });
+      
+      // Force re-render by updating the widget
+      updateWidget({ ...widget });
+    } catch (error) {
+      console.error('Error updating widget:', error);
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Failed to update widget data",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleMinimizeWidget = (widget: Widget) => {
+    if (!currentDashboard) return;
+
+    // Store current position and size
+    const minimizedWidget = {
+      ...widget,
+      isMinimized: true,
+      previousPosition: { ...widget.position },
+      previousSize: { ...widget.size }
+    };
+
+    // Remove from dashboard widgets
+    const updatedWidgets = currentDashboard.config.widgets.filter(w => w.id !== widget.id);
+    setCurrentDashboard({
+      ...currentDashboard,
+      config: { widgets: updatedWidgets }
+    });
+
+    // Add to minimized widgets
+    setMinimizedWidgets(prev => [...prev, minimizedWidget]);
+
+    if (selectedWidget?.id === widget.id) {
+      setSelectedWidget(null);
+    }
+  };
+
+  const handleRestoreWidget = (widget: Widget) => {
+    if (!currentDashboard) return;
+
+    // Restore to previous position and size
+    const restoredWidget = {
+      ...widget,
+      isMinimized: false,
+      position: widget.previousPosition || { x: 100, y: 100 },
+      size: widget.previousSize || { width: 400, height: 300 }
+    };
+
+    // Remove previous position data
+    delete restoredWidget.previousPosition;
+    delete restoredWidget.previousSize;
+
+    // Add back to dashboard widgets
+    const updatedWidgets = [...currentDashboard.config.widgets, restoredWidget];
+    setCurrentDashboard({
+      ...currentDashboard,
+      config: { widgets: updatedWidgets }
+    });
+
+    // Remove from minimized widgets
+    setMinimizedWidgets(prev => prev.filter(w => w.id !== widget.id));
+  };
+
   // Element types for palette
   const elementTypes = [
     {
@@ -446,8 +537,34 @@ const Analytics = () => {
               onUpdateWidget={updateWidget}
               onDeleteWidget={deleteWidget}
               onEditWidget={handleConfigModal}
+              onRefreshWidget={handleUpdateWidget}
+              onMinimizeWidget={handleMinimizeWidget}
               isFrozen={configModalState.visible}
             />
+            
+            {/* Minimized Widgets Area */}
+            {minimizedWidgets.length > 0 && (
+              <div className="absolute bottom-4 left-4 right-4 bg-glass-bg/90 backdrop-blur-sm border border-glass-border rounded-lg p-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-muted-foreground mr-2">Minimized:</span>
+                  {minimizedWidgets.map((widget) => {
+                    const Icon = elementTypes.find(t => t.type === widget.type)?.icon || TableIcon;
+                    return (
+                      <Button
+                        key={widget.id}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRestoreWidget(widget)}
+                        className="h-8 bg-background/80 hover:bg-primary/10 border-border"
+                      >
+                        <Icon className="w-3 h-3 mr-1" />
+                        {widget.name}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">

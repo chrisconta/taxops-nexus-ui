@@ -1,4 +1,4 @@
-import { X, Settings, BarChart3, LineChart, PieChart, Table as TableIcon, Code } from "lucide-react";
+import { X, Settings, BarChart3, LineChart, PieChart, Table as TableIcon, Code, RefreshCw, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "./widgets/DataTable";
@@ -12,6 +12,8 @@ interface WidgetRendererProps {
   onDelete: () => void;
   onSelect: () => void;
   onEdit: () => void;
+  onUpdate: () => void;
+  onMinimize: () => void;
   isSelected: boolean;
 }
 
@@ -22,7 +24,7 @@ const widgetIcons = {
   'pie-chart': PieChart,
 };
 
-export const WidgetRenderer = ({ widget, onDelete, onSelect, onEdit, isSelected }: WidgetRendererProps) => {
+export const WidgetRenderer = ({ widget, onDelete, onSelect, onEdit, onUpdate, onMinimize, isSelected }: WidgetRendererProps) => {
   const Icon = widgetIcons[widget.type];
 
   const renderWidget = () => {
@@ -61,8 +63,33 @@ export const WidgetRenderer = ({ widget, onDelete, onSelect, onEdit, isSelected 
             className="h-6 w-6 p-0 text-taxops-gray-light hover:text-white"
             onClick={(e) => {
               e.stopPropagation();
+              onUpdate();
+            }}
+            title="Update data"
+          >
+            <RefreshCw className="w-3 h-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-taxops-gray-light hover:text-white"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMinimize();
+            }}
+            title="Minimize widget"
+          >
+            <Minimize2 className="w-3 h-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-taxops-gray-light hover:text-white"
+            onClick={(e) => {
+              e.stopPropagation();
               onEdit();
             }}
+            title="Edit widget"
           >
             <Settings className="w-3 h-3" />
           </Button>
@@ -74,6 +101,7 @@ export const WidgetRenderer = ({ widget, onDelete, onSelect, onEdit, isSelected 
               e.stopPropagation();
               onDelete();
             }}
+            title="Delete widget"
           >
             <X className="w-3 h-3" />
           </Button>

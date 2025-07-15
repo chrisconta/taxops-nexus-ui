@@ -10,6 +10,8 @@ interface DashboardCanvasProps {
   onUpdateWidget: (widget: Widget) => void;
   onDeleteWidget: (widgetId: string) => void;
   onEditWidget: (widget: Widget) => void;
+  onRefreshWidget: (widget: Widget) => void;
+  onMinimizeWidget: (widget: Widget) => void;
   isFrozen?: boolean;
 }
 
@@ -20,6 +22,8 @@ export const DashboardCanvas = ({
   onUpdateWidget,
   onDeleteWidget,
   onEditWidget,
+  onRefreshWidget,
+  onMinimizeWidget,
   isFrozen = false
 }: DashboardCanvasProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -156,6 +160,8 @@ export const DashboardCanvas = ({
             onDelete={() => onDeleteWidget(widget.id)}
             onSelect={() => onSelectWidget(widget)}
             onEdit={() => onEditWidget(widget)}
+            onUpdate={() => onRefreshWidget(widget)}
+            onMinimize={() => onMinimizeWidget(widget)}
             isSelected={selectedWidget?.id === widget.id}
           />
           
