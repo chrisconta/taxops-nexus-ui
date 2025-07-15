@@ -328,6 +328,8 @@ const Analytics = () => {
     };
 
     addWidget(newWidget);
+    // Automatically open configuration modal for new widgets
+    setConfigModalState({ visible: true, widget: newWidget });
   };
 
   return (
