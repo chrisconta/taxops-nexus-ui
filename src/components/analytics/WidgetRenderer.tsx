@@ -10,7 +10,7 @@ import type { Widget } from "@/pages/Analytics";
 interface WidgetRendererProps {
   widget: Widget;
   onDelete: () => void;
-  onEditScript: () => void;
+  onSelect: () => void;
   isSelected: boolean;
 }
 
@@ -21,7 +21,7 @@ const widgetIcons = {
   'pie-chart': PieChart,
 };
 
-export const WidgetRenderer = ({ widget, onDelete, onEditScript, isSelected }: WidgetRendererProps) => {
+export const WidgetRenderer = ({ widget, onDelete, onSelect, isSelected }: WidgetRendererProps) => {
   const Icon = widgetIcons[widget.type];
 
   const renderWidget = () => {
@@ -61,10 +61,10 @@ export const WidgetRenderer = ({ widget, onDelete, onEditScript, isSelected }: W
               className="h-6 w-6 p-0 text-taxops-gray-light hover:text-white"
               onClick={(e) => {
                 e.stopPropagation();
-                onEditScript();
+                onSelect();
               }}
             >
-              <Code className="w-3 h-3" />
+              <Settings className="w-3 h-3" />
             </Button>
             <Button
               variant="ghost"

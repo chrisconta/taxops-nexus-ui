@@ -9,9 +9,8 @@ import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DashboardCanvas } from "@/components/analytics/DashboardCanvas";
 import { ElementPalette } from "@/components/analytics/ElementPalette";
-import { ConfigurationPanel } from "@/components/analytics/ConfigurationPanel";
 import { DashboardList } from "@/components/analytics/DashboardList";
-import { ScriptEditorModal } from "@/components/analytics/ScriptEditorModal";
+import { WidgetConfigModal } from "@/components/analytics/WidgetConfigModal";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -55,7 +54,7 @@ const Analytics = () => {
   const [showNewDashboard, setShowNewDashboard] = useState(false);
   const [dashboardName, setDashboardName] = useState("");
   const [showDashboards, setShowDashboards] = useState(false);
-  const [scriptModalState, setScriptModalState] = useState<{
+  const [configModalState, setConfigModalState] = useState<{
     visible: boolean;
     widget: Widget | null;
   }>({ visible: false, widget: null });
@@ -203,32 +202,17 @@ const Analytics = () => {
     }
   };
 
-  const handleEditScript = (widgetId: string) => {
-    if (!currentDashboard) return;
-    
-    const widget = currentDashboard.config.widgets.find(w => w.id === widgetId);
-    if (widget) {
-      setScriptModalState({ visible: true, widget });
-    }
+  const handleConfigModal = (widget: Widget) => {
+    setConfigModalState({ visible: true, widget });
   };
 
-  const handleSaveScript = (widgetId: string, script: string) => {
-    if (!currentDashboard) return;
-
-    const updatedWidgets = currentDashboard.config.widgets.map(w => 
-      w.id === widgetId ? { ...w, script } : w
-    );
-
-    setCurrentDashboard({
-      ...currentDashboard,
-      config: { widgets: updatedWidgets }
-    });
-
-    setScriptModalState({ visible: false, widget: null });
+  const handleSaveWidget = (updatedWidget: Widget) => {
+    updateWidget(updatedWidget);
+    setConfigModalState({ visible: false, widget: null });
   };
 
-  const handleCloseScriptModal = () => {
-    setScriptModalState({ visible: false, widget: null });
+  const handleCloseConfigModal = () => {
+    setConfigModalState({ visible: false, widget: null });
   };
 
   return (
@@ -343,35 +327,19 @@ const Analytics = () => {
             <ResizableHandle withHandle />
 
             {/* Canvas */}
-            <ResizablePanel defaultSize={selectedWidget ? 60 : 80}>
+            <ResizablePanel defaultSize={80}>
               <div className="h-full bg-background/50">
                 <DashboardCanvas
                   dashboard={currentDashboard}
                   selectedWidget={selectedWidget}
-                  onSelectWidget={setSelectedWidget}
+                  onSelectWidget={handleConfigModal}
                   onUpdateWidget={updateWidget}
                   onDeleteWidget={deleteWidget}
-                  onEditScript={handleEditScript}
-                  isFrozen={scriptModalState.visible}
+                  isFrozen={configModalState.visible}
                 />
               </div>
             </ResizablePanel>
 
-            {/* Configuration Panel */}
-            {selectedWidget && (
-              <>
-                <ResizableHandle withHandle />
-                <ResizablePanel defaultSize={20} minSize={15} maxSize={35}>
-                  <div className="h-full border-l border-glass-border bg-glass-bg/20">
-                    <ConfigurationPanel
-                      widget={selectedWidget}
-                      onUpdateWidget={updateWidget}
-                      onClose={() => setSelectedWidget(null)}
-                    />
-                  </div>
-                </ResizablePanel>
-              </>
-            )}
           </ResizablePanelGroup>
         </div>
       ) : (
@@ -418,12 +386,12 @@ const Analytics = () => {
         onDeleteDashboard={loadDashboards}
       />
 
-      {/* Script Editor Modal */}
-      <ScriptEditorModal
-        visible={scriptModalState.visible}
-        widget={scriptModalState.widget}
-        onClose={handleCloseScriptModal}
-        onSave={handleSaveScript}
+      {/* Widget Configuration Modal */}
+      <WidgetConfigModal
+        visible={configModalState.visible}
+        widget={configModalState.widget}
+        onClose={handleCloseConfigModal}
+        onSave={handleSaveWidget}
       />
     </div>
   );

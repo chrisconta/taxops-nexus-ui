@@ -5,10 +5,9 @@ import type { Widget, Dashboard } from "@/pages/Analytics";
 interface DashboardCanvasProps {
   dashboard: Dashboard;
   selectedWidget: Widget | null;
-  onSelectWidget: (widget: Widget | null) => void;
+  onSelectWidget: (widget: Widget) => void;
   onUpdateWidget: (widget: Widget) => void;
   onDeleteWidget: (widgetId: string) => void;
-  onEditScript: (widgetId: string) => void;
   isFrozen?: boolean;
 }
 
@@ -18,7 +17,6 @@ export const DashboardCanvas = ({
   onSelectWidget, 
   onUpdateWidget,
   onDeleteWidget,
-  onEditScript,
   isFrozen = false
 }: DashboardCanvasProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -35,7 +33,7 @@ export const DashboardCanvas = ({
       y: e.clientY - rect.top
     });
     setDraggedWidget(widget);
-    onSelectWidget(widget);
+    // Don't select widget on mouse down, only on drag
   };
 
   const handleMouseMove = (e: MouseEvent) => {
@@ -62,7 +60,7 @@ export const DashboardCanvas = ({
 
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
-      onSelectWidget(null);
+      // Don't deselect when clicking on canvas
     }
   };
 
@@ -118,7 +116,7 @@ export const DashboardCanvas = ({
           <WidgetRenderer 
             widget={widget} 
             onDelete={() => onDeleteWidget(widget.id)}
-            onEditScript={() => onEditScript(widget.id)}
+            onSelect={() => onSelectWidget(widget)}
             isSelected={selectedWidget?.id === widget.id}
           />
         </div>
