@@ -33,15 +33,21 @@ const AVAILABLE_REPORTS = [
   { key: 'form-1120',      name: 'IRS Form 1120 (C Corp)'     }
 ];
 
-// Check if message is a report intent
+// Check if message is a report intent - be more specific about report requests
 function isReportIntent(message: string): boolean {
   const lowerMessage = message.toLowerCase();
-  return Object.values(REPORT_KEYWORDS)
+  
+  // Check for specific report type keywords
+  const hasReportKeyword = Object.values(REPORT_KEYWORDS)
     .flat()
-    .some(keyword => lowerMessage.includes(keyword)) ||
-    lowerMessage.includes('report') ||
-    lowerMessage.includes('generate') ||
-    lowerMessage.includes('create');
+    .some(keyword => lowerMessage.includes(keyword));
+  
+  // Check for explicit report generation requests
+  const hasReportRequest = lowerMessage.includes('report') || 
+    (lowerMessage.includes('generate') && lowerMessage.includes('report')) ||
+    (lowerMessage.includes('create') && lowerMessage.includes('report'));
+  
+  return hasReportKeyword || hasReportRequest;
 }
 
 // Detect specific report type from message
