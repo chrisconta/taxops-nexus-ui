@@ -634,25 +634,27 @@ const ConnectionSetup = () => {
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-border">
-        <div className="flex space-x-8">
+      <div className="p-4 border-b border-border">
+        <div className="flex space-x-2 bg-muted/50 p-1 rounded-lg w-fit">
           <Button
-            variant="ghost"
-            className={`relative px-0 py-2 border-b-2 transition-colors ${
+            variant={activeTab === "setup" ? "default" : "ghost"}
+            size="sm"
+            className={`px-4 py-2 rounded-md font-medium transition-all ${
               activeTab === "setup"
-                ? "border-primary text-primary font-medium"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
             }`}
             onClick={() => setActiveTab("setup")}
           >
             Setup
           </Button>
           <Button
-            variant="ghost"
-            className={`relative px-0 py-2 border-b-2 transition-colors ${
+            variant={activeTab === "history" ? "default" : "ghost"}
+            size="sm"
+            className={`px-4 py-2 rounded-md font-medium transition-all ${
               activeTab === "history"
-                ? "border-primary text-primary font-medium"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
             }`}
             onClick={() => setActiveTab("history")}
           >
