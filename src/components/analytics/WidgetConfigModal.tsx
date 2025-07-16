@@ -392,8 +392,8 @@ function processData(data) {
                 </div>
               </div>
 
-              {/* Column Selection - Hide for bar chart, line chart, and pie chart */}
-              {currentWidget.dataSource && tableColumns.length > 0 && !['bar-chart', 'line-chart', 'pie-chart'].includes(currentWidget.type) && (
+              {/* Column Selection - Hide for bar chart and line chart */}
+              {currentWidget.dataSource && tableColumns.length > 0 && !['bar-chart', 'line-chart'].includes(currentWidget.type) && (
                 <Card className="bg-glass-bg/30 border-glass-border">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm text-white">Columns</CardTitle>
@@ -492,8 +492,8 @@ function processData(data) {
               )}
 
 
-              {/* Transformations - Hide for bar chart, line chart, and pie chart */}
-              {!['bar-chart', 'line-chart', 'pie-chart'].includes(currentWidget.type) && (
+              {/* Transformations - Hide for bar chart and line chart */}
+              {!['bar-chart', 'line-chart'].includes(currentWidget.type) && (
                 <Card className="bg-glass-bg/30 border-glass-border">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
