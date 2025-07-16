@@ -1,4 +1,4 @@
-import { X, Settings, BarChart3, LineChart, PieChart, Table as TableIcon, Code, RefreshCw, Minimize2, Filter } from "lucide-react";
+import { X, Settings, BarChart3, LineChart, PieChart, Table as TableIcon, Code, RefreshCw, Minimize2, Filter, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "./widgets/DataTable";
@@ -75,6 +75,24 @@ export const WidgetRenderer = ({ widget, onDelete, onSelect, onEdit, onUpdate, o
           >
             <RefreshCw className="w-3 h-3" />
           </Button>
+          {widget.type === 'filter' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 text-taxops-gray-light hover:text-white"
+              onClick={(e) => {
+                e.stopPropagation();
+                // Toggle search mode for filter widget
+                if (onFilterChange) {
+                  const event = new CustomEvent('toggleFilterSearch', { detail: { widgetId: widget.id } });
+                  window.dispatchEvent(event);
+                }
+              }}
+              title="Toggle search"
+            >
+              <Search className="w-3 h-3" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
