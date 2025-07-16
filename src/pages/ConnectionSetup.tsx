@@ -305,6 +305,90 @@ const ConnectionSetup = () => {
     }
   };
 
+  const handleMappingComplete = (mappings: Record<string, ColumnMapping[]>) => {
+    setColumnMappings(mappings);
+    setFileUploadStep('review');
+  };
+
+  const handleImport = async (): Promise<ImportResult[]> => {
+    setIsImporting(true);
+    setImportResults([]);
+    
+    try {
+      const response = await fetch('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/file-import-processor', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppdGRlcmRqdnF0YWR0d2dhdG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIyNzI4MTAsImV4cCI6MjA2Nzg0ODgxMH0.apenqp5pSuLZtRGD7K2iXWr5cFJLtXD9xuhu0gsJ0QA',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          files: uploadedFiles.map(f => ({
+            id: f.id,
+            name: f.name,
+            type: f.type,
+            columns: f.columns
+          })),
+          mappings: columnMappings,
+          connectionType: connectionId,
+          clientIds: selectedClients
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Import failed');
+      }
+
+      const results = data.results || [];
+      setImportResults(results);
+      
+      toast({
+        title: "Import Completed",
+        description: `Successfully processed ${results.length} files`,
+      });
+      
+      return results;
+      
+    } catch (error) {
+      console.error('Import error:', error);
+      toast({
+        title: "Import Failed",
+        description: error instanceof Error ? error.message : "Failed to import files",
+        variant: "destructive"
+      });
+      
+      const errorResults: ImportResult[] = uploadedFiles.map(file => ({
+        fileId: file.id,
+        fileName: file.name,
+        status: 'error',
+        recordsInserted: 0,
+        recordsSkipped: 0,
+        totalRecords: 0,
+        errors: [{
+          row: 0,
+          column: 'general',
+          error: error instanceof Error ? error.message : "Import failed",
+          value: ''
+        }]
+      }));
+      
+      setImportResults(errorResults);
+      return errorResults;
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const resetFileUpload = () => {
+    setUploadedFiles([]);
+    setFileUploadStep('upload');
+    setColumnMappings({});
+    setImportResults([]);
+    setIsImporting(false);
+  };
+
   const handleCreateSync = async () => {
     if (selectedClients.length === 0) {
       toast({
@@ -926,19 +1010,72 @@ const ConnectionSetup = () => {
               <CardContent>
                 {selectedClients.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    Please select clients in the Setup tab first
+                    Please select clients first
                   </div>
                 ) : (
                   <div className="space-y-4">
                     <div className="text-sm text-muted-foreground">
                       Selected clients: {selectedClients.length}
                     </div>
-                    <FileUploadPanel
-                      onFilesUploaded={handleFilesUploaded}
-                      onFileRemoved={handleFileRemoved}
-                      uploadedFiles={uploadedFiles}
-                      maxFiles={5}
-                    />
+                    
+                    {fileUploadStep === 'upload' && (
+                      <FileUploadPanel
+                        onFilesUploaded={handleFilesUploaded}
+                        onFileRemoved={handleFileRemoved}
+                        uploadedFiles={uploadedFiles}
+                        maxFiles={5}
+                      />
+                    )}
+                    
+                    {fileUploadStep === 'mapping' && uploadedFiles.length > 0 && (
+                      <ColumnMappingWizard
+                        files={uploadedFiles}
+                        connectionType={connectionId || 'mercury'}
+                        onMappingComplete={handleMappingComplete}
+                        onBack={() => setFileUploadStep('upload')}
+                      />
+                    )}
+                    
+                    {fileUploadStep === 'review' && (
+                      <ImportReviewPanel
+                        files={uploadedFiles}
+                        mappings={columnMappings}
+                        connectionType={connectionId || 'mercury'}
+                        clientIds={selectedClients}
+                        onImport={handleImport}
+                        onBack={() => setFileUploadStep('mapping')}
+                        importResults={importResults}
+                        isImporting={isImporting}
+                      />
+                    )}
+                    
+                    {uploadedFiles.length > 0 && fileUploadStep === 'upload' && (
+                      <div className="flex justify-between pt-4">
+                        <Button
+                          variant="outline"
+                          onClick={resetFileUpload}
+                        >
+                          Reset
+                        </Button>
+                        <Button
+                          onClick={() => setFileUploadStep('mapping')}
+                          disabled={uploadedFiles.some(f => f.status !== 'complete')}
+                        >
+                          Continue to Mapping
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {fileUploadStep === 'review' && (
+                      <div className="flex justify-between pt-4">
+                        <Button
+                          variant="outline"
+                          onClick={resetFileUpload}
+                        >
+                          Start Over
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
