@@ -235,9 +235,9 @@ const Reports = () => {
 
         {/* Assistant Tab */}
         <TabsContent value="assistant" className="flex-1 flex flex-col mt-6">
-          <Card className="flex-1 bg-glass-bg/50 backdrop-blur-xl border-glass-border shadow-glass overflow-hidden flex flex-col">
+          <div className="flex-1 flex flex-col">
             <ChatWindow />
-          </Card>
+          </div>
         </TabsContent>
 
         {/* History Tab */}
