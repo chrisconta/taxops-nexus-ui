@@ -202,7 +202,7 @@ export const ChatWindow = () => {
     }
   };
   return (
-    <div className="flex flex-col h-[calc(100vh-250px)]">
+    <div className="flex flex-col h-full">
       {/* Header with New Chat Button - Fixed outside scroll area */}
       {messages.length > 0 && (
         <div className="flex-shrink-0 p-4 flex justify-end">

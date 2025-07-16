@@ -10,12 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { useChatStore } from "@/store/useChatStore";
+import { featureFlags } from "@/config/featureFlags";
 
 const Reports = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const activeTab = searchParams.get('tab') || 'assistant';
   const [searchTerm, setSearchTerm] = useState("");
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
@@ -26,7 +28,16 @@ const Reports = () => {
   const [conversations, setConversations] = useState<any[]>([]);
   
   const { toast } = useToast();
-  const { startNew } = useChatStore();
+  const { startNew, load: loadConversation } = useChatStore();
+  
+  // Handle URL conversation loading for full-screen chat
+  const convId = searchParams.get('conv');
+  
+  useEffect(() => {
+    if (featureFlags.reportsFullScreenChat && convId) {
+      loadConversation(convId);
+    }
+  }, [convId, loadConversation]);
 
   const setActiveTab = (tab: string) => {
     const newSearchParams = new URLSearchParams(searchParams);
@@ -165,6 +176,18 @@ const Reports = () => {
     return colors[color as keyof typeof colors] || "text-primary";
   };
 
+  // Full-screen chat UI when feature flag is enabled
+  if (featureFlags.reportsFullScreenChat) {
+    return (
+      <div className="h-screen flex flex-col bg-background">
+        <div className="flex-1 overflow-hidden">
+          <ChatWindow />
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback to existing tabbed UI
   return (
     <div className="h-full flex flex-col">
       {/* Tabs */}
