@@ -1309,10 +1309,3 @@ const ConnectionSetup = () => {
 };
 
 export default ConnectionSetup;
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
-
-export default ConnectionSetup;
