@@ -146,20 +146,27 @@ const ConnectionSetup = () => {
     ));
 
     try {
-      // Parse file to extract columns
+      // Parse file to extract columns and data
       const parseResult = await parseFile(file.file);
       
-      // Update file with parsed data
-      setUploadedFiles(prev => prev.map(f => 
-        f.id === file.id 
-          ? { 
-              ...f, 
-              status: 'complete', 
-              progress: 100,
-              columns: parseResult.success ? parseResult.data?.columns.map(col => col.name) || [] : []
-            }
-          : f
-      ));
+      if (parseResult.success && parseResult.data) {
+        console.log(`Successfully parsed ${file.name}: ${parseResult.data.rows.length} rows, ${parseResult.data.columns.length} columns`);
+        
+        // Update file with parsed data including both columns and rows
+        setUploadedFiles(prev => prev.map(f => 
+          f.id === file.id 
+            ? { 
+                ...f, 
+                status: 'complete', 
+                progress: 100,
+                columns: parseResult.data.columns.map(col => col.name),
+                data: parseResult.data.rows // Include the actual data rows
+              }
+            : f
+        ));
+      } else {
+        throw new Error(parseResult.error || 'Failed to parse file');
+      }
     } catch (error) {
       console.error('Error processing file:', error);
       setUploadedFiles(prev => prev.map(f => 
