@@ -328,6 +328,32 @@ const ConnectionSetup = () => {
     setImportResults([]);
     
     try {
+      const totalFiles = uploadedFiles.length;
+      const totalRecords = uploadedFiles.reduce((sum, file) => sum + (file.data?.length || 0), 0);
+      let processedRecords = 0;
+      
+      // Initialize progress
+      setSyncStatus({
+        status: "in_progress",
+        progress: 0,
+        message: "Starting import..."
+      });
+      
+      // Simulate initial progress
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setSyncStatus({
+        status: "in_progress",
+        progress: 5,
+        message: "Preparing files for import..."
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setSyncStatus({
+        status: "in_progress",
+        progress: 10,
+        message: "Sending data to server..."
+      });
+      
       const response = await fetch('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/file-import-processor', {
         method: 'POST',
         headers: {
@@ -348,25 +374,79 @@ const ConnectionSetup = () => {
           clientIds: selectedClients
         })
       });
-
+      
+      // Update progress while processing
+      setSyncStatus({
+        status: "in_progress",
+        progress: 20,
+        message: "Processing data on server..."
+      });
+      
+      // Simulate processing progress based on expected time
+      const estimatedProcessingTime = Math.min(totalRecords * 50, 30000); // 50ms per record, max 30 seconds
+      const progressUpdates = Math.min(20, Math.floor(estimatedProcessingTime / 1000)); // Update every second or so
+      
+      const progressInterval = setInterval(() => {
+        setSyncStatus(prev => {
+          const newProgress = Math.min(prev.progress + (60 / progressUpdates), 80);
+          return {
+            ...prev,
+            progress: newProgress,
+            message: `Processing ${Math.floor(newProgress - 20)}% of records...`
+          };
+        });
+      }, estimatedProcessingTime / progressUpdates);
+      
       const data = await response.json();
+      clearInterval(progressInterval);
       
       if (!response.ok) {
         throw new Error(data.error || 'Import failed');
       }
-
+      
+      // Final progress update
+      setSyncStatus({
+        status: "in_progress",
+        progress: 90,
+        message: "Finalizing import..."
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const results = data.results || [];
       setImportResults(results);
       
+      // Calculate success metrics
+      const totalProcessed = results.reduce((sum: number, r: ImportResult) => sum + r.recordsInserted, 0);
+      const totalSkipped = results.reduce((sum: number, r: ImportResult) => sum + r.recordsSkipped, 0);
+      const hasErrors = results.some((r: ImportResult) => r.status === 'error');
+      
+      setSyncStatus({
+        status: hasErrors ? "error" : "success",
+        progress: 100,
+        message: hasErrors 
+          ? `Import completed with errors: ${totalProcessed} inserted, ${totalSkipped} skipped`
+          : `Import successful: ${totalProcessed} records inserted, ${totalSkipped} skipped`
+      });
+      
       toast({
         title: "Import Completed",
-        description: `Successfully processed ${results.length} files`,
+        description: `Successfully processed ${results.length} files: ${totalProcessed} inserted, ${totalSkipped} skipped`,
+        variant: hasErrors ? "destructive" : "default"
       });
       
       return results;
       
     } catch (error) {
       console.error('Import error:', error);
+      
+      setSyncStatus({
+        status: "error",
+        progress: 0,
+        message: "Import failed",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+      
       toast({
         title: "Import Failed",
         description: error instanceof Error ? error.message : "Failed to import files",
@@ -956,6 +1036,7 @@ const ConnectionSetup = () => {
                           onBack={() => setFileUploadStep('mapping')}
                           importResults={importResults}
                           isImporting={isImporting}
+                          syncStatus={syncStatus}
                         />
                       )}
                       

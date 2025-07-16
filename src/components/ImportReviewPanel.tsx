@@ -28,6 +28,13 @@ export interface ImportError {
   value: string;
 }
 
+interface SyncStatus {
+  status: "idle" | "in_progress" | "success" | "error";
+  progress: number;
+  message: string;
+  details?: string;
+}
+
 interface ImportReviewPanelProps {
   files: UploadedFile[];
   mappings: Record<string, ColumnMapping[]>;
@@ -37,6 +44,7 @@ interface ImportReviewPanelProps {
   onBack: () => void;
   importResults?: ImportResult[];
   isImporting?: boolean;
+  syncStatus?: SyncStatus;
 }
 
 const ImportReviewPanel: React.FC<ImportReviewPanelProps> = ({
@@ -47,7 +55,8 @@ const ImportReviewPanel: React.FC<ImportReviewPanelProps> = ({
   onImport,
   onBack,
   importResults,
-  isImporting = false
+  isImporting = false,
+  syncStatus
 }) => {
   const [showErrorDetails, setShowErrorDetails] = useState<ImportResult | null>(null);
   
@@ -147,7 +156,15 @@ const ImportReviewPanel: React.FC<ImportReviewPanelProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Progress value={getOverallProgress()} className="mb-4" />
+            <Progress 
+              value={syncStatus?.status === 'in_progress' ? syncStatus.progress : getOverallProgress()} 
+              className="mb-4" 
+            />
+            {syncStatus?.message && (
+              <div className="text-sm text-muted-foreground mb-4">
+                {syncStatus.message}
+              </div>
+            )}
             <div className="space-y-2">
               {importResults?.map((result) => (
                 <div key={result.fileId} className="flex items-center justify-between p-3 border rounded-lg">
