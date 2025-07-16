@@ -129,7 +129,12 @@ const ConnectionSetup = () => {
   };
 
   const handleFileRemoved = (fileId: string) => {
-    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
+    console.log('Removing file:', fileId);
+    setUploadedFiles(prev => {
+      const newFiles = prev.filter(f => f.id !== fileId);
+      console.log('Files after removal:', newFiles.length);
+      return newFiles;
+    });
   };
 
   const processUploadedFile = async (file: UploadedFile) => {
