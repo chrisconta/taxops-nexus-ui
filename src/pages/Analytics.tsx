@@ -516,7 +516,7 @@ const Analytics = () => {
                   className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={() => setCurrentDashboard(null)}
                 >
-                  <Zap className="w-4 h-4 text-white" />
+                  <Zap className="w-4 h-4 text-white hover:drop-shadow-[0_0_8px_#00bfff] hover:text-[#00bfff] transition-all duration-300" />
                 </div>
                 {currentDashboard ? currentDashboard.name : 'Analytics Dashboard'}
               </h1>
