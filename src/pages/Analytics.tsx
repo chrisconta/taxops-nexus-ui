@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Download, Save, Trash2, BarChart3, LineChart, PieChart, Table as TableIcon, MoreVertical, Filter } from "lucide-react";
+import { Plus, Download, Save, Trash2, BarChart3, LineChart, PieChart, Table as TableIcon, MoreVertical, Filter, Calendar, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -477,6 +477,33 @@ const Analytics = () => {
     setConfigModalState({ visible: true, widget: newWidget });
   };
 
+  const handleDeleteDashboard = async (dashboardId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    try {
+      const { error } = await supabase
+        .from('dashboards')
+        .delete()
+        .eq('id', dashboardId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Dashboard deleted successfully",
+      });
+
+      await loadDashboards();
+    } catch (error) {
+      console.error('Error deleting dashboard:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete dashboard",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <TooltipProvider>
       <div className="h-full flex flex-col">
@@ -490,6 +517,18 @@ const Analytics = () => {
                 </div>
                 {currentDashboard ? currentDashboard.name : 'Analytics Dashboard'}
               </h1>
+              
+              {/* Create New Dashboard Button - only show when dashboards exist and not editing a dashboard */}
+              {!currentDashboard && dashboards.length > 0 && (
+                <Button 
+                  onClick={() => setShowNewDashboard(true)}
+                  className="bg-primary hover:bg-primary/90 text-white"
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create New Dashboard
+                </Button>
+              )}
             </div>
 
             <div className="flex items-center gap-4">
@@ -622,7 +661,87 @@ const Analytics = () => {
               </div>
             )}
           </div>
+        ) : dashboards.length > 0 ? (
+          /* Dashboard Cards View - when dashboards exist but none is currently loaded */
+          <div className="flex-1 p-6 bg-background/50">
+            <div className="max-w-6xl mx-auto">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-foreground mb-2">Your Dashboards</h2>
+                <p className="text-muted-foreground">Select a dashboard to open and start analyzing your data</p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {dashboards.map((dashboard) => {
+                  const widgetCount = dashboard.config.widgets?.length || 0;
+                  
+                  return (
+                    <Card 
+                      key={dashboard.id}
+                      className="cursor-pointer hover:border-primary/50 transition-all duration-300 group hover:shadow-lg bg-card/50 backdrop-blur-sm"
+                      onClick={() => loadDashboard(dashboard)}
+                    >
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg group-hover:text-primary transition-colors">
+                              {dashboard.name}
+                            </CardTitle>
+                            <CardDescription className="text-sm">
+                              {widgetCount} widget{widgetCount !== 1 ? 's' : ''}
+                            </CardDescription>
+                          </div>
+                          {dashboard.id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteDashboard(dashboard.id!, e);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Calendar className="w-3 h-3" />
+                            Created Jul 15, 2025
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Clock className="w-3 h-3" />
+                            Last modified Jul 15, 2025
+                          </div>
+                        </div>
+                        
+                        {/* Widget preview */}
+                        <div className="mt-3 pt-3 border-t border-border/50">
+                          <div className="grid grid-cols-3 gap-1">
+                            {Array.from({ length: Math.min(6, widgetCount) }).map((_, i) => (
+                              <div 
+                                key={i}
+                                className="h-6 bg-gradient-to-br from-primary/10 to-primary/5 rounded border border-primary/20"
+                              />
+                            ))}
+                            {widgetCount > 6 && (
+                              <div className="h-6 bg-muted rounded flex items-center justify-center">
+                                <span className="text-xs text-muted-foreground">+{widgetCount - 6}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         ) : (
+          /* Welcome Screen - only when no dashboards exist */
           <div className="flex-1 flex items-center justify-center">
             <Card className="w-96 bg-card border-border">
               <CardHeader className="text-center">
@@ -642,16 +761,6 @@ const Analytics = () => {
                   <Plus className="w-4 h-4 mr-2" />
                   Create Your First Dashboard
                 </Button>
-                {dashboards.length > 0 && (
-                  <Button 
-                    variant="outline"
-                    onClick={() => setShowDashboards(true)}
-                    className="w-full"
-                  >
-                    <TableIcon className="w-4 h-4 mr-2" />
-                    View Existing Dashboards
-                  </Button>
-                )}
               </CardContent>
             </Card>
           </div>
