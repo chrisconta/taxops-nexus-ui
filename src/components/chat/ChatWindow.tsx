@@ -101,6 +101,8 @@ export const ChatWindow: React.FC = () => {
 
   const handleNewChat = () => {
     startNew();
+    // Clear localStorage cache to ensure clean start
+    localStorage.removeItem('taxops-chat-storage');
     toast({
       title: "New Chat Started",
       description: "Previous conversation saved to history",

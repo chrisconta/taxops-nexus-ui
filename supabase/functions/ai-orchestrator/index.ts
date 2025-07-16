@@ -196,33 +196,10 @@ serve(async (req) => {
       // Not a JSON message, continue with intent check
     }
 
-    // If not a transaction request, enforce reports-only
+    // If not a transaction request and not a report intent, allow general conversation
     if (!isTransactionRequest && !isReportIntent(message)) {
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          const content = `I'm specialized solely in generating reports from our predefined list. I can't provide general advice or handle other requests.
-
-Please let me know which report you need:
-
-${AVAILABLE_REPORTS.map((report, i) => `${i + 1}. ${report.name}`).join('\n')}
-
-Please reply with the report name you'd like to generate.`;
-
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
-          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
-          controller.close();
-        }
-      });
-
-      return new Response(stream, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      });
+      // Let the message proceed to the AI for general conversation
+      // The AI will handle the response appropriately
     }
 
     // Get DeepSeek API key
@@ -309,29 +286,8 @@ Please reply with the report name you'd like to generate.`;
       
       // Step 1: Check if report type is specified
       if (!extractedParams.reportType) {
-        const encoder = new TextEncoder();
-        const stream = new ReadableStream({
-          start(controller) {
-            const content = `Sure—which report would you like? We currently support:
-
-${AVAILABLE_REPORTS.map((report, i) => `${i + 1}. ${report.name}`).join('\n')}
-
-Please reply with the report name.`;
-
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
-            controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
-            controller.close();
-          }
-        });
-
-        return new Response(stream, {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
-        });
+        // Let the AI handle the conversation flow naturally
+        // Don't force a specific report selection prompt
       }
 
       // Step 2: Check for missing client/date parameters
