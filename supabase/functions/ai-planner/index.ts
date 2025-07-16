@@ -149,7 +149,7 @@ INSTRUCTIONS:
 - Only use the exact tool names listed above
 - Make reasonable assumptions for missing parameters (use placeholder values that make sense)
 
-Your response MUST be valid JSON matching this exact schema:
+Your response MUST be valid JSON matching this exact schema. DO NOT include any explanation text, code blocks, or markdown formatting. Return ONLY the JSON object:
 {
   "intent": "brief summary of what the user wants to accomplish",
   "steps": [
@@ -162,7 +162,26 @@ Your response MUST be valid JSON matching this exact schema:
   ]
 }
 
-CONTEXT: ${chatHistory.length > 0 ? `Previous conversation:\n${chatHistory.map((msg: any) => `${msg.role}: ${msg.content}`).join('\n')}\n\n` : ''}Current request: ${userPrompt}`;
+Example response for "Register client ABC Corp":
+{
+  "intent": "Register new client ABC Corp",
+  "steps": [
+    {
+      "stepId": "550e8400-e29b-41d4-a716-446655440000",
+      "toolName": "register_client",
+      "params": {
+        "name": "ABC Corp",
+        "email": "contact@abccorp.com",
+        "companyId": "ABC-CORP-001"
+      },
+      "description": "Register ABC Corp as a new client in the system"
+    }
+  ]
+}
+
+CONTEXT: ${chatHistory.length > 0 ? `Previous conversation:\n${chatHistory.map((msg: any) => `${msg.role}: ${msg.content}`).join('\n')}\n\n` : ''}Current request: ${userPrompt}
+
+REMEMBER: Respond with ONLY valid JSON, no other text or formatting.`;
 
     console.log('Calling DeepSeek with system prompt length:', systemPrompt.length);
 
@@ -205,14 +224,32 @@ CONTEXT: ${chatHistory.length > 0 ? `Previous conversation:\n${chatHistory.map((
 
     console.log('DeepSeek response:', content);
 
+    // Clean up the response content in case it's wrapped in markdown
+    let cleanContent = content.trim();
+    
+    // Remove potential markdown code blocks
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanContent.startsWith('```')) {
+      cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    
+    // Remove any explanatory text before/after JSON
+    const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanContent = jsonMatch[0];
+    }
+
+    console.log('Cleaned content for parsing:', cleanContent);
+
     // Parse and validate the plan
     let plan;
     try {
-      plan = JSON.parse(content);
+      plan = JSON.parse(cleanContent);
     } catch (parseError) {
-      console.error('Failed to parse JSON from DeepSeek:', parseError, 'Content:', content);
+      console.error('Failed to parse JSON from DeepSeek:', parseError, 'Original content:', content, 'Cleaned content:', cleanContent);
       return new Response(
-        JSON.stringify({ error: 'LLM returned invalid JSON' }),
+        JSON.stringify({ error: `LLM returned invalid JSON: ${parseError.message}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
