@@ -17,6 +17,10 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import MercuryTokenSetup from "@/components/MercuryTokenSetup";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import FileUploadPanel, { UploadedFile } from "@/components/FileUploadPanel";
+import ColumnMappingWizard, { ColumnMapping } from "@/components/ColumnMappingWizard";
+import ImportReviewPanel, { ImportResult } from "@/components/ImportReviewPanel";
+import { parseFile } from "@/lib/fileProcessing";
 
 interface Client {
   id: string;
@@ -27,7 +31,7 @@ interface Client {
 }
 
 interface SyncSettings {
-  syncType: "automatic" | "historical";
+  syncType: "automatic" | "historical" | "file_upload";
   frequency?: "daily" | "weekly" | "monthly";
   startDate?: string;
   endDate?: string;
@@ -98,6 +102,13 @@ const ConnectionSetup = () => {
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
   const [summaryCollapsed, setSummaryCollapsed] = useState(false); // Collapsible state for overview + logs
+  
+  // File upload state
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [fileUploadStep, setFileUploadStep] = useState<'upload' | 'mapping' | 'review'>('upload');
+  const [columnMappings, setColumnMappings] = useState<Record<string, ColumnMapping[]>>({});
+  const [importResults, setImportResults] = useState<ImportResult[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
   
   // Pagination state for transactions
   const [pageIndex, setPageIndex] = useState(0);
@@ -753,6 +764,10 @@ const ConnectionSetup = () => {
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="historical" id="historical" />
                       <Label htmlFor="historical">Historical Data Sync</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="file_upload" id="file_upload" />
+                      <Label htmlFor="file_upload">File Upload</Label>
                     </div>
                   </RadioGroup>
 

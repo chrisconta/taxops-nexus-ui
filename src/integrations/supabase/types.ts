@@ -255,6 +255,44 @@ export type Database = {
         }
         Relationships: []
       }
+      file_mapping_templates: {
+        Row: {
+          client_id: string
+          connection_type: string
+          created_at: string | null
+          id: string
+          mappings: Json
+          template_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          connection_type: string
+          created_at?: string | null
+          id?: string
+          mappings?: Json
+          template_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          connection_type?: string
+          created_at?: string | null
+          id?: string
+          mappings?: Json
+          template_name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_mapping_templates_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -461,6 +499,7 @@ export type Database = {
           connection_code: string
           counterparty: string | null
           created_at: string | null
+          description: string | null
           effective_at: string | null
           id: string
           mercury_transaction_id: string
@@ -477,6 +516,7 @@ export type Database = {
           connection_code?: string
           counterparty?: string | null
           created_at?: string | null
+          description?: string | null
           effective_at?: string | null
           id?: string
           mercury_transaction_id?: string
@@ -493,6 +533,7 @@ export type Database = {
           connection_code?: string
           counterparty?: string | null
           created_at?: string | null
+          description?: string | null
           effective_at?: string | null
           id?: string
           mercury_transaction_id?: string
@@ -516,6 +557,41 @@ export type Database = {
             columns: ["sync_request_id"]
             isOneToOne: false
             referencedRelation: "sync_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions_mercury: {
+        Row: {
+          account_number: string | null
+          category_code: string | null
+          created_at: string | null
+          id: string
+          merchant_name: string | null
+          transaction_id: string
+        }
+        Insert: {
+          account_number?: string | null
+          category_code?: string | null
+          created_at?: string | null
+          id?: string
+          merchant_name?: string | null
+          transaction_id: string
+        }
+        Update: {
+          account_number?: string | null
+          category_code?: string | null
+          created_at?: string | null
+          id?: string
+          merchant_name?: string | null
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_mercury_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
         ]
