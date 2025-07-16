@@ -165,7 +165,11 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
 
   const renderCustomLabel = (entry: any) => {
     const percent = ((entry.value / data.reduce((sum, item) => sum + item.value, 0)) * 100).toFixed(1);
-    return `${percent}%`;
+    return (
+      <text fill="white" fontSize="12" fontWeight="500">
+        {`${percent}%`}
+      </text>
+    );
   };
 
   if (!widget.dataSource) {
