@@ -41,7 +41,7 @@ import {
 interface Client {
   id: string;
   name: string;
-  rfc: string;
+  taxid: string;
   email: string;
   sat_status: string | null;
   last_sync: string | null;
@@ -231,7 +231,7 @@ const ClientDetail = () => {
     try {
       const validatedData = clientValidationSchema.parse({
         name: client.name,
-        rfc: client.rfc,
+        taxid: client.taxid,
         email: client.email,
       });
 
@@ -560,11 +560,11 @@ const ClientDetail = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="rfc" className="text-white">Tax ID (RFC)</Label>
+              <Label htmlFor="taxid" className="text-white">Tax ID</Label>
               <Input
-                id="rfc"
-                value={client.rfc}
-                onChange={(e) => setClient({ ...client, rfc: e.target.value })}
+                id="taxid"
+                value={client.taxid}
+                onChange={(e) => setClient({ ...client, taxid: e.target.value })}
                 className="bg-glass-bg/30 border-glass-border"
               />
             </div>

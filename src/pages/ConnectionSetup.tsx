@@ -22,7 +22,7 @@ interface Client {
   id: string;
   name: string;
   email: string;
-  rfc: string;
+  taxid: string;
   sat_status: string;
 }
 
@@ -524,7 +524,7 @@ const ConnectionSetup = () => {
   const filteredClients = clients.filter(client =>
     client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.rfc.toLowerCase().includes(searchTerm.toLowerCase())
+    client.taxid.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredSyncRequests = syncRequests.filter(request =>
@@ -688,7 +688,7 @@ const ConnectionSetup = () => {
                       <Label htmlFor="search">Search clients</Label>
                       <Input
                         id="search"
-                        placeholder="Search by name, email, or RFC..."
+                        placeholder="Search by name, email, or Tax ID..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                       />
@@ -711,7 +711,7 @@ const ConnectionSetup = () => {
                         />
                         <div className="flex-1">
                           <div className="font-medium">{client.name}</div>
-                          <div className="text-sm text-muted-foreground">{client.email} • RFC: {client.rfc}</div>
+                          <div className="text-sm text-muted-foreground">{client.email} • Tax ID: {client.taxid}</div>
                         </div>
                         <Badge variant={client.sat_status === "active" ? "default" : "secondary"}>
                           {client.sat_status}

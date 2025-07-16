@@ -202,7 +202,7 @@ function processData(data) {
       } else {
         const columnMap: Record<string, string[]> = {
           transactions: ['id', 'amount_cents', 'counterparty', 'effective_at', 'posted_at', 'note', 'status', 'transaction_type'],
-          clients: ['id', 'name', 'email', 'rfc', 'sat_status', 'last_sync_at', 'last_sync_successful'],
+          clients: ['id', 'name', 'email', 'taxid', 'sat_status', 'last_sync_at', 'last_sync_successful'],
           sync_requests: ['id', 'status', 'sync_type', 'frequency', 'start_date', 'end_date', 'created_at'],
           reports: ['id', 'title', 'report_type', 'status', 'created_at', 'updated_at'],
         };

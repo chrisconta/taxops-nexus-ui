@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 const TABLE_RELATIONSHIPS = {
   transactions: {
     // Fields that need to be mapped from the clients table
-    clientFields: ['name', 'email', 'rfc', 'sat_status'],
+    clientFields: ['name', 'email', 'taxid', 'sat_status'],
     foreignKey: 'client_id',
     referencedTable: 'clients',
     referencedKey: 'id'

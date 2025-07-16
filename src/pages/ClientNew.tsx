@@ -15,7 +15,7 @@ const ClientNew = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    rfc: "",
+    taxid: "",
     email: "",
   });
 
@@ -44,7 +44,7 @@ const ClientNew = () => {
         .insert([
           {
             name: validatedData.name,
-            rfc: validatedData.rfc,
+            taxid: validatedData.taxid,
             email: validatedData.email,
             user_id: user.id,
           },
@@ -114,14 +114,14 @@ const ClientNew = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="rfc" className="text-white">
+              <Label htmlFor="taxid" className="text-white">
                 Tax ID (EIN) *
               </Label>
               <Input
-                id="rfc"
-                name="rfc"
+                id="taxid"
+                name="taxid"
                 type="text"
-                value={formData.rfc}
+                value={formData.taxid}
                 onChange={handleChange}
                 placeholder="e.g., 93-3739023"
                 className="bg-glass-bg/30 border-glass-border"

@@ -44,7 +44,7 @@ export const clientValidationSchema = z.object({
     .transform(val => sanitizeString(val, 200))
     .refine(val => val.length > 0, "Client name cannot be empty after sanitization"),
   
-  rfc: z
+  taxid: z
     .string()
     .min(1, "Tax ID (EIN) is required")
     .regex(/^\d{2}-?\d{7}$/, { message: "Tax ID must be in the format XX-XXXXXXX or XXXXXXXXX" })

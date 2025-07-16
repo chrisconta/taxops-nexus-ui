@@ -11,7 +11,7 @@ import { useChatStore } from "@/store/useChatStore";
 interface Client {
   id: string;
   name: string;
-  rfc: string;
+  taxid: string;
 }
 
 interface ParameterCollectorProps {
@@ -38,7 +38,7 @@ export const TransactionDataCollector = ({ messageId, missingParams = ['clientId
     try {
       const { data, error } = await supabase
         .from('clients')
-        .select('id, name, rfc')
+        .select('id, name, taxid')
         .order('name');
 
       if (error) throw error;
@@ -111,7 +111,7 @@ export const TransactionDataCollector = ({ messageId, missingParams = ['clientId
                 <SelectContent>
                   {clients.map(client => (
                     <SelectItem key={client.id} value={client.id}>
-                      {client.name} ({client.rfc})
+                      {client.name} ({client.taxid})
                     </SelectItem>
                   ))}
                 </SelectContent>

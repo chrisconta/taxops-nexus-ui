@@ -156,8 +156,8 @@ export type Database = {
           last_sync_at: string | null
           last_sync_successful: boolean | null
           name: string
-          rfc: string
           sat_status: string | null
+          taxid: string
           updated_at: string
           user_id: string
         }
@@ -169,8 +169,8 @@ export type Database = {
           last_sync_at?: string | null
           last_sync_successful?: boolean | null
           name: string
-          rfc: string
           sat_status?: string | null
+          taxid: string
           updated_at?: string
           user_id: string
         }
@@ -182,8 +182,8 @@ export type Database = {
           last_sync_at?: string | null
           last_sync_successful?: boolean | null
           name?: string
-          rfc?: string
           sat_status?: string | null
+          taxid?: string
           updated_at?: string
           user_id?: string
         }

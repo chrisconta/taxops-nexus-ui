@@ -24,7 +24,7 @@ interface Client {
   id: string;
   name: string;
   email: string;
-  rfc: string;
+  taxid: string;
   
   last_sync: string | null;
   last_sync_successful: boolean | null;
@@ -126,7 +126,7 @@ const Clients = () => {
         id: client.id,
         name: client.name,
         email: client.email,
-        rfc: client.rfc,
+        taxid: client.taxid,
         
         last_sync: client.last_sync,
         last_sync_successful: client.last_sync_successful,
@@ -255,7 +255,7 @@ const Clients = () => {
     const csvRows = clients.map(client => [
       `"${client.name}"`,
       `"${client.email}"`,
-      `"${client.rfc}"`,
+      `"${client.taxid}"`,
       `"${client.last_sync_at ? new Date(client.last_sync_at).toLocaleDateString() : 'Never'}"`,
       `"${client.last_sync_successful === null ? 'N/A' : client.last_sync_successful ? 'Yes' : 'No'}"`,
       `"${client.credentials.length > 0 ? client.credentials.map(c => `${c.code}:${c.status}`).join('; ') : 'None'}"`,
@@ -314,7 +314,7 @@ const Clients = () => {
     let filtered = clients.filter(client =>
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.rfc.toLowerCase().includes(searchTerm.toLowerCase())
+      client.taxid.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     // Apply metric filter
@@ -434,7 +434,7 @@ const Clients = () => {
                       {client.name}
                     </h3>
                     <p className="text-sm text-taxops-gray-light">{client.email}</p>
-                    <p className="text-sm text-taxops-gray-light font-mono">{client.rfc}</p>
+                    <p className="text-sm text-taxops-gray-light font-mono">{client.taxid}</p>
                   </div>
                   
                   {/* Credentials */}
