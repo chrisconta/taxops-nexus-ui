@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
-import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User, LogOut, ChevronDown, Brain, Zap } from "lucide-react";
+import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User, LogOut, ChevronDown, Brain, Zap, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
@@ -14,9 +14,23 @@ const Layout = () => {
     display_name: null, 
     email: null 
   });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     loadUserProfile();
+    
+    // Check if device is mobile/tablet and auto-collapse sidebar
+    const checkMobileView = () => {
+      const isMobileDevice = window.innerWidth <= 820;
+      setIsMobile(isMobileDevice);
+      setIsSidebarCollapsed(isMobileDevice);
+    };
+    
+    checkMobileView();
+    window.addEventListener('resize', checkMobileView);
+    
+    return () => window.removeEventListener('resize', checkMobileView);
   }, []);
 
   const loadUserProfile = async () => {
@@ -115,33 +129,57 @@ const Layout = () => {
 
   return <div className="min-h-screen bg-background flex">
       {/* AI-driven sidebar */}
-      <aside className="fixed left-0 top-0 h-screen w-72 foldable:w-64 foldable-portrait:w-16 bg-glass-bg/95 backdrop-blur-xl border-r border-glass-border shadow-glass flex flex-col z-10">
+      <aside className={`fixed left-0 top-0 h-screen transition-all duration-300 ease-in-out bg-glass-bg/95 backdrop-blur-xl border-r border-glass-border shadow-glass flex flex-col z-20 ${
+        isSidebarCollapsed 
+          ? 'w-16 foldable-portrait:w-12' 
+          : 'w-72 foldable:w-64'
+      }`}>
         {/* Premium Logo */}
-        <div className="p-8 foldable:p-6 foldable-portrait:p-2 border-b border-glass-border">
+        <div className={`border-b border-glass-border transition-all duration-300 ${
+          isSidebarCollapsed ? 'p-3' : 'p-8 foldable:p-6'
+        }`}>
           <div className="flex items-center justify-center">
-            <img src="/lovable-uploads/ed6e6561-0f8b-47cb-9fbd-edfe6ec7c766.png" alt="TaxOps by VALARIX" className="h-12 foldable:h-10 foldable-portrait:h-8 w-auto brightness-0 invert opacity-90 hover:opacity-100 transition-opacity duration-300" />
+            {!isSidebarCollapsed && (
+              <img src="/lovable-uploads/ed6e6561-0f8b-47cb-9fbd-edfe6ec7c766.png" alt="TaxOps by VALARIX" className="h-12 foldable:h-10 w-auto brightness-0 invert opacity-90 hover:opacity-100 transition-opacity duration-300" />
+            )}
+            {isSidebarCollapsed && (
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <Zap className="w-4 h-4 text-white" />
+              </div>
+            )}
           </div>
         </div>
 
         {/* Navigation with glow effects */}
-        <nav className="flex-1 p-6 foldable:p-4 foldable-portrait:p-2">
-          <div className="space-y-3 foldable-portrait:space-y-2">
+        <nav className={`flex-1 transition-all duration-300 ${
+          isSidebarCollapsed ? 'p-2' : 'p-6 foldable:p-4'
+        }`}>
+          <div className={`transition-all duration-300 ${
+            isSidebarCollapsed ? 'space-y-2' : 'space-y-3'
+          }`}>
             {navItems.map(item => {
             const Icon = item.icon;
             return <NavLink key={item.to} to={item.to} className={({
               isActive
-            }) => `group relative flex items-center gap-4 foldable-portrait:gap-0 foldable-portrait:justify-center px-6 foldable:px-4 foldable-portrait:px-2 py-4 foldable-portrait:py-3 rounded-xl text-sm foldable:text-xs font-semibold transition-all duration-300 overflow-hidden border border-transparent ${isActive ? "bg-gradient-to-r from-primary/20 to-primary/10 text-primary border-primary/30 shadow-glow" : "text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 hover:border-glass-border"}`}>
+            }) => `group relative flex items-center transition-all duration-300 overflow-hidden border border-transparent rounded-xl text-sm font-semibold ${
+              isSidebarCollapsed 
+                ? 'justify-center p-3 w-12 h-12' 
+                : 'gap-4 px-6 py-4'
+            } ${isActive ? "bg-gradient-to-r from-primary/20 to-primary/10 text-primary border-primary/30 shadow-glow" : "text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 hover:border-glass-border"}`}>
                   {({
                 isActive
               }) => <>
                       {/* Glow effect overlay */}
                       <div className={`absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 transition-opacity duration-300 ${isActive ? 'opacity-100' : 'group-hover:opacity-100'}`} />
                       
-                      <Icon className={`relative z-10 w-5 h-5 foldable:w-4 foldable:h-4 transition-all duration-300 ${isActive ? "text-primary" : "group-hover:scale-110"}`} />
-                      <span className="relative z-10 foldable-portrait:hidden">{item.label}</span>
+                      <Icon className={`relative z-10 transition-all duration-300 ${
+                        isSidebarCollapsed ? 'w-5 h-5' : 'w-5 h-5 foldable:w-4 foldable:h-4'
+                      } ${isActive ? "text-primary" : "group-hover:scale-110"}`} />
+                      {!isSidebarCollapsed && <span className="relative z-10">{item.label}</span>}
                       
                       {/* Active indicator */}
-                      {isActive && <div className="absolute right-4 foldable-portrait:right-2 w-2 h-2 bg-primary rounded-full animate-glow-pulse" />}
+                      {isActive && !isSidebarCollapsed && <div className="absolute right-4 w-2 h-2 bg-primary rounded-full animate-glow-pulse" />}
+                      {isActive && isSidebarCollapsed && <div className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full animate-glow-pulse" />}
                     </>}
                 </NavLink>;
           })}
@@ -149,25 +187,50 @@ const Layout = () => {
         </nav>
 
         {/* Bottom section */}
-        <div className="p-6 foldable:p-4 foldable-portrait:p-2 border-t border-glass-border">
+        <div className={`border-t border-glass-border transition-all duration-300 ${
+          isSidebarCollapsed ? 'p-2' : 'p-6 foldable:p-4'
+        }`}>
           <Button 
             variant="ghost" 
-            className="w-full justify-start foldable-portrait:justify-center gap-4 foldable-portrait:gap-0 px-6 foldable:px-4 foldable-portrait:px-2 py-4 foldable-portrait:py-3 text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 transition-all duration-300 group"
+            className={`w-full transition-all duration-300 text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 group ${
+              isSidebarCollapsed 
+                ? 'justify-center p-3 h-12' 
+                : 'justify-start gap-4 px-6 py-4'
+            }`}
             onClick={() => navigate('/settings/ai')}
           >
-            <Settings className="w-5 h-5 foldable:w-4 foldable:h-4 group-hover:scale-110 transition-transform" />
-            <span className="font-medium foldable-portrait:hidden">Settings</span>
+            <Settings className={`group-hover:scale-110 transition-transform ${
+              isSidebarCollapsed ? 'w-5 h-5' : 'w-5 h-5 foldable:w-4 foldable:h-4'
+            }`} />
+            {!isSidebarCollapsed && <span className="font-medium">Settings</span>}
           </Button>
         </div>
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col ml-72 foldable:ml-64 foldable-portrait:ml-16">
+      <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${
+        isSidebarCollapsed ? 'ml-16 foldable-portrait:ml-12' : 'ml-72 foldable:ml-64'
+      }`}>
         {/* Enhanced top header */}
-        <header className="fixed top-0 left-72 foldable:left-64 foldable-portrait:left-16 right-0 h-20 foldable:h-16 bg-glass-bg/30 backdrop-blur-sm border-b border-glass-border flex items-center justify-between px-8 foldable:px-4 foldable-portrait:px-3 z-10">
-          <div className="flex flex-col">
-            <h1 className="text-xl foldable:text-lg foldable-portrait:text-base font-bold text-white">{getPageTitle()}</h1>
-            <p className="text-sm foldable:text-xs foldable-portrait:hidden text-taxops-gray-light">{getPageDescription()}</p>
+        <header className={`fixed top-0 right-0 h-20 foldable:h-16 bg-glass-bg/30 backdrop-blur-sm border-b border-glass-border flex items-center justify-between px-8 foldable:px-4 foldable-portrait:px-3 z-10 transition-all duration-300 ease-in-out ${
+          isSidebarCollapsed ? 'left-16 foldable-portrait:left-12' : 'left-72 foldable:left-64'
+        }`}>
+          <div className="flex items-center gap-4">
+            {/* Sidebar toggle button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="p-2 text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 transition-all duration-300"
+              title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {isSidebarCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            </Button>
+            
+            <div className="flex flex-col">
+              <h1 className="text-xl foldable:text-lg foldable-portrait:text-base font-bold text-white">{getPageTitle()}</h1>
+              <p className="text-sm foldable:text-xs foldable-portrait:hidden text-taxops-gray-light">{getPageDescription()}</p>
+            </div>
           </div>
           
           <div className="flex items-center gap-6 foldable:gap-3">
