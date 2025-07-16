@@ -63,18 +63,6 @@ export const WidgetRenderer = ({ widget, onDelete, onSelect, onEdit, onUpdate, o
           {widget.name}
         </CardTitle>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 text-taxops-gray-light hover:text-white"
-            onClick={(e) => {
-              e.stopPropagation();
-              onUpdate();
-            }}
-            title="Update data"
-          >
-            <RefreshCw className="w-3 h-3" />
-          </Button>
           {widget.type === 'filter' && (
             <Button
               variant="ghost"
@@ -93,6 +81,18 @@ export const WidgetRenderer = ({ widget, onDelete, onSelect, onEdit, onUpdate, o
               <Search className="w-3 h-3" />
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-taxops-gray-light hover:text-white"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUpdate();
+            }}
+            title="Update data"
+          >
+            <RefreshCw className="w-3 h-3" />
+          </Button>
           <Button
             variant="ghost"
             size="sm"

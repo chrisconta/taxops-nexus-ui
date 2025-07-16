@@ -17,13 +17,54 @@ export const FilterWidget = ({ widget, onFilterChange, globalFilter }: FilterWid
   const [showSearch, setShowSearch] = useState(false);
   const [selectedColumn, setSelectedColumn] = useState<string>('');
   const [filterValue, setFilterValue] = useState<string>('');
+  const [searchValue, setSearchValue] = useState<string>('');
   const [availableColumns, setAvailableColumns] = useState<string[]>([]);
+  const [columnData, setColumnData] = useState<string[]>([]);
+  const [filteredData, setFilteredData] = useState<string[]>([]);
 
   useEffect(() => {
     if (widget.dataSource && widget.columns && widget.columns.length > 0) {
       setAvailableColumns(widget.columns);
+      if (!selectedColumn && widget.columns.length > 0) {
+        setSelectedColumn(widget.columns[0]);
+      }
     }
   }, [widget.dataSource, widget.columns]);
+
+  useEffect(() => {
+    const loadColumnData = async () => {
+      if (!widget.dataSource || !selectedColumn) return;
+      
+      try {
+        const { data, error } = await supabase.rpc('execute_dynamic_sql', {
+          query: `SELECT DISTINCT "${selectedColumn}" FROM public.${widget.dataSource} WHERE "${selectedColumn}" IS NOT NULL ORDER BY "${selectedColumn}"`
+        });
+        
+        if (error) throw error;
+        
+        const uniqueValues = Array.isArray(data) ? data.map((row: any) => String(row[selectedColumn])) : [];
+        setColumnData(uniqueValues);
+        setFilteredData(uniqueValues);
+      } catch (error) {
+        console.error('Error loading column data:', error);
+        setColumnData([]);
+        setFilteredData([]);
+      }
+    };
+
+    loadColumnData();
+  }, [widget.dataSource, selectedColumn]);
+
+  useEffect(() => {
+    if (!searchValue.trim()) {
+      setFilteredData(columnData);
+    } else {
+      const filtered = columnData.filter(value => 
+        value.toLowerCase().includes(searchValue.toLowerCase())
+      );
+      setFilteredData(filtered);
+    }
+  }, [searchValue, columnData]);
 
   useEffect(() => {
     const handleToggleSearch = (event: CustomEvent) => {
@@ -39,17 +80,19 @@ export const FilterWidget = ({ widget, onFilterChange, globalFilter }: FilterWid
   const handleColumnSelect = (column: string) => {
     setSelectedColumn(column);
     setFilterValue('');
+    setSearchValue('');
   };
 
-  const handleApplyFilter = () => {
-    if (selectedColumn && filterValue.trim()) {
-      onFilterChange(selectedColumn, filterValue.trim());
+  const handleApplyFilter = (value: string) => {
+    if (selectedColumn && value.trim()) {
+      onFilterChange(selectedColumn, value.trim());
     }
   };
 
   const handleClearFilter = () => {
     setSelectedColumn('');
     setFilterValue('');
+    setSearchValue('');
     onFilterChange('', '');
     setShowSearch(false);
   };
@@ -73,7 +116,7 @@ export const FilterWidget = ({ widget, onFilterChange, globalFilter }: FilterWid
   return (
     <Card className="bg-glass-bg/30 border-glass-border h-full">
       <CardContent className="p-4 h-full flex flex-col">
-        {showSearch && availableColumns.length > 0 ? (
+        {!selectedColumn ? (
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
@@ -83,63 +126,33 @@ export const FilterWidget = ({ widget, onFilterChange, globalFilter }: FilterWid
                 {availableColumns.map((column) => (
                   <Badge
                     key={column}
-                    variant={selectedColumn === column ? "default" : "outline"}
+                    variant="outline"
                     className="cursor-pointer hover:bg-primary/10 text-xs"
-                    onClick={() => setSelectedColumn(column)}
+                    onClick={() => handleColumnSelect(column)}
                   >
                     {column}
                   </Badge>
                 ))}
               </div>
             </div>
-
-            {selectedColumn && (
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  Filter Value
-                </label>
-                <Input
-                  value={filterValue}
-                  onChange={(e) => setFilterValue(e.target.value)}
-                  placeholder={`Enter value for ${selectedColumn}`}
-                  className="w-full"
-                  onKeyPress={(e) => e.key === 'Enter' && handleApplyFilter()}
-                />
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <Button
-                onClick={handleApplyFilter}
-                disabled={!selectedColumn || !filterValue.trim()}
-                size="sm"
-                className="flex-1"
-              >
-                Apply
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleClearFilter}
-                size="sm"
-                className="flex-1"
-              >
-                Clear
-              </Button>
-            </div>
           </div>
         ) : (
           <div className="flex-1 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Filter className="w-5 h-5 text-primary" />
-                <span className="font-medium text-foreground">Filter</span>
+            {showSearch && (
+              <div className="mb-4">
+                <Input
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  placeholder={`Enter value for ${selectedColumn}`}
+                  className="w-full"
+                />
               </div>
-            </div>
-
-            {globalFilter ? (
-              <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-foreground">Active Filter</span>
+            )}
+            
+            <div className="mb-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground">{selectedColumn}</span>
+                {globalFilter && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -148,27 +161,32 @@ export const FilterWidget = ({ widget, onFilterChange, globalFilter }: FilterWid
                   >
                     <X className="w-3 h-3" />
                   </Button>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">Column:</div>
-                  <Badge variant="secondary" className="text-xs">
-                    {globalFilter.column}
-                  </Badge>
-                  <div className="text-xs text-muted-foreground mt-2">Value:</div>
-                  <div className="text-sm text-foreground font-mono bg-background/50 px-2 py-1 rounded">
-                    {globalFilter.value}
-                  </div>
-                </div>
+                )}
               </div>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
-                <Filter className="w-12 h-12 text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground mb-1">No filter applied</p>
-                <p className="text-xs text-muted-foreground">
-                  Use the search button to set a filter
-                </p>
-              </div>
-            )}
+              <div className="h-px bg-border mt-2"></div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-1">
+              {filteredData.map((value, index) => (
+                <div
+                  key={index}
+                  className="p-2 text-sm text-foreground hover:bg-muted/50 cursor-pointer rounded"
+                  onClick={() => handleApplyFilter(value)}
+                >
+                  {value}
+                </div>
+              ))}
+              {filteredData.length === 0 && columnData.length > 0 && (
+                <div className="text-center text-sm text-muted-foreground py-4">
+                  No matching values found
+                </div>
+              )}
+              {columnData.length === 0 && (
+                <div className="text-center text-sm text-muted-foreground py-4">
+                  No data available
+                </div>
+              )}
+            </div>
           </div>
         )}
       </CardContent>
