@@ -8,7 +8,7 @@ import { useChatStore } from "@/store/useChatStore";
 export const ChatLayout: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { load: loadConversation } = useChatStore();
-  const enabled = useFeatureFlag("REACT_APP_AGENT_UI_ENABLED");
+  const enabled = useFeatureFlag("VITE_AGENT_UI_ENABLED");
   
   console.log('ChatLayout - enabled:', enabled);
 
