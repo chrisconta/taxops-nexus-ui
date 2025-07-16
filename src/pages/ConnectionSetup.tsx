@@ -98,6 +98,7 @@ const ConnectionSetup = () => {
   const [syncRequestsSearch, setSyncRequestsSearch] = useState("");
   const [syncDetailsLoading, setSyncDetailsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"setup" | "history">("setup");
+  const [setupMode, setSetupMode] = useState<"file-upload" | "sync-setup">("file-upload");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
@@ -874,7 +875,113 @@ const ConnectionSetup = () => {
               </CardContent>
             </Card>
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            {/* Setup Mode Toggle */}
+            <div className="flex justify-center">
+              <div className="flex bg-muted p-1 rounded-lg">
+                <Button
+                  variant={setupMode === "file-upload" ? "default" : "ghost"}
+                  onClick={() => setSetupMode("file-upload")}
+                  className="h-9"
+                >
+                  File Upload
+                </Button>
+                <Button
+                  variant={setupMode === "sync-setup" ? "default" : "ghost"}
+                  onClick={() => setSetupMode("sync-setup")}
+                  className="h-9"
+                >
+                  Sync Setup
+                </Button>
+              </div>
+            </div>
+
+            {/* File Upload Mode */}
+            {setupMode === "file-upload" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>File Upload for {connectionInfo.title}</CardTitle>
+                  <CardDescription>
+                    Upload files directly (CSV, Excel, XML, TXT) for selected clients.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {selectedClients.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Please select clients first
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="text-sm text-muted-foreground">
+                        Selected clients: {selectedClients.length}
+                      </div>
+                      
+                      {fileUploadStep === 'upload' && (
+                        <FileUploadPanel
+                          onFilesUploaded={handleFilesUploaded}
+                          onFileRemoved={handleFileRemoved}
+                          uploadedFiles={uploadedFiles}
+                          maxFiles={5}
+                        />
+                      )}
+                      
+                      {fileUploadStep === 'mapping' && uploadedFiles.length > 0 && (
+                        <ColumnMappingWizard
+                          files={uploadedFiles}
+                          connectionType={connectionId || 'mercury'}
+                          onMappingComplete={handleMappingComplete}
+                          onBack={() => setFileUploadStep('upload')}
+                        />
+                      )}
+                      
+                      {fileUploadStep === 'review' && (
+                        <ImportReviewPanel
+                          files={uploadedFiles}
+                          mappings={columnMappings}
+                          connectionType={connectionId || 'mercury'}
+                          clientIds={selectedClients}
+                          onImport={handleImport}
+                          onBack={() => setFileUploadStep('mapping')}
+                          importResults={importResults}
+                          isImporting={isImporting}
+                        />
+                      )}
+                      
+                      {uploadedFiles.length > 0 && fileUploadStep === 'upload' && (
+                        <div className="flex justify-between pt-4">
+                          <Button
+                            variant="outline"
+                            onClick={resetFileUpload}
+                          >
+                            Reset
+                          </Button>
+                          <Button
+                            onClick={() => setFileUploadStep('mapping')}
+                            disabled={uploadedFiles.some(f => f.status !== 'complete')}
+                          >
+                            Continue to Mapping
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {fileUploadStep === 'review' && (
+                        <div className="flex justify-between pt-4">
+                          <Button
+                            variant="outline"
+                            onClick={resetFileUpload}
+                          >
+                            Start Over
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Sync Setup Mode */}
+            {setupMode === "sync-setup" && (
+              <div className="grid gap-6 lg:grid-cols-2">
               {/* Sync Type Selection */}
               <Card>
                 <CardHeader>
@@ -998,88 +1105,7 @@ const ConnectionSetup = () => {
                 </CardContent>
               </Card>
             </div>
-
-            {/* File Upload Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle>File Upload for {connectionInfo.title}</CardTitle>
-                <CardDescription>
-                  Upload files directly (CSV, Excel, XML, TXT) for selected clients.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {selectedClients.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Please select clients first
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="text-sm text-muted-foreground">
-                      Selected clients: {selectedClients.length}
-                    </div>
-                    
-                    {fileUploadStep === 'upload' && (
-                      <FileUploadPanel
-                        onFilesUploaded={handleFilesUploaded}
-                        onFileRemoved={handleFileRemoved}
-                        uploadedFiles={uploadedFiles}
-                        maxFiles={5}
-                      />
-                    )}
-                    
-                    {fileUploadStep === 'mapping' && uploadedFiles.length > 0 && (
-                      <ColumnMappingWizard
-                        files={uploadedFiles}
-                        connectionType={connectionId || 'mercury'}
-                        onMappingComplete={handleMappingComplete}
-                        onBack={() => setFileUploadStep('upload')}
-                      />
-                    )}
-                    
-                    {fileUploadStep === 'review' && (
-                      <ImportReviewPanel
-                        files={uploadedFiles}
-                        mappings={columnMappings}
-                        connectionType={connectionId || 'mercury'}
-                        clientIds={selectedClients}
-                        onImport={handleImport}
-                        onBack={() => setFileUploadStep('mapping')}
-                        importResults={importResults}
-                        isImporting={isImporting}
-                      />
-                    )}
-                    
-                    {uploadedFiles.length > 0 && fileUploadStep === 'upload' && (
-                      <div className="flex justify-between pt-4">
-                        <Button
-                          variant="outline"
-                          onClick={resetFileUpload}
-                        >
-                          Reset
-                        </Button>
-                        <Button
-                          onClick={() => setFileUploadStep('mapping')}
-                          disabled={uploadedFiles.some(f => f.status !== 'complete')}
-                        >
-                          Continue to Mapping
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {fileUploadStep === 'review' && (
-                      <div className="flex justify-between pt-4">
-                        <Button
-                          variant="outline"
-                          onClick={resetFileUpload}
-                        >
-                          Start Over
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            )}
           </div>
         )}
 
