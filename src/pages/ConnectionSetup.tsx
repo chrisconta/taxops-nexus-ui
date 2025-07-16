@@ -31,7 +31,7 @@ interface Client {
 }
 
 interface SyncSettings {
-  syncType: "automatic" | "historical" | "file_upload";
+  syncType: "automatic" | "historical";
   frequency?: "daily" | "weekly" | "monthly";
   startDate?: string;
   endDate?: string;
@@ -765,10 +765,6 @@ const ConnectionSetup = () => {
                       <RadioGroupItem value="historical" id="historical" />
                       <Label htmlFor="historical">Historical Data Sync</Label>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="file_upload" id="file_upload" />
-                      <Label htmlFor="file_upload">File Upload</Label>
-                    </div>
                   </RadioGroup>
 
                   {syncSettings.syncType === "automatic" && (
@@ -817,6 +813,47 @@ const ConnectionSetup = () => {
                       </div>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* File Upload Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ArrowLeft className="h-5 w-5" />
+                    File Upload
+                  </CardTitle>
+                  <CardDescription>
+                    Upload files directly (CSV, Excel, XML, TXT) for this connection type.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="text-sm text-muted-foreground">
+                      Select clients and then proceed to the upload module for {connectionInfo.title}.
+                    </div>
+                    <Button
+                      onClick={() => {
+                        if (selectedClients.length === 0) {
+                          toast({
+                            title: "No clients selected",
+                            description: "Please select at least one client to upload files",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        // Navigate to upload module with selected clients
+                        navigate(`/connections/${connectionId}/upload`, {
+                          state: { selectedClients }
+                        });
+                      }}
+                      disabled={selectedClients.length === 0}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      Upload Files for Selected Clients
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>
