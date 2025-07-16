@@ -600,24 +600,6 @@ const Analytics = () => {
                     <TableIcon className="w-4 h-4 mr-2" />
                     Dashboards
                   </DropdownMenuItem>
-                  {dashboards.length > 0 && (
-                    <>
-                      <DropdownMenuSeparator />
-                      {dashboards.slice(0, 5).map((dashboard) => (
-                        <DropdownMenuItem 
-                          key={dashboard.id} 
-                          onClick={() => loadDashboard(dashboard)}
-                        >
-                          {dashboard.name}
-                        </DropdownMenuItem>
-                      ))}
-                      {dashboards.length > 5 && (
-                        <DropdownMenuItem onClick={() => setShowDashboards(true)}>
-                          View all dashboards...
-                        </DropdownMenuItem>
-                      )}
-                    </>
-                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
