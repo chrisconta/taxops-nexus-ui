@@ -9,6 +9,8 @@ export const ChatLayout: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { load: loadConversation } = useChatStore();
   const enabled = useFeatureFlag("REACT_APP_AGENT_UI_ENABLED");
+  
+  console.log('ChatLayout - enabled:', enabled);
 
   // Handle URL-based conversation loading
   useEffect(() => {
