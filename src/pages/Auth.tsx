@@ -34,7 +34,7 @@ export default function Auth() {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          navigate("/clients");
+          navigate("/reports");
         }
       }
     );
@@ -45,7 +45,7 @@ export default function Auth() {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        navigate("/clients");
+        navigate("/reports");
       }
     });
 
@@ -124,7 +124,7 @@ export default function Auth() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/clients`
+          redirectTo: `${window.location.origin}/reports`
         }
       });
 
