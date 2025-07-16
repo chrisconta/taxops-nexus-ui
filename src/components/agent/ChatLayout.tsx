@@ -21,8 +21,8 @@ export const ChatLayout: React.FC = () => {
   }, [enabled, searchParams, loadConversation]);
 
   return enabled ? (
-    <div className="h-screen flex flex-col bg-background">
-      <div className="flex-1 min-h-0">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <ChatWindow />
       </div>
     </div>
