@@ -154,10 +154,10 @@ export const ChatWindow = () => {
     }
   };
   return (
-    <div className="flex flex-col h-full relative">
-      {/* New Chat Button - Only show when there are messages */}
+    <div className="flex flex-col h-full max-h-[calc(100vh-200px)] relative">
+      {/* New Chat Button - Fixed position, higher up */}
       {messages.length > 0 && (
-        <div className="absolute top-4 right-4 z-10">
+        <div className="absolute top-2 right-2 z-20">
           <Button 
             onClick={handleNewChat}
             className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 hover:border-primary/50"
@@ -169,10 +169,10 @@ export const ChatWindow = () => {
         </div>
       )}
 
-      {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Chat Messages - Constrained height */}
+      <div className="flex-1 overflow-y-auto max-h-[calc(100vh-400px)] min-h-0">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full px-4">
+          <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px]">
             <div className="text-center max-w-2xl">
               <h1 className="text-4xl font-bold text-white mb-8">
                 What reports you want me to build?
@@ -180,7 +180,7 @@ export const ChatWindow = () => {
             </div>
           </div>
         ) : (
-          <div className="px-4 py-6 space-y-4 min-h-0">
+          <div className="px-4 py-6 pb-16 space-y-4 min-h-0">
             {messages.map(message => (
               <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-full ${message.role === 'user' ? 'max-w-xs lg:max-w-md' : 'max-w-4xl'}`}>
@@ -204,7 +204,7 @@ export const ChatWindow = () => {
         )}
       </div>
 
-      {/* Chat Input - Centered at bottom */}
+      {/* Chat Input - Fixed at bottom */}
       <div className={`flex-shrink-0 p-6 ${messages.length === 0 ? 'pb-8' : 'border-t border-glass-border bg-glass-bg/30'}`}>
         <div className={`${messages.length === 0 ? 'max-w-4xl mx-auto' : ''}`}>
           <div className="flex space-x-3">
