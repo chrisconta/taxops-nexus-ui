@@ -285,8 +285,8 @@ serve(async (req) => {
     const combinedRules = [generalRules, specificRules].filter(Boolean).join('\n\n');
 
     // ===== PARAMETER VALIDATION =====
-    // If not a transaction request, check if we have all required parameters
-    if (!isTransactionRequest) {
+    // ONLY proceed with report parameter validation if this is actually a report intent
+    if (!isTransactionRequest && isReportIntent(message)) {
       // Extract parameters from natural language message
       const extractedParams = extractParamsFromMessage(message);
       
@@ -294,18 +294,17 @@ serve(async (req) => {
       if (!extractedParams.reportType) {
         // Let the AI handle the conversation flow naturally
         // Don't force a specific report selection prompt
-      }
-
-      // Step 2: Check for missing client/date parameters
-      const requiredParams = ['clientId', 'startDate', 'endDate'];
-      const missingParams = requiredParams.filter(param => !extractedParams[param]);
-      
-      if (missingParams.length > 0) {
-        const reportName = AVAILABLE_REPORTS.find(r => r.key === extractedParams.reportType)?.name;
-        const encoder = new TextEncoder();
-        const stream = new ReadableStream({
-          start(controller) {
-            const content = `Great! I'll generate a ${reportName} for you. Please provide:
+      } else {
+        // Step 2: Check for missing client/date parameters
+        const requiredParams = ['clientId', 'startDate', 'endDate'];
+        const missingParams = requiredParams.filter(param => !extractedParams[param]);
+        
+        if (missingParams.length > 0) {
+          const reportName = AVAILABLE_REPORTS.find(r => r.key === extractedParams.reportType)?.name;
+          const encoder = new TextEncoder();
+          const stream = new ReadableStream({
+            start(controller) {
+              const content = `Great! I'll generate a ${reportName} for you. Please provide:
 
 ${missingParams.includes('clientId') ? '• Client name or ID' : ''}
 ${missingParams.includes('startDate') ? '• Start date (YYYY-MM-DD format)' : ''}
@@ -313,44 +312,45 @@ ${missingParams.includes('endDate') ? '• End date (YYYY-MM-DD format)' : ''}
 
 Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
 
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
-              type: 'missing_data', 
-              message: content,
-              missingParams 
-            })}\n\n`));
-            controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
-            controller.close();
-          }
-        });
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+                type: 'missing_data', 
+                message: content,
+                missingParams 
+              })}\n\n`));
+              controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+              controller.close();
+            }
+          });
 
-        return new Response(stream, {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
-        });
-      }
-      
-      // Step 3: If we have all parameters, send confirmation and convert to transaction request
-      if (extractedParams.reportType && extractedParams.clientId && extractedParams.startDate && extractedParams.endDate) {
-        const reportName = AVAILABLE_REPORTS.find(r => r.key === extractedParams.reportType)?.name;
+          return new Response(stream, {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive',
+            },
+          });
+        }
         
-        // Send confirmation message first
-        const encoder = new TextEncoder();
-        const stream = new ReadableStream({
-          start(controller) {
-            const content = `Great—generating a ${reportName} for ${extractedParams.clientId} from ${extractedParams.startDate} to ${extractedParams.endDate}. This may take a moment...`;
-            
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
-            controller.close();
-          }
-        });
+        // Step 3: If we have all parameters, send confirmation and convert to transaction request
+        if (extractedParams.reportType && extractedParams.clientId && extractedParams.startDate && extractedParams.endDate) {
+          const reportName = AVAILABLE_REPORTS.find(r => r.key === extractedParams.reportType)?.name;
+          
+          // Send confirmation message first
+          const encoder = new TextEncoder();
+          const stream = new ReadableStream({
+            start(controller) {
+              const content = `Great—generating a ${reportName} for ${extractedParams.clientId} from ${extractedParams.startDate} to ${extractedParams.endDate}. This may take a moment...`;
+              
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+              controller.close();
+            }
+          });
 
-        // Then proceed with transaction request
-        isTransactionRequest = true;
-        transactionParams = extractedParams;
+          // Then proceed with transaction request
+          isTransactionRequest = true;
+          transactionParams = extractedParams;
+        }
       }
     }
 
