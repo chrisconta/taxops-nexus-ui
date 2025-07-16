@@ -332,54 +332,56 @@ const AISettings = () => {
                   </div>
                 ) : (
                   <ScrollArea className="h-96 border border-glass-border rounded">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-glass-border">
-                          <TableHead className="text-white">Timestamp</TableHead>
-                          <TableHead className="text-white">Conversation</TableHead>
-                          <TableHead className="text-white">Status</TableHead>
-                          <TableHead className="text-white">Model</TableHead>
-                          <TableHead className="text-white">Tokens</TableHead>
-                          <TableHead className="text-white">Content Preview</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {apiLogs.map((log) => (
-                          <TableRow key={log.id} className="border-glass-border">
-                            <TableCell className="text-taxops-gray-light">
-                              <div className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4" />
-                                {new Date(log.created_at).toLocaleString()}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-taxops-gray-light">
-                              <Badge variant="secondary" className="bg-primary/20 text-primary">
-                                {log.ai_conversations?.title || 'Unknown'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                {getStatusIcon(log.api_logs?.response?.status)}
-                                <span className="text-taxops-gray-light">
-                                  {log.api_logs?.response?.status || 'Unknown'}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-taxops-gray-light">
-                              {log.api_logs?.request?.body?.model || 'Unknown'}
-                            </TableCell>
-                            <TableCell className="text-taxops-gray-light">
-                              {log.api_logs?.request?.body?.max_tokens || 'Unknown'}
-                            </TableCell>
-                            <TableCell className="text-taxops-gray-light max-w-xs">
-                              <div className="truncate">
-                                {log.content.substring(0, 100)}...
-                              </div>
-                            </TableCell>
+                    <div className="min-w-[800px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-glass-border">
+                            <TableHead className="text-white min-w-[180px]">Timestamp</TableHead>
+                            <TableHead className="text-white min-w-[140px]">Conversation</TableHead>
+                            <TableHead className="text-white min-w-[80px]">Status</TableHead>
+                            <TableHead className="text-white min-w-[100px]">Model</TableHead>
+                            <TableHead className="text-white min-w-[80px]">Tokens</TableHead>
+                            <TableHead className="text-white min-w-[200px]">Content Preview</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {apiLogs.map((log) => (
+                            <TableRow key={log.id} className="border-glass-border">
+                              <TableCell className="text-taxops-gray-light">
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-4 h-4" />
+                                  {new Date(log.created_at).toLocaleString()}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-taxops-gray-light">
+                                <Badge variant="secondary" className="bg-primary/20 text-primary">
+                                  {log.ai_conversations?.title || 'Unknown'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  {getStatusIcon(log.api_logs?.response?.status)}
+                                  <span className="text-taxops-gray-light">
+                                    {log.api_logs?.response?.status || 'Unknown'}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-taxops-gray-light">
+                                {log.api_logs?.request?.body?.model || 'Unknown'}
+                              </TableCell>
+                              <TableCell className="text-taxops-gray-light">
+                                {log.api_logs?.request?.body?.max_tokens || 'Unknown'}
+                              </TableCell>
+                              <TableCell className="text-taxops-gray-light max-w-xs">
+                                <div className="truncate">
+                                  {log.content.substring(0, 100)}...
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </ScrollArea>
                 )}
               </CardContent>
