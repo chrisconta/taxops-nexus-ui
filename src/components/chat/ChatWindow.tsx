@@ -206,7 +206,7 @@ export const ChatWindow = () => {
 
       {/* Chat Input - Centered at bottom */}
       <div className={`flex-shrink-0 p-6 ${messages.length === 0 ? 'pb-8' : 'border-t border-glass-border bg-glass-bg/30'}`}>
-        <div className={`${messages.length === 0 ? 'max-w-2xl mx-auto' : ''}`}>
+        <div className={`${messages.length === 0 ? 'max-w-4xl mx-auto' : ''}`}>
           <div className="flex space-x-3">
             <Input 
               value={input} 
