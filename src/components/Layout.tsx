@@ -5,6 +5,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
+import { Sidebar } from "@/components/agent/Sidebar";
+import { FloatingChatButton } from "@/components/agent/FloatingChatButton";
 
 const Layout = () => {
   const location = useLocation();
@@ -127,7 +129,13 @@ const Layout = () => {
     icon: Zap
   }];
 
-  return <div className="min-h-screen bg-background flex">
+  return <div className="min-h-screen bg-background flex relative">
+      {/* Agent Sidebar */}
+      <Sidebar />
+      
+      {/* Floating Chat Button */}
+      <FloatingChatButton />
+      
       {/* AI-driven sidebar */}
       <aside className={`fixed left-0 top-0 h-screen transition-all duration-300 ease-in-out bg-glass-bg/95 backdrop-blur-xl border-r border-glass-border shadow-glass flex flex-col z-20 ${
         isSidebarCollapsed 
