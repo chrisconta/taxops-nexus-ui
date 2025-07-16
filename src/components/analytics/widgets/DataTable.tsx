@@ -286,7 +286,7 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
   }
 
   return (
-    <div className="w-full h-full overflow-auto">
+    <div className="w-full overflow-auto">
       <Table>
         <TableHeader>
           <TableRow>
