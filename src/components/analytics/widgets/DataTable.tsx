@@ -262,9 +262,9 @@ export const DataTable = ({ widget }: DataTableProps) => {
       <Table>
         <TableHeader>
           <TableRow>
-            {getAllColumns().map((col) => (
-              <TableHead key={col.key} className="text-foreground whitespace-nowrap">
-                {col.title}
+            {widget.columns.map(colKey => (
+              <TableHead key={colKey} className="text-foreground whitespace-nowrap">
+                {colKey}
               </TableHead>
             ))}
           </TableRow>
@@ -273,18 +273,18 @@ export const DataTable = ({ widget }: DataTableProps) => {
           {data.length === 0 ? (
             <TableRow>
               <TableCell 
-                colSpan={getAllColumns().length} 
+                colSpan={widget.columns.length} 
                 className="text-center text-muted-foreground py-8"
               >
                 No data available
               </TableCell>
             </TableRow>
           ) : (
-            data.map((row, index) => (
-              <TableRow key={index}>
-                {getAllColumns().map((col) => (
-                  <TableCell key={col.key} className="whitespace-nowrap">
-                    {formatCellValue(row[col.key], col.key)}
+            data.map((row, rowIndex) => (
+              <TableRow key={rowIndex}>
+                {widget.columns.map(colKey => (
+                  <TableCell key={colKey} className="whitespace-nowrap">
+                    {row[colKey] != null ? String(row[colKey]) : ''}
                   </TableCell>
                 ))}
               </TableRow>
