@@ -276,7 +276,7 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
   }
 
   return (
-    <div className="w-full overflow-auto">
+    <ScrollArea className="w-full h-full">
       <Table>
         <TableHeader>
           <TableRow>
@@ -299,7 +299,7 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
               <TableRow key={rowIndex}>
                 {widget.columns.map(colKey => (
                   <TableCell key={colKey} className="whitespace-nowrap">
-                    {row[colKey] != null ? String(row[colKey]) : ''}
+                    {formatCellValue(row[colKey], colKey)}
                   </TableCell>
                 ))}
               </TableRow>
@@ -307,6 +307,7 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
           )}
         </TableBody>
       </Table>
-    </div>
+      <ScrollBar orientation="horizontal" />
+    </ScrollArea>
   );
 };
