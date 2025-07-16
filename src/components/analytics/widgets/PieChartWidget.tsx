@@ -260,7 +260,7 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
                 backgroundColor: 'hsl(var(--background))',
                 border: '1px solid hsl(var(--border))',
                 borderRadius: '8px',
-                color: 'hsl(var(--foreground))'
+                color: 'white'
               }}
               formatter={(value: number, name: string, props: any) => {
                 // Show original value in tooltip if it was negative
