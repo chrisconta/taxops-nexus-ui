@@ -123,4 +123,12 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Force white text color for Recharts tooltips */
+  .recharts-tooltip-wrapper .recharts-default-tooltip,
+  .recharts-tooltip-wrapper .recharts-default-tooltip *,
+  .recharts-tooltip-content,
+  .recharts-tooltip-content * {
+    color: white !important;
+  }
 }
