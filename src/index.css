@@ -2,6 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Responsive media queries for 8.2" foldable screens */
+@media (min-width: 480px) and (max-width: 820px) and (orientation: portrait) {
+  /* Foldable portrait mode optimizations */
+  .container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  /* Adjust text sizes for smaller screens */
+  h1 { font-size: 1.25rem; }
+  h2 { font-size: 1.125rem; }
+  h3 { font-size: 1rem; }
+  
+  /* Compact spacing */
+  .space-y-8 > * + * { margin-top: 1rem; }
+  .space-y-6 > * + * { margin-top: 0.75rem; }
+  .space-y-4 > * + * { margin-top: 0.5rem; }
+}
+
+@media (min-width: 820px) and (orientation: landscape) {
+  /* Foldable landscape mode optimizations */
+  .container {
+    max-width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */

@@ -17,6 +17,17 @@ export default {
 				'2xl': '1400px'
 			}
 		},
+		screens: {
+			'xs': '480px',
+			'sm': '640px',
+			'md': '768px',
+			'lg': '1024px',
+			'xl': '1280px',
+			'2xl': '1536px',
+			'foldable': '820px', // 8.2 inch foldable screens
+			'foldable-landscape': { 'raw': '(min-width: 820px) and (orientation: landscape)' },
+			'foldable-portrait': { 'raw': '(min-width: 480px) and (max-width: 820px) and (orientation: portrait)' }
+		},
 		extend: {
 			colors: {
 				border: 'hsl(var(--border))',

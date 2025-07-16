@@ -508,17 +508,18 @@ const Analytics = () => {
     <TooltipProvider>
       <div className="h-full flex flex-col">
         {/* Toolbar */}
-        <div className="border-b border-glass-border bg-glass-bg/30 backdrop-blur-sm p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className="text-xl font-bold text-white flex items-center gap-2">
+        <div className="border-b border-glass-border bg-glass-bg/30 backdrop-blur-sm p-4 foldable:p-3 foldable-portrait:p-2">
+          <div className="flex items-center justify-between foldable-portrait:flex-col foldable-portrait:gap-2">
+            <div className="flex items-center gap-4 foldable:gap-3 foldable-portrait:gap-2">
+              <h1 className="text-xl foldable:text-lg foldable-portrait:text-base font-bold text-white flex items-center gap-2">
                 <div 
-                  className="w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                  className="w-10 h-10 foldable:w-8 foldable:h-8 foldable-portrait:w-6 foldable-portrait:h-6 rounded-lg flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={() => setCurrentDashboard(null)}
                 >
-                  <Zap className="w-4 h-4 text-white hover:drop-shadow-[0_0_8px_#00bfff] hover:text-[#00bfff] transition-all duration-300" />
+                  <Zap className="w-4 h-4 foldable:w-3 foldable:h-3 text-white hover:drop-shadow-[0_0_8px_#00bfff] hover:text-[#00bfff] transition-all duration-300" />
                 </div>
-                {currentDashboard ? currentDashboard.name : 'Analytics Dashboard'}
+                <span className="foldable-portrait:hidden">{currentDashboard ? currentDashboard.name : 'Analytics Dashboard'}</span>
+                <span className="hidden foldable-portrait:block">{currentDashboard ? currentDashboard.name : 'Analytics'}</span>
               </h1>
               
               {/* Create New Dashboard Button - only show when dashboards exist and not editing a dashboard */}
