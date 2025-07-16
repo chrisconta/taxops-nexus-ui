@@ -12,6 +12,7 @@ import ClientDetail from "./pages/ClientDetail";
 import Connections from "./pages/Connections";
 import ConnectionSetup from "./pages/ConnectionSetup";
 import Reports from "./pages/Reports";
+import ReportsChat from "./pages/ReportsChat";
 import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
 import ProfileSettings from "./pages/ProfileSettings";
@@ -26,6 +27,9 @@ const App = () => {
   useEffect(() => {
     initSecurity();
   }, []);
+
+  // Feature flag for Agent UI
+  const agentUIEnabled = import.meta.env.DEV || new URLSearchParams(window.location.search).get("agentUI") === "1";
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -43,6 +47,9 @@ const App = () => {
               <Route path="connections" element={<Connections />} />
               <Route path="connections/:connectionId/setup" element={<ConnectionSetup />} />
               <Route path="reports" element={<Reports />} />
+              {agentUIEnabled && (
+                <Route path="reports-chat" element={<ReportsChat />} />
+              )}
               <Route path="analytics" element={<Analytics />} />
               <Route path="profile-settings" element={<ProfileSettings />} />
               <Route path="settings/ai" element={<AISettings />} />

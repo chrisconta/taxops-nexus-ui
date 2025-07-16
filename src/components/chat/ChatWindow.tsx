@@ -128,7 +128,11 @@ const MessageContent = ({
     })}
     </div>;
 };
-export const ChatWindow = () => {
+interface ChatWindowProps {
+  fullScreen?: boolean;
+}
+
+export const ChatWindow = ({ fullScreen = false }: ChatWindowProps) => {
   const [input, setInput] = useState("");
   const [searchParams] = useSearchParams();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -202,7 +206,7 @@ export const ChatWindow = () => {
     }
   };
   return (
-    <div className="flex flex-col h-[calc(100vh-250px)]">
+    <div className={`flex flex-col ${fullScreen ? 'h-screen' : 'h-[calc(100vh-250px)]'}`}>
       {/* Header with New Chat Button - Fixed outside scroll area */}
       {messages.length > 0 && (
         <div className="flex-shrink-0 p-4 flex justify-end">
