@@ -130,7 +130,9 @@ const AISettings = () => {
       content_preview: log.content.substring(0, 100) + '...',
       model: log.api_logs?.request?.body?.model || '',
       temperature: log.api_logs?.request?.body?.temperature || '',
-      max_tokens: log.api_logs?.request?.body?.max_tokens || ''
+      max_tokens: log.api_logs?.request?.body?.max_tokens || '',
+      request_json: log.api_logs?.request?.body ? JSON.stringify(log.api_logs.request.body, null, 2) : '',
+      response_json: log.api_logs?.response?.data ? JSON.stringify(log.api_logs.response.data, null, 2) : ''
     }));
 
     const headers = Object.keys(csvData[0] || {});
@@ -332,7 +334,7 @@ const AISettings = () => {
                   </div>
                 ) : (
                   <ScrollArea className="h-96 border border-glass-border rounded">
-                    <div className="min-w-[800px]">
+                    <div className="min-w-[1200px]">
                       <Table>
                         <TableHeader>
                           <TableRow className="border-glass-border">
@@ -341,6 +343,8 @@ const AISettings = () => {
                             <TableHead className="text-white min-w-[80px]">Status</TableHead>
                             <TableHead className="text-white min-w-[100px]">Model</TableHead>
                             <TableHead className="text-white min-w-[80px]">Tokens</TableHead>
+                            <TableHead className="text-white min-w-[200px]">Request JSON</TableHead>
+                            <TableHead className="text-white min-w-[200px]">Response JSON</TableHead>
                             <TableHead className="text-white min-w-[200px]">Content Preview</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -371,6 +375,28 @@ const AISettings = () => {
                               </TableCell>
                               <TableCell className="text-taxops-gray-light">
                                 {log.api_logs?.request?.body?.max_tokens || 'Unknown'}
+                              </TableCell>
+                              <TableCell className="text-taxops-gray-light max-w-xs">
+                                {log.api_logs?.request?.body ? (
+                                  <ScrollArea className="h-20 w-full">
+                                    <pre className="text-xs font-mono whitespace-pre-wrap">
+                                      {JSON.stringify(log.api_logs.request.body, null, 2)}
+                                    </pre>
+                                  </ScrollArea>
+                                ) : (
+                                  <span className="text-taxops-gray-light/50">No request data</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-taxops-gray-light max-w-xs">
+                                {log.api_logs?.response?.data ? (
+                                  <ScrollArea className="h-20 w-full">
+                                    <pre className="text-xs font-mono whitespace-pre-wrap">
+                                      {JSON.stringify(log.api_logs.response.data, null, 2)}
+                                    </pre>
+                                  </ScrollArea>
+                                ) : (
+                                  <span className="text-taxops-gray-light/50">No response data</span>
+                                )}
                               </TableCell>
                               <TableCell className="text-taxops-gray-light max-w-xs">
                                 <div className="truncate">
