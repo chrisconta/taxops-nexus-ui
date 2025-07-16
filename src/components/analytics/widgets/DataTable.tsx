@@ -24,11 +24,21 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
       dataSource: widget.dataSource,
       columns: widget.columns,
       columnsLength: widget.columns?.length,
-      transformations: widget.transformations
+      transformations: widget.transformations,
+      hasDataSource: !!widget.dataSource,
+      hasColumns: !!widget.columns,
+      columnsIsArray: Array.isArray(widget.columns)
     });
     
     if (widget.dataSource && widget.columns && widget.columns.length > 0) {
+      console.log('Starting loadData...');
       loadData();
+    } else {
+      console.log('Not loading data because:', {
+        noDataSource: !widget.dataSource,
+        noColumns: !widget.columns,
+        emptyColumns: widget.columns?.length === 0
+      });
     }
   }, [widget.dataSource, widget.columns, widget.transformations, widget.script, globalFilter]);
 
