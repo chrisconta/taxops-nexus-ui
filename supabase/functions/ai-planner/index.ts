@@ -125,46 +125,24 @@ serve(async (req) => {
       );
     }
 
-    // Build system prompt with available tools and their capabilities
-    const systemPrompt = `You are an intelligent tax operations assistant. Your job is to analyze user requests and create structured plans using available tools.
+    // Build system prompt with enforced JSON-only output
+    const systemPrompt = `You are an intelligent tax operations assistant. When you respond, output ONLY the JSON object—no explanations, no extra text—conforming exactly to this schema:
+
+${JSON.stringify(planSchema, null, 2)}
 
 AVAILABLE TOOLS:
 1. register_client - Register a new client in the system
    - Required params: name (string), email (string), companyId (string - use as taxid)
-   - Use when: User wants to add/register a new client
 
 2. create_connection - Set up a data connection for a client  
    - Required params: clientId (string), connectionType (string), credentials (object)
-   - Use when: User wants to connect data sources like banks, accounting systems
 
 3. build_dashboard - Create analytics dashboard for a client
    - Required params: clientId (string), metrics (array), timeframe (object with start/end dates)
-   - Use when: User wants to create reports, dashboards, or analytics
 
-INSTRUCTIONS:
-- Analyze the user's request and break it down into logical steps
-- Each step should use exactly one tool
-- Generate unique stepId values (use crypto.randomUUID() format like: "550e8400-e29b-41d4-a716-446655440000")
-- Provide clear, descriptive explanations for each step
-- Only use the exact tool names listed above
-- Make reasonable assumptions for missing parameters (use placeholder values that make sense)
-
-Your response MUST be valid JSON matching this exact schema. DO NOT include any explanation text, code blocks, or markdown formatting. Return ONLY the JSON object:
+Example response format:
 {
-  "intent": "brief summary of what the user wants to accomplish",
-  "steps": [
-    {
-      "stepId": "unique-uuid-string",
-      "toolName": "exact_tool_name_from_list_above", 
-      "params": { "key": "value" },
-      "description": "human readable description of this step"
-    }
-  ]
-}
-
-Example response for "Register client ABC Corp":
-{
-  "intent": "Register new client ABC Corp",
+  "intent": "Register ABC Corp and set up bank connection",
   "steps": [
     {
       "stepId": "550e8400-e29b-41d4-a716-446655440000",
@@ -179,11 +157,11 @@ Example response for "Register client ABC Corp":
   ]
 }
 
-IMPORTANT: For the register_client tool, always generate a proper UUID for companyId (format: 550e8400-e29b-41d4-a716-446655440000), not a simple string like "ACME-CORP-001".
+IMPORTANT: For register_client tool, always generate a proper UUID for companyId (format: 550e8400-e29b-41d4-a716-446655440000).
 
 CONTEXT: ${chatHistory.length > 0 ? `Previous conversation:\n${chatHistory.map((msg: any) => `${msg.role}: ${msg.content}`).join('\n')}\n\n` : ''}Current request: ${userPrompt}
 
-REMEMBER: Respond with ONLY valid JSON, no other text or formatting.`;
+OUTPUT ONLY JSON - NO ADDITIONAL TEXT.`;
 
     console.log('Calling DeepSeek with system prompt length:', systemPrompt.length);
 
@@ -226,8 +204,16 @@ REMEMBER: Respond with ONLY valid JSON, no other text or formatting.`;
 
     console.log('DeepSeek response:', content);
 
-    // Clean up the response content in case it's wrapped in markdown
+    // Advanced JSON cleaning to strip any explanatory text
     let cleanContent = content.trim();
+    
+    // If it doesn't start with "{", drop everything before the first "{"
+    if (!cleanContent.startsWith('{')) {
+      const jsonStartIndex = cleanContent.indexOf('{');
+      if (jsonStartIndex >= 0) {
+        cleanContent = cleanContent.slice(jsonStartIndex);
+      }
+    }
     
     // Remove potential markdown code blocks
     if (cleanContent.startsWith('```json')) {
@@ -236,10 +222,11 @@ REMEMBER: Respond with ONLY valid JSON, no other text or formatting.`;
       cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
     }
     
-    // Remove any explanatory text before/after JSON
-    const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      cleanContent = jsonMatch[0];
+    // Extract the JSON object (from first { to last })
+    const firstBrace = cleanContent.indexOf('{');
+    const lastBrace = cleanContent.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      cleanContent = cleanContent.slice(firstBrace, lastBrace + 1);
     }
 
     console.log('Cleaned content for parsing:', cleanContent);
