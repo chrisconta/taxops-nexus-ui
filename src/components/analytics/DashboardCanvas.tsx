@@ -131,7 +131,7 @@ export const DashboardCanvas = ({
   return (
     <div 
       ref={canvasRef}
-      className={`min-h-[800px] foldable:min-h-[600px] foldable-portrait:min-h-[500px] w-full relative overflow-auto bg-gradient-to-br from-background/50 to-background/30 transition-all duration-200 ${
+      className={`h-[1200px] foldable:h-[1000px] w-full relative bg-gradient-to-br from-background/50 to-background/30 transition-all duration-200 ${
         isFrozen ? 'pointer-events-none opacity-60' : ''
       }`}
       onClick={handleCanvasClick}
