@@ -26,7 +26,6 @@ interface ChatState {
   updateLastMessage: (content: string) => void;
   removeTyping: () => void;
   markDataCollected: (messageId: string) => void;
-  invokeTool: (toolName: string, params: Record<string, any>) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -76,56 +75,6 @@ export const useChatStore = create<ChatState>()(
         }));
       },
       
-      invokeTool: async (toolName: string, params: Record<string, any>) => {
-        try {
-          // Add tool invocation message
-          const toolMessage: Message = {
-            id: crypto.randomUUID(),
-            author: "user",
-            content: `🔧 Invoking ${toolName}...`,
-            timestamp: Date.now(),
-            toolCall: { name: toolName, params }
-          };
-          
-          set((state) => ({
-            messages: [...state.messages, toolMessage],
-            isLoading: true
-          }));
-
-          // Import and execute the tool
-          const { executeToolOnServer } = await import('@/lib/toolExecution');
-          const result = await executeToolOnServer(toolName as any, params);
-          
-          const responseMessage: Message = {
-            id: crypto.randomUUID(),
-            author: "agent",
-            content: result.success 
-              ? `✅ **${toolName}** executed successfully!\n\n${result.result?.message || 'Task completed.'}`
-              : `❌ **${toolName}** failed: ${result.error || 'Unknown error'}${result.details ? `\n\nDetails: ${result.details}` : ''}`,
-            timestamp: Date.now()
-          };
-          
-          set((state) => ({
-            messages: [...state.messages, responseMessage],
-            isLoading: false
-          }));
-          
-        } catch (error: any) {
-          console.error('Tool invocation error:', error);
-          
-          const errorMessage: Message = {
-            id: crypto.randomUUID(),
-            author: "agent",
-            content: `❌ **${toolName}** failed: ${error.message}`,
-            timestamp: Date.now()
-          };
-          
-          set((state) => ({
-            messages: [...state.messages, errorMessage],
-            isLoading: false
-          }));
-        }
-      },
       
       async send(text: string) {
         const currentMessages = get().messages;

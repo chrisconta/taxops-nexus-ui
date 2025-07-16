@@ -8,6 +8,7 @@ import { MessageList } from "@/components/agent/MessageList";
 import { MessageInput } from "@/components/agent/MessageInput";
 import { ToolLauncher } from "@/components/agent/ToolLauncher";
 import { TransactionDataCollector } from "./TransactionDataCollector";
+import { useExecuteTool } from "@/hooks/useExecuteTool";
 
 const TypingAnimation = () => {
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
@@ -68,9 +69,11 @@ export const ChatWindow: React.FC = () => {
     send,
     load,
     startNew,
-    invokeTool,
+    addMessage,
     markDataCollected
   } = useChatStore();
+  
+  const executeToolMutation = useExecuteTool();
   
   const { toast } = useToast();
 
@@ -120,20 +123,55 @@ export const ChatWindow: React.FC = () => {
     }
   };
 
-  const handleToolInvoke = async (toolName: string, params: Record<string, any>) => {
-    try {
-      await invokeTool(toolName, params);
-      toast({
-        title: "Tool Launched",
-        description: `${toolName} has been invoked with the provided parameters.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Tool Error",
-        description: error instanceof Error ? error.message : 'Failed to execute tool',
-        variant: "destructive"
-      });
-    }
+  const handleToolInvoke = (toolName: string, params: Record<string, any>) => {
+    const invocationId = crypto.randomUUID();
+    
+    // 1) Show optimistic "pending" message
+    addMessage({
+      id: invocationId,
+      author: "agent",
+      content: `Invoking ${toolName}...`,
+      timestamp: Date.now(),
+      toolCall: { name: toolName, params },
+    });
+
+    // 2) Call server
+    executeToolMutation.mutate(
+      { toolName, params },
+      {
+        onSuccess: ({ result }) => {
+          // Add success message with result
+          addMessage({
+            id: crypto.randomUUID(),
+            author: "agent", 
+            content: `✅ ${toolName} completed successfully`,
+            timestamp: Date.now(),
+            toolCall: { name: toolName, params },
+          });
+          
+          toast({
+            title: "Tool Completed", 
+            description: `${toolName} executed successfully`,
+          });
+        },
+        onError: (error: any) => {
+          // Add error message
+          addMessage({
+            id: crypto.randomUUID(),
+            author: "agent",
+            content: `❌ ${toolName} failed: ${error.message}`,
+            timestamp: Date.now(),
+            toolCall: { name: toolName, params },
+          });
+          
+          toast({
+            title: "Tool Error",
+            description: error.message,
+            variant: "destructive"
+          });
+        },
+      }
+    );
   };
 
   return (
