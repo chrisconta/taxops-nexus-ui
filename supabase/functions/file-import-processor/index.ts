@@ -260,10 +260,14 @@ async function processFile(
         transformedRow.mercury_transaction_id = `imported_${syncRequestId}_${i}`
       }
       
+      console.log(`Inserting row ${i + 1}:`, JSON.stringify(transformedRow, null, 2))
+      
       // Insert into transactions table
-      const { error: insertError } = await supabase
+      const { data: insertedTransaction, error: insertError } = await supabase
         .from('transactions')
         .insert(transformedRow)
+        .select()
+        .single()
       
       if (insertError) {
         console.error(`Insert error for row ${i + 1}:`, insertError)
@@ -276,6 +280,28 @@ async function processFile(
         recordsSkipped++
       } else {
         recordsInserted++
+        console.log(`Successfully inserted transaction ${insertedTransaction.id}`)
+        
+        // Insert Mercury-specific data if this is a Mercury transaction
+        if (insertedTransaction && insertedTransaction.id) {
+          const mercuryData = {
+            transaction_id: insertedTransaction.id,
+            account_number: row.account_number || null,
+            merchant_name: row.merchant_name || row.counterparty || null,
+            category_code: row.category_code || null
+          }
+          
+          const { error: mercuryError } = await supabase
+            .from('transactions_mercury')
+            .insert(mercuryData)
+          
+          if (mercuryError) {
+            console.error(`Mercury data insert error for row ${i + 1}:`, mercuryError)
+            // Don't fail the whole transaction for Mercury data errors
+          } else {
+            console.log(`Successfully inserted Mercury data for transaction ${insertedTransaction.id}`)
+          }
+        }
       }
       
     } catch (error) {
