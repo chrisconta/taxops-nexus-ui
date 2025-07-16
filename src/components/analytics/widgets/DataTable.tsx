@@ -286,7 +286,7 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
   }
 
   return (
-    <div className="w-full overflow-auto">
+    <div className="w-full">
       <Table>
         <TableHeader>
           <TableRow>
@@ -297,25 +297,28 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
             ))}
           </TableRow>
         </TableHeader>
-        <TableBody>
-          {data.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={widget.columns.length} className="text-center text-muted-foreground py-8">
-                No data available
-              </TableCell>
-            </TableRow>
-          ) : (
-            data.map((row, rowIndex) => (
-              <TableRow key={rowIndex}>
-                {widget.columns.map(colKey => (
-                  <TableCell key={colKey} className="whitespace-nowrap">
-                    {formatCellValue(row[colKey], colKey)}
-                  </TableCell>
-                ))}
+        <ScrollArea className="max-h-96 overflow-auto">
+          <TableBody>
+            {data.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={widget.columns.length} className="text-center text-muted-foreground py-8">
+                  No data available
+                </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
+            ) : (
+              data.map((row, rowIndex) => (
+                <TableRow key={rowIndex}>
+                  {widget.columns.map(colKey => (
+                    <TableCell key={colKey} className="whitespace-nowrap">
+                      {formatCellValue(row[colKey], colKey)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+          <ScrollBar orientation="vertical" />
+        </ScrollArea>
       </Table>
     </div>
   );
