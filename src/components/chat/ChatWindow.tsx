@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useChatStore } from "@/store/useChatStore";
@@ -9,6 +9,9 @@ import { MessageInput } from "@/components/agent/MessageInput";
 import { ToolLauncher } from "@/components/agent/ToolLauncher";
 import { TransactionDataCollector } from "./TransactionDataCollector";
 import { useExecuteTool } from "@/hooks/useExecuteTool";
+import { usePlan } from "@/hooks/usePlan";
+import { PlanModal } from "@/components/agent/PlanModal";
+import type { Plan } from "@/agent/planner/schema";
 
 const TypingAnimation = () => {
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
@@ -62,6 +65,9 @@ export const ChatWindow: React.FC = () => {
   const [searchParams] = useSearchParams();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [dataCollectors, setDataCollectors] = useState<Set<string>>(new Set());
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
+  const [lastUserMessage, setLastUserMessage] = useState<string>("");
   
   const {
     messages,
@@ -74,6 +80,7 @@ export const ChatWindow: React.FC = () => {
   } = useChatStore();
   
   const executeToolMutation = useExecuteTool();
+  const planMutation = usePlan();
   
   const { toast } = useToast();
 
@@ -112,6 +119,7 @@ export const ChatWindow: React.FC = () => {
   };
 
   const handleSend = async (text: string) => {
+    setLastUserMessage(text); // Store for potential plan generation
     try {
       await send(text);
     } catch (error) {
@@ -121,6 +129,112 @@ export const ChatWindow: React.FC = () => {
         variant: "destructive"
       });
     }
+  };
+
+  const handleGeneratePlan = () => {
+    if (!lastUserMessage) {
+      toast({
+        title: "No Recent Message",
+        description: "Send a message first to generate a plan",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Convert messages to chat history format
+    const chatHistory = messages.slice(-5).map(msg => ({
+      role: msg.author === "user" ? "user" : "assistant",
+      content: typeof msg.content === 'string' ? msg.content : msg.content.text || ""
+    }));
+
+    planMutation.mutate(
+      { userPrompt: lastUserMessage, chatHistory },
+      {
+        onSuccess: (plan) => {
+          setCurrentPlan(plan);
+          setIsPlanModalOpen(true);
+        },
+        onError: (error: any) => {
+          toast({
+            title: "Plan Generation Failed",
+            description: error.message,
+            variant: "destructive"
+          });
+        }
+      }
+    );
+  };
+
+  const handleExecutePlan = async (plan: Plan) => {
+    // Add plan preview message
+    addMessage({
+      id: crypto.randomUUID(),
+      author: "agent",
+      content: `🎯 Executing plan: ${plan.intent}`,
+      timestamp: Date.now(),
+    });
+
+    // Execute steps sequentially
+    for (let i = 0; i < plan.steps.length; i++) {
+      const step = plan.steps[i];
+      
+      // Show step start message
+      addMessage({
+        id: crypto.randomUUID(),
+        author: "agent", 
+        content: `⚡ Step ${i + 1}: ${step.description}`,
+        timestamp: Date.now(),
+      });
+
+      try {
+        const result = await new Promise<{ success: boolean; result: unknown }>((resolve, reject) => {
+          executeToolMutation.mutate(
+            { toolName: step.toolName, params: step.params },
+            {
+              onSuccess: resolve,
+              onError: reject
+            }
+          );
+        });
+
+        // Show success message
+        addMessage({
+          id: crypto.randomUUID(),
+          author: "agent",
+          content: `✅ Step ${i + 1} completed successfully`,
+          timestamp: Date.now(),
+        });
+
+      } catch (error: any) {
+        // Show error and stop execution
+        addMessage({
+          id: crypto.randomUUID(),
+          author: "agent",
+          content: `❌ Step ${i + 1} failed: ${error.message}. Plan execution stopped.`,
+          timestamp: Date.now(),
+        });
+        
+        toast({
+          title: "Plan Execution Failed",
+          description: `Step ${i + 1} failed: ${error.message}`,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    // Show completion message
+    addMessage({
+      id: crypto.randomUUID(),
+      author: "agent",
+      content: `🎉 Plan execution completed successfully! All ${plan.steps.length} steps finished.`,
+      timestamp: Date.now(),
+    });
+
+    toast({
+      title: "Plan Completed",
+      description: `Successfully executed ${plan.steps.length} steps`,
+    });
   };
 
   const handleToolInvoke = (toolName: string, params: Record<string, any>) => {
@@ -176,9 +290,19 @@ export const ChatWindow: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header with New Chat Button - Fixed outside scroll area */}
+      {/* Header with New Chat Button and Plan Generator - Fixed outside scroll area */}
       {messages.length > 0 && (
-        <div className="flex-shrink-0 p-4 flex justify-end">
+        <div className="flex-shrink-0 p-4 flex justify-between items-center">
+          <Button 
+            onClick={handleGeneratePlan}
+            disabled={planMutation.isPending || !lastUserMessage}
+            className="bg-accent/20 hover:bg-accent/30 text-accent-foreground border border-accent/30 hover:border-accent/50"
+            variant="outline"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            {planMutation.isPending ? "Generating..." : "Generate Plan"}
+          </Button>
+          
           <Button 
             onClick={handleNewChat}
             className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 hover:border-primary/50"
@@ -247,6 +371,15 @@ export const ChatWindow: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Plan Modal */}
+      <PlanModal
+        isOpen={isPlanModalOpen}
+        onClose={() => setIsPlanModalOpen(false)}
+        plan={currentPlan}
+        onConfirm={handleExecutePlan}
+        isExecuting={executeToolMutation.isPending}
+      />
     </div>
   );
 };
