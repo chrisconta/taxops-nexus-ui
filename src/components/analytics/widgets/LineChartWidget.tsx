@@ -3,6 +3,7 @@ import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { applyCrossTableFilter } from "@/lib/crossTableFiltering";
 import type { Widget } from "@/pages/Analytics";
 
 interface LineChartWidgetProps {
@@ -43,30 +44,18 @@ export const LineChartWidget = ({ widget, globalFilter }: LineChartWidgetProps) 
         .select([xAxis, yAxis].join(','))
         .order(xAxis, { ascending: true });
 
-      // Handle cross-table filtering
+      // Apply cross-table filtering
       if (globalFilter) {
-        if (widget.dataSource === 'transactions' && globalFilter.column === 'name') {
-          // Map client name to client_id for transactions table
-          const { data: clientData, error: clientError } = await supabase
-            .from('clients')
-            .select('id')
-            .eq('name', globalFilter.value)
-            .single();
-          
-          if (clientError) {
-            throw new Error(`Client not found: ${globalFilter.value}`);
-          }
-          
-          if (clientData) {
-            query = query.eq('client_id', clientData.id);
-          } else {
-            // No matching client found, return empty result
-            setData([]);
-            return;
-          }
-        } else {
-          // Direct column filtering
-          query = query.eq(globalFilter.column, globalFilter.value);
+        try {
+          query = await applyCrossTableFilter(query, widget.dataSource, {
+            sourceTable: 'clients', // Default source for now
+            column: globalFilter.column,
+            value: globalFilter.value
+          });
+        } catch (filterError: any) {
+          console.error('Cross-table filter error:', filterError);
+          setError(filterError.message || 'Filter error');
+          return;
         }
       }
 
