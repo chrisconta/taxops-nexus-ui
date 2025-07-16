@@ -117,6 +117,58 @@ const ConnectionSetup = () => {
     return saved ? Number(saved) : 25;
   });
 
+  // File upload handlers
+  const handleFilesUploaded = (files: UploadedFile[]) => {
+    setUploadedFiles(prev => [...prev, ...files]);
+    
+    // Start processing files
+    files.forEach(file => {
+      processUploadedFile(file);
+    });
+  };
+
+  const handleFileRemoved = (fileId: string) => {
+    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
+  };
+
+  const processUploadedFile = async (file: UploadedFile) => {
+    // Update file status to processing
+    setUploadedFiles(prev => prev.map(f => 
+      f.id === file.id 
+        ? { ...f, status: 'processing', progress: 20 }
+        : f
+    ));
+
+    try {
+      // Parse file to extract columns
+      const parseResult = await parseFile(file.file);
+      
+      // Update file with parsed data
+      setUploadedFiles(prev => prev.map(f => 
+        f.id === file.id 
+          ? { 
+              ...f, 
+              status: 'complete', 
+              progress: 100,
+              columns: parseResult.success ? parseResult.data?.columns.map(col => col.name) || [] : []
+            }
+          : f
+      ));
+    } catch (error) {
+      console.error('Error processing file:', error);
+      setUploadedFiles(prev => prev.map(f => 
+        f.id === file.id 
+          ? { 
+              ...f, 
+              status: 'error', 
+              progress: 0,
+              error: error instanceof Error ? error.message : 'Failed to process file'
+            }
+          : f
+      ));
+    }
+  };
+
   // Connection metadata based on connectionId
   const getConnectionInfo = (id: string) => {
     const connections: Record<string, { title: string; description: string; requiresAuth: boolean }> = {
@@ -881,9 +933,12 @@ const ConnectionSetup = () => {
                     <div className="text-sm text-muted-foreground">
                       Selected clients: {selectedClients.length}
                     </div>
-                    <div className="text-center py-8 text-muted-foreground">
-                      File upload functionality coming soon...
-                    </div>
+                    <FileUploadPanel
+                      onFilesUploaded={handleFilesUploaded}
+                      onFileRemoved={handleFileRemoved}
+                      uploadedFiles={uploadedFiles}
+                      maxFiles={5}
+                    />
                   </div>
                 )}
               </CardContent>
