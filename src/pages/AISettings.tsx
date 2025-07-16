@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ReportRulesEditor } from "@/components/settings/ReportRulesEditor";
@@ -382,6 +382,7 @@ const AISettings = () => {
                         </TableBody>
                       </Table>
                     </div>
+                    <ScrollBar orientation="horizontal" className="bg-glass-bg/30 hover:bg-glass-bg/50" />
                   </ScrollArea>
                 )}
               </CardContent>
