@@ -236,29 +236,6 @@ const Reports = () => {
         {/* Assistant Tab */}
         <TabsContent value="assistant" className="flex-1 flex flex-col mt-6">
           <Card className="flex-1 bg-glass-bg/50 backdrop-blur-xl border-glass-border shadow-glass overflow-hidden flex flex-col">
-            {/* Chat Header */}
-            <div className="p-6 border-b border-glass-border bg-gradient-to-r from-primary/10 to-primary/5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center animate-glow-pulse">
-                    <Brain className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-white">AI Tax Assistant</h2>
-                    <p className="text-sm text-taxops-gray-light">Ready to help you with your questions</p>
-                  </div>
-                </div>
-                <Button 
-                  onClick={handleNewChat}
-                  className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 hover:border-primary/50"
-                  variant="outline"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Chat
-                </Button>
-              </div>
-            </div>
-
             <ChatWindow />
           </Card>
         </TabsContent>
