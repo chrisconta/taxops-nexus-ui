@@ -392,8 +392,8 @@ function processData(data) {
                 </div>
               </div>
 
-              {/* Column Selection */}
-              {currentWidget.dataSource && tableColumns.length > 0 && (
+              {/* Column Selection - Hide for bar chart */}
+              {currentWidget.dataSource && tableColumns.length > 0 && currentWidget.type !== 'bar-chart' && (
                 <Card className="bg-glass-bg/30 border-glass-border">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm text-white">Columns</CardTitle>
@@ -492,102 +492,104 @@ function processData(data) {
               )}
 
 
-              {/* Transformations */}
-              <Card className="bg-glass-bg/30 border-glass-border">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-sm text-white">Transformations</CardTitle>
-                      <CardDescription className="text-xs">
-                        Create calculated columns
-                      </CardDescription>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={addTransformation}
-                      className="border-primary/30 text-primary hover:bg-primary/10"
-                    >
-                      <Plus className="w-3 h-3 mr-1" />
-                      Add
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {currentWidget.transformations?.map((transformation, index) => {
-                    const selectedColumn = (transformation as any).column || '';
-                    const selectedFunction = (transformation as any).function || '';
-                    const needsNumericColumn = ['sum', 'average'].includes(selectedFunction);
-                    const isValidColumn = !needsNumericColumn || isNumericColumn(selectedColumn);
-                    
-                    return (
-                      <div key={index} className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={transformation.name}
-                            onChange={(e) => updateTransformation(index, 'name', e.target.value)}
-                            placeholder="Column name"
-                            className="bg-background border-border flex-1"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeTransformation(index)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={selectedFunction}
-                            onValueChange={(value) => updateTransformation(index, 'function', value)}
-                          >
-                            <SelectTrigger className="bg-background border-border flex-1">
-                              <SelectValue placeholder="Select function" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-background border-border z-50">
-                              {transformationFunctions.map((func) => (
-                                <SelectItem key={func.value} value={func.value}>
-                                  {func.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          
-                          <Select
-                            value={selectedColumn}
-                            onValueChange={(value) => updateTransformation(index, 'column', value)}
-                          >
-                            <SelectTrigger className="bg-background border-border flex-1">
-                              <SelectValue placeholder="Select column" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-background border-border z-50">
-                              {tableColumns.map((column) => (
-                                <SelectItem key={column} value={column}>
-                                  {column}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        {needsNumericColumn && selectedColumn && !isValidColumn && (
-                          <div className="flex items-center gap-2 p-2 bg-destructive/10 border border-destructive/20 rounded-md">
-                            <AlertTriangle className="w-4 h-4 text-destructive" />
-                            <span className="text-xs text-destructive">
-                              Only numeric columns can be used with {selectedFunction} function
-                            </span>
-                          </div>
-                        )}
+              {/* Transformations - Hide for bar chart */}
+              {currentWidget.type !== 'bar-chart' && (
+                <Card className="bg-glass-bg/30 border-glass-border">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-sm text-white">Transformations</CardTitle>
+                        <CardDescription className="text-xs">
+                          Create calculated columns
+                        </CardDescription>
                       </div>
-                    );
-                  }) || (
-                    <p className="text-xs text-taxops-gray-light">No transformations applied</p>
-                  )}
-                </CardContent>
-              </Card>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={addTransformation}
+                        className="border-primary/30 text-primary hover:bg-primary/10"
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Add
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {currentWidget.transformations?.map((transformation, index) => {
+                      const selectedColumn = (transformation as any).column || '';
+                      const selectedFunction = (transformation as any).function || '';
+                      const needsNumericColumn = ['sum', 'average'].includes(selectedFunction);
+                      const isValidColumn = !needsNumericColumn || isNumericColumn(selectedColumn);
+                      
+                      return (
+                        <div key={index} className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={transformation.name}
+                              onChange={(e) => updateTransformation(index, 'name', e.target.value)}
+                              placeholder="Column name"
+                              className="bg-background border-border flex-1"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeTransformation(index)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={selectedFunction}
+                              onValueChange={(value) => updateTransformation(index, 'function', value)}
+                            >
+                              <SelectTrigger className="bg-background border-border flex-1">
+                                <SelectValue placeholder="Select function" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-background border-border z-50">
+                                {transformationFunctions.map((func) => (
+                                  <SelectItem key={func.value} value={func.value}>
+                                    {func.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            
+                            <Select
+                              value={selectedColumn}
+                              onValueChange={(value) => updateTransformation(index, 'column', value)}
+                            >
+                              <SelectTrigger className="bg-background border-border flex-1">
+                                <SelectValue placeholder="Select column" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-background border-border z-50">
+                                {tableColumns.map((column) => (
+                                  <SelectItem key={column} value={column}>
+                                    {column}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          {needsNumericColumn && selectedColumn && !isValidColumn && (
+                            <div className="flex items-center gap-2 p-2 bg-destructive/10 border border-destructive/20 rounded-md">
+                              <AlertTriangle className="w-4 h-4 text-destructive" />
+                              <span className="text-xs text-destructive">
+                                Only numeric columns can be used with {selectedFunction} function
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }) || (
+                      <p className="text-xs text-taxops-gray-light">No transformations applied</p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </TabsContent>
 
