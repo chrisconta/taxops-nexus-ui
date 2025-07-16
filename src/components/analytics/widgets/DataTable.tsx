@@ -323,8 +323,8 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
   const allColumns = getAllColumns();
   
   return (
-    <div className="w-full h-full">
-      <ScrollArea className="h-full">
+    <div className="w-full">
+      <ScrollArea className="max-h-96 overflow-auto">
         <Table>
           <TableHeader>
             <TableRow>
