@@ -323,18 +323,20 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
   const allColumns = getAllColumns();
   
   return (
-    <div className="w-full">
-      <ScrollArea className="max-h-96 overflow-auto">
+    <div className="flex flex-col h-full w-full">
+      <Table className="flex-shrink-0">
+        <TableHeader>
+          <TableRow>
+            {allColumns.map(column => (
+              <TableHead key={column.key} className="text-foreground whitespace-nowrap">
+                {column.title}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+      </Table>
+      <ScrollArea className="flex-1 overflow-auto">
         <Table>
-          <TableHeader>
-            <TableRow>
-              {allColumns.map(column => (
-                <TableHead key={column.key} className="text-foreground whitespace-nowrap">
-                  {column.title}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
           <TableBody>
             {data.length === 0 ? (
               <TableRow>
