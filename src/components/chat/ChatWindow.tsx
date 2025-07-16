@@ -7,6 +7,54 @@ import { useToast } from "@/hooks/use-toast";
 import { useChatStore } from "@/store/useChatStore";
 import { useSearchParams } from "react-router-dom";
 import { TransactionDataCollector } from "./TransactionDataCollector";
+
+const TypingAnimation = () => {
+  const [currentTextIndex, setCurrentTextIndex] = useState(0);
+  const [currentText, setCurrentText] = useState("");
+  const [isTyping, setIsTyping] = useState(true);
+  
+  const texts = [
+    "What reports you want me to build?",
+    "What client you want me to register?",
+    "What connection you need to create?",
+    "What dashboard you want me to create?",
+    "What graph do you want?"
+  ];
+  
+  useEffect(() => {
+    const targetText = texts[currentTextIndex];
+    
+    if (isTyping) {
+      if (currentText.length < targetText.length) {
+        const timer = setTimeout(() => {
+          setCurrentText(targetText.slice(0, currentText.length + 1));
+        }, 100);
+        return () => clearTimeout(timer);
+      } else {
+        const timer = setTimeout(() => {
+          setIsTyping(false);
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
+    } else {
+      if (currentText.length > 0) {
+        const timer = setTimeout(() => {
+          setCurrentText(currentText.slice(0, -1));
+        }, 50);
+        return () => clearTimeout(timer);
+      } else {
+        setCurrentTextIndex((prev) => (prev + 1) % texts.length);
+        setIsTyping(true);
+      }
+    }
+  }, [currentText, isTyping, currentTextIndex]);
+  
+  return (
+    <h1 className="text-4xl font-bold text-white mb-8 h-16 flex items-center justify-center">
+      {currentText}<span className="animate-pulse">|</span>
+    </h1>
+  );
+};
 const TypingDots = () => <div className="flex space-x-1">
     <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{
     animationDelay: '0ms'
@@ -174,9 +222,7 @@ export const ChatWindow = () => {
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px]">
             <div className="text-center max-w-2xl">
-              <h1 className="text-4xl font-bold text-white mb-8">
-                What reports you want me to build?
-              </h1>
+              <TypingAnimation />
             </div>
           </div>
         ) : (
