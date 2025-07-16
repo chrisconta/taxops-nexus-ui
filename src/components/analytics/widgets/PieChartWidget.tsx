@@ -62,9 +62,31 @@ export const PieChartWidget = ({ widget, globalFilter }: PieChartWidgetProps) =>
         .from(widget.dataSource as any)
         .select(selectColumns.split(',').map(c => c.trim()).join(','));
 
-      // Apply global filter if it exists
+      // Handle cross-table filtering
       if (globalFilter) {
-        query = query.eq(globalFilter.column, globalFilter.value);
+        if (widget.dataSource === 'transactions' && globalFilter.column === 'name') {
+          // Map client name to client_id for transactions table
+          const { data: clientData, error: clientError } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('name', globalFilter.value)
+            .single();
+          
+          if (clientError) {
+            throw new Error(`Client not found: ${globalFilter.value}`);
+          }
+          
+          if (clientData) {
+            query = query.eq('client_id', clientData.id);
+          } else {
+            // No matching client found, return empty result
+            setData([]);
+            return;
+          }
+        } else {
+          // Direct column filtering
+          query = query.eq(globalFilter.column, globalFilter.value);
+        }
       }
 
       // Apply filter if a slice is selected
