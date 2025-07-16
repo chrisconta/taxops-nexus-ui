@@ -2,7 +2,6 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -59,13 +58,6 @@ serve(async (req) => {
   }
 
   try {
-    if (!openAIApiKey) {
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     // Get auth header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -88,6 +80,41 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Fetch DeepSeek credentials
+    const { data: credentials, error: credError } = await supabase
+      .from('ai_credentials')
+      .select('enc_key, iv, ciphertext')
+      .eq('provider', 'deepseek')
+      .single();
+
+    if (credError || !credentials) {
+      return new Response(
+        JSON.stringify({ error: 'DeepSeek API key not configured. Please add it in Settings.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Decrypt the API key
+    const keyBuffer = Uint8Array.from(atob(credentials.enc_key), c => c.charCodeAt(0));
+    const iv = Uint8Array.from(atob(credentials.iv), c => c.charCodeAt(0));
+    const ciphertext = Uint8Array.from(atob(credentials.ciphertext), c => c.charCodeAt(0));
+
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyBuffer,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['decrypt']
+    );
+
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      cryptoKey,
+      ciphertext
+    );
+
+    const deepseekApiKey = new TextDecoder().decode(decrypted);
 
     const { userPrompt, chatHistory = [] } = await req.json();
     
@@ -137,17 +164,17 @@ Your response MUST be valid JSON matching this exact schema:
 
 CONTEXT: ${chatHistory.length > 0 ? `Previous conversation:\n${chatHistory.map((msg: any) => `${msg.role}: ${msg.content}`).join('\n')}\n\n` : ''}Current request: ${userPrompt}`;
 
-    console.log('Calling OpenAI with system prompt length:', systemPrompt.length);
+    console.log('Calling DeepSeek with system prompt length:', systemPrompt.length);
 
-    // Call OpenAI API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call DeepSeek API
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${deepseekApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
+        model: 'deepseek-chat',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -158,7 +185,7 @@ CONTEXT: ${chatHistory.length > 0 ? `Previous conversation:\n${chatHistory.map((
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
+      console.error('DeepSeek API error:', response.status, errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to generate plan' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -169,21 +196,21 @@ CONTEXT: ${chatHistory.length > 0 ? `Previous conversation:\n${chatHistory.map((
     const content = data.choices?.[0]?.message?.content;
     
     if (!content) {
-      console.error('No content from OpenAI response:', data);
+      console.error('No content from DeepSeek response:', data);
       return new Response(
         JSON.stringify({ error: 'No content generated' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('OpenAI response:', content);
+    console.log('DeepSeek response:', content);
 
     // Parse and validate the plan
     let plan;
     try {
       plan = JSON.parse(content);
     } catch (parseError) {
-      console.error('Failed to parse JSON from OpenAI:', parseError, 'Content:', content);
+      console.error('Failed to parse JSON from DeepSeek:', parseError, 'Content:', content);
       return new Response(
         JSON.stringify({ error: 'LLM returned invalid JSON' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
