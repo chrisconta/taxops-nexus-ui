@@ -20,6 +20,7 @@ export const registerClientSchema = {
 export interface CreateConnectionParams {
   clientId: string;
   connectionType: "bank" | "erp" | "manual";
+  institution: string;               // e.g. "Mercury", "Brex", "JPMorgan"
   credentials: Record<string, string>;
 }
 
@@ -28,6 +29,7 @@ export const createConnectionSchema = {
   properties: {
     clientId: { type: "string", pattern: "^[a-f0-9\\-]{36}$" },
     connectionType: { type: "string", enum: ["bank", "erp", "manual"] },
+    institution: { type: "string", minLength: 1 },
     credentials: {
       type: "object",
       patternProperties: {
@@ -36,7 +38,7 @@ export const createConnectionSchema = {
       additionalProperties: false,
     },
   },
-  required: ["clientId", "connectionType", "credentials"],
+  required: ["clientId", "connectionType", "institution", "credentials"],
   additionalProperties: false,
 } as const;
 

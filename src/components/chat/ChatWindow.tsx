@@ -209,6 +209,26 @@ export const ChatWindow: React.FC = () => {
   };
 
   const handleExecutePlan = async (plan: Plan) => {
+    // Validate each step's params before execution
+    const { toolRegistry } = await import('@/agent/tools/index');
+    for (const step of plan.steps) {
+      const schema = toolRegistry[step.toolName as keyof typeof toolRegistry];
+      if (schema) {
+        // Simple validation - check required fields
+        const required = schema.required || [];
+        const missing = required.filter(field => !(field in step.params));
+        if (missing.length > 0) {
+          addMessage({
+            id: crypto.randomUUID(),
+            author: "agent",
+            content: `⚠️ I'm missing some details for "${step.description}". Could you please provide: ${missing.join(', ')}?`,
+            timestamp: Date.now(),
+          });
+          return;
+        }
+      }
+    }
+
     // Add plan preview message
     addMessage({
       id: crypto.randomUUID(),
