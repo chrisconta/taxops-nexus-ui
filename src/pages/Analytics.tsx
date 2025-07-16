@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Download, Save, Trash2, BarChart3, LineChart, PieChart, Table as TableIcon, MoreVertical, Filter, Calendar, Clock } from "lucide-react";
+import { Plus, Download, Save, Trash2, BarChart3, LineChart, PieChart, Table as TableIcon, MoreVertical, Filter, Calendar, Clock, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -513,7 +513,7 @@ const Analytics = () => {
             <div className="flex items-center gap-4">
               <h1 className="text-xl font-bold text-white flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center">
-                  <BarChart3 className="w-4 h-4 text-white" />
+                  <Zap className="w-4 h-4 text-white" />
                 </div>
                 {currentDashboard ? currentDashboard.name : 'Analytics Dashboard'}
               </h1>
