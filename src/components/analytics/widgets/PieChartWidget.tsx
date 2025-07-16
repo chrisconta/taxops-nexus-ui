@@ -67,6 +67,7 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
 
       // Process data for pie chart
       const processedData = processPieData(result || [], xAxis, yAxis, aggregation);
+      console.log("PieChartWidget processedData length ➞", processedData.length);
       setData(processedData);
     } catch (err: any) {
       console.error('Error loading pie chart data:', err);

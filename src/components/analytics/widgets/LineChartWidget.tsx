@@ -50,6 +50,7 @@ export const LineChartWidget = ({ widget }: LineChartWidgetProps) => {
 
       // Process data for line chart
       const processedData = processLineData(result || [], xAxis, yAxis, aggregation);
+      console.log("LineChartWidget processedData length ➞", processedData.length);
       setData(processedData);
     } catch (err: any) {
       console.error('Error loading line chart data:', err);

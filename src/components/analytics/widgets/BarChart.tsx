@@ -49,6 +49,7 @@ export const BarChart = ({ widget }: BarChartProps) => {
 
       // Process data for chart
       const processedData = processChartData(result || [], xAxis, yAxis, aggregation);
+      console.log("BarChart processedData length ➞", processedData.length);
       setData(processedData);
     } catch (err: any) {
       console.error('Error loading chart data:', err);
