@@ -197,44 +197,56 @@ async function processFile(
             // Transform the value based on target field
             let transformedValue = value
             
-            // Handle amount transformation (convert to cents)
-            if (mapping.targetField === 'amount_cents') {
-              if (value && typeof value === 'string') {
-                const numValue = parseFloat(value.replace(/[,$]/g, ''))
-                if (isNaN(numValue)) {
-                  rowErrors.push({
-                    row: i + 1,
-                    column: sourceColumn,
-                    error: 'Invalid amount format',
-                    value: value as string
-                  })
-                  continue
-                }
-                transformedValue = Math.round(numValue * 100) // Convert to cents
-              } else {
-                transformedValue = 0
-              }
-            }
+            // Mercury-specific fields go to a separate object
+            const mercuryFields = ['category_code', 'account_number', 'merchant_name']
             
-            // Handle date transformations
-            if (mapping.targetField.includes('_at') || mapping.targetField.includes('_date')) {
-              if (value && typeof value === 'string') {
-                const dateValue = new Date(value)
-                if (isNaN(dateValue.getTime())) {
-                  rowErrors.push({
-                    row: i + 1,
-                    column: sourceColumn,
-                    error: 'Invalid date format',
-                    value: value as string
-                  })
-                  continue
-                }
-                transformedValue = dateValue.toISOString()
+            if (mercuryFields.includes(mapping.targetField)) {
+              // Store Mercury-specific fields separately
+              if (!transformedRow._mercury) {
+                transformedRow._mercury = {}
               }
+              transformedRow._mercury[mapping.targetField] = value
+              hasValidData = true
+            } else {
+              // Handle amount transformation (convert to cents)
+              if (mapping.targetField === 'amount_cents') {
+                if (value && typeof value === 'string') {
+                  const numValue = parseFloat(value.replace(/[,$]/g, ''))
+                  if (isNaN(numValue)) {
+                    rowErrors.push({
+                      row: i + 1,
+                      column: sourceColumn,
+                      error: 'Invalid amount format',
+                      value: value as string
+                    })
+                    continue
+                  }
+                  transformedValue = Math.round(numValue * 100) // Convert to cents
+                } else {
+                  transformedValue = 0
+                }
+              }
+              
+              // Handle date transformations
+              if (mapping.targetField.includes('_at') || mapping.targetField.includes('_date')) {
+                if (value && typeof value === 'string') {
+                  const dateValue = new Date(value)
+                  if (isNaN(dateValue.getTime())) {
+                    rowErrors.push({
+                      row: i + 1,
+                      column: sourceColumn,
+                      error: 'Invalid date format',
+                      value: value as string
+                    })
+                    continue
+                  }
+                  transformedValue = dateValue.toISOString()
+                }
+              }
+              
+              transformedRow[mapping.targetField] = transformedValue
+              hasValidData = true
             }
-            
-            transformedRow[mapping.targetField] = transformedValue
-            hasValidData = true
           } catch (error) {
             rowErrors.push({
               row: i + 1,
@@ -260,23 +272,29 @@ async function processFile(
         continue
       }
       
+      // Extract Mercury data from the _mercury object
+      const mercuryData = transformedRow._mercury || {}
+      
+      // Remove _mercury from the object before inserting into transactions
+      const { _mercury, ...transactionData } = transformedRow
+      
       // Add required fields
-      transformedRow.sync_request_id = syncRequestId
-      transformedRow.client_id = clientId
-      transformedRow.connection_code = 'mercury'
-      transformedRow.transaction_type = 'mercury'
+      transactionData.sync_request_id = syncRequestId
+      transactionData.client_id = clientId
+      transactionData.connection_code = 'mercury'
+      transactionData.transaction_type = 'mercury'
       
       // Add mercury_transaction_id if not present
-      if (!transformedRow.mercury_transaction_id) {
-        transformedRow.mercury_transaction_id = `imported_${syncRequestId}_${i}`
+      if (!transactionData.mercury_transaction_id) {
+        transactionData.mercury_transaction_id = `imported_${syncRequestId}_${i}`
       }
       
-      console.log(`Inserting row ${i + 1}:`, JSON.stringify(transformedRow, null, 2))
+      console.log(`Inserting row ${i + 1}:`, JSON.stringify(transactionData, null, 2))
       
       // Insert into transactions table
       const { data: insertedTransaction, error: insertError } = await supabase
         .from('transactions')
-        .insert(transformedRow)
+        .insert(transactionData)
         .select()
         .single()
       
@@ -294,17 +312,19 @@ async function processFile(
         console.log(`Successfully inserted transaction ${insertedTransaction.id}`)
         
         // Insert Mercury-specific data if this is a Mercury transaction
-        if (insertedTransaction && insertedTransaction.id) {
-          const mercuryData = {
+        if (insertedTransaction && insertedTransaction.id && Object.keys(mercuryData).length > 0) {
+          const mercuryInsertData = {
             transaction_id: insertedTransaction.id,
-            account_number: row.account_number || null,
-            merchant_name: row.merchant_name || row.counterparty || null,
-            category_code: row.category_code || null
+            account_number: mercuryData.account_number || null,
+            merchant_name: mercuryData.merchant_name || null,
+            category_code: mercuryData.category_code || null
           }
+          
+          console.log(`Inserting Mercury data for transaction ${insertedTransaction.id}:`, mercuryInsertData)
           
           const { error: mercuryError } = await supabase
             .from('transactions_mercury')
-            .insert(mercuryData)
+            .insert(mercuryInsertData)
           
           if (mercuryError) {
             console.error(`Mercury data insert error for row ${i + 1}:`, mercuryError)
