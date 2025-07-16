@@ -120,12 +120,20 @@ export const ChatWindow: React.FC = () => {
     }
   };
 
-  const handleToolInvoke = (toolName: string, params: Record<string, any>) => {
-    invokeTool(toolName, params);
-    toast({
-      title: "Tool Launched",
-      description: `${toolName} has been invoked with the provided parameters.`,
-    });
+  const handleToolInvoke = async (toolName: string, params: Record<string, any>) => {
+    try {
+      await invokeTool(toolName, params);
+      toast({
+        title: "Tool Launched",
+        description: `${toolName} has been invoked with the provided parameters.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Tool Error",
+        description: error instanceof Error ? error.message : 'Failed to execute tool',
+        variant: "destructive"
+      });
+    }
   };
 
   return (

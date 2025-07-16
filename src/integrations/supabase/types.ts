@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_tool_logs: {
+        Row: {
+          error_message: string | null
+          execution_time_ms: number | null
+          id: string
+          invoked_at: string
+          parameters: Json
+          result: Json | null
+          success: boolean
+          tool_name: string
+          user_id: string
+        }
+        Insert: {
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          invoked_at?: string
+          parameters?: Json
+          result?: Json | null
+          success?: boolean
+          tool_name: string
+          user_id: string
+        }
+        Update: {
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          invoked_at?: string
+          parameters?: Json
+          result?: Json | null
+          success?: boolean
+          tool_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_conversations: {
         Row: {
           created_at: string | null

@@ -37,12 +37,41 @@ export const ToolLauncher: React.FC<ToolLauncherProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleToolInvoke = (toolName: string) => {
+  const handleToolInvoke = async (toolName: string) => {
     const config = toolConfig[toolName as keyof typeof toolConfig];
     if (config) {
-      onInvoke(toolName, config.params);
+      // For now, just pass empty params - in a real implementation,
+      // you'd show a form to collect the required parameters
+      const mockParams = getMockParams(toolName);
+      onInvoke(toolName, mockParams);
     }
     setIsOpen(false);
+  };
+
+  // Mock parameters for demonstration - in production, you'd collect these via forms
+  const getMockParams = (toolName: string) => {
+    switch (toolName) {
+      case 'register_client':
+        return {
+          name: 'Demo Client',
+          email: 'demo@example.com',
+          companyId: crypto.randomUUID()
+        };
+      case 'create_connection':
+        return {
+          clientId: crypto.randomUUID(),
+          connectionType: 'bank',
+          credentials: { username: 'demo', password: 'demo123' }
+        };
+      case 'build_dashboard':
+        return {
+          clientId: crypto.randomUUID(),
+          metrics: ['revenue', 'expenses'],
+          timeframe: { start: '2024-01-01', end: '2024-12-31' }
+        };
+      default:
+        return {};
+    }
   };
 
   return (
