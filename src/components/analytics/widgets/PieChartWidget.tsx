@@ -256,16 +256,25 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
               ))}
             </Pie>
             <Tooltip 
-              contentStyle={{
-                backgroundColor: 'hsl(var(--background))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '8px',
-                color: 'white'
-              }}
-              formatter={(value: number, name: string, props: any) => {
-                // Show original value in tooltip if it was negative
-                const displayValue = props.payload?.originalValue || value;
-                return [formatValue(displayValue), widget.chartConfig?.aggregation || 'count'];
+              content={({ active, payload, label }) => {
+                if (active && payload && payload.length) {
+                  const data = payload[0];
+                  const value = data.value;
+                  const originalValue = data.payload?.originalValue || value;
+                  const formattedValue = formatValue(originalValue);
+                  const aggregationType = widget.chartConfig?.aggregation || 'count';
+                  
+                  return (
+                    <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
+                      <p className="text-foreground font-medium">{data.name}</p>
+                      <p className="text-foreground">
+                        <span className="font-semibold">{formattedValue}</span>
+                        <span className="text-muted-foreground ml-1">({aggregationType})</span>
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
               }}
             />
             <Legend 
