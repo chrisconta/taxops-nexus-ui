@@ -97,7 +97,7 @@ const ConnectionSetup = () => {
   const [selectedSyncRequest, setSelectedSyncRequest] = useState<SyncRequest | null>(null);
   const [syncRequestsSearch, setSyncRequestsSearch] = useState("");
   const [syncDetailsLoading, setSyncDetailsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"setup" | "history" | "upload">("setup");
+  const [activeTab, setActiveTab] = useState<"setup" | "history">("setup");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
@@ -660,18 +660,6 @@ const ConnectionSetup = () => {
             Setup
           </Button>
           <Button
-            variant={activeTab === "upload" ? "default" : "ghost"}
-            size="sm"
-            className={`px-4 py-2 rounded-md font-medium transition-all ${
-              activeTab === "upload"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-            }`}
-            onClick={() => setActiveTab("upload")}
-          >
-            File Upload
-          </Button>
-          <Button
             variant={activeTab === "history" ? "default" : "ghost"}
             size="sm"
             className={`px-4 py-2 rounded-md font-medium transition-all ${
@@ -874,11 +862,8 @@ const ConnectionSetup = () => {
                 </CardContent>
               </Card>
             </div>
-          </div>
-        )}
 
-        {activeTab === "upload" && (
-          <div className="space-y-6 p-6">
+            {/* File Upload Section */}
             <Card>
               <CardHeader>
                 <CardTitle>File Upload for {connectionInfo.title}</CardTitle>
@@ -906,34 +891,6 @@ const ConnectionSetup = () => {
           </div>
         )}
 
-        {activeTab === "upload" && (
-          <div className="space-y-6 p-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>File Upload for {connectionInfo.title}</CardTitle>
-                <CardDescription>
-                  Upload files directly (CSV, Excel, XML, TXT) for selected clients.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {selectedClients.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Please select clients in the Setup tab first
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="text-sm text-muted-foreground">
-                      Selected clients: {selectedClients.length}
-                    </div>
-                    <div className="text-center py-8 text-muted-foreground">
-                      File upload functionality coming soon...
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
         {activeTab === "history" && connectionId === "mercury" && (
           <Card>
