@@ -97,7 +97,7 @@ const ConnectionSetup = () => {
   const [selectedSyncRequest, setSelectedSyncRequest] = useState<SyncRequest | null>(null);
   const [syncRequestsSearch, setSyncRequestsSearch] = useState("");
   const [syncDetailsLoading, setSyncDetailsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"setup" | "history">("setup");
+  const [activeTab, setActiveTab] = useState<"setup" | "history" | "upload">("setup");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
@@ -660,6 +660,18 @@ const ConnectionSetup = () => {
             Setup
           </Button>
           <Button
+            variant={activeTab === "upload" ? "default" : "ghost"}
+            size="sm"
+            className={`px-4 py-2 rounded-md font-medium transition-all ${
+              activeTab === "upload"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+            }`}
+            onClick={() => setActiveTab("upload")}
+          >
+            File Upload
+          </Button>
+          <Button
             variant={activeTab === "history" ? "default" : "ghost"}
             size="sm"
             className={`px-4 py-2 rounded-md font-medium transition-all ${
@@ -815,47 +827,6 @@ const ConnectionSetup = () => {
                   )}
                 </CardContent>
               </Card>
-
-              {/* File Upload Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ArrowLeft className="h-5 w-5" />
-                    File Upload
-                  </CardTitle>
-                  <CardDescription>
-                    Upload files directly (CSV, Excel, XML, TXT) for this connection type.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="text-sm text-muted-foreground">
-                      Select clients and then proceed to the upload module for {connectionInfo.title}.
-                    </div>
-                    <Button
-                      onClick={() => {
-                        if (selectedClients.length === 0) {
-                          toast({
-                            title: "No clients selected",
-                            description: "Please select at least one client to upload files",
-                            variant: "destructive"
-                          });
-                          return;
-                        }
-                        // Navigate to upload module with selected clients
-                        navigate(`/connections/${connectionId}/upload`, {
-                          state: { selectedClients }
-                        });
-                      }}
-                      disabled={selectedClients.length === 0}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      Upload Files for Selected Clients
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
 
             {/* Action Panel */}
@@ -906,6 +877,35 @@ const ConnectionSetup = () => {
                 </CardContent>
               </Card>
             </div>
+          </div>
+        )}
+
+        {activeTab === "upload" && (
+          <div className="space-y-6 p-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>File Upload for {connectionInfo.title}</CardTitle>
+                <CardDescription>
+                  Upload files directly (CSV, Excel, XML, TXT) for selected clients.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {selectedClients.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Please select clients in the Setup tab first
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-sm text-muted-foreground">
+                      Selected clients: {selectedClients.length}
+                    </div>
+                    <div className="text-center py-8 text-muted-foreground">
+                      File upload functionality coming soon...
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -1302,6 +1302,13 @@ const ConnectionSetup = () => {
               </Card>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default ConnectionSetup;
         </DialogContent>
       </Dialog>
     </div>
