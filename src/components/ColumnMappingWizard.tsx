@@ -83,7 +83,7 @@ const ColumnMappingWizard: React.FC<ColumnMappingWizardProps> = ({
     let newMappings = [...currentMappings];
     
     if (existingMappingIndex >= 0) {
-      if (targetField === '') {
+      if (targetField === 'none') {
         // Remove mapping
         newMappings.splice(existingMappingIndex, 1);
       } else {
@@ -94,7 +94,7 @@ const ColumnMappingWizard: React.FC<ColumnMappingWizardProps> = ({
           isNewColumn: false
         };
       }
-    } else if (targetField !== '') {
+    } else if (targetField !== 'none') {
       // Add new mapping
       newMappings.push({
         fileColumn,
@@ -141,10 +141,10 @@ const ColumnMappingWizard: React.FC<ColumnMappingWizardProps> = ({
   };
 
   const getCurrentMapping = (fileColumn: string): string => {
-    if (!selectedFile) return '';
+    if (!selectedFile) return 'none';
     const currentMappings = mappings[selectedFile.id] || [];
     const mapping = currentMappings.find(m => m.fileColumn === fileColumn);
-    return mapping?.targetField || '';
+    return mapping?.targetField || 'none';
   };
 
   const getUsedFields = (): string[] => {
@@ -284,7 +284,7 @@ const ColumnMappingWizard: React.FC<ColumnMappingWizardProps> = ({
                           <SelectValue placeholder="Select target field" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">No mapping</SelectItem>
+                          <SelectItem value="none">No mapping</SelectItem>
                           <Separator />
                           {availableFields.map((field) => (
                             <SelectItem
