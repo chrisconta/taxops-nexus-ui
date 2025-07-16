@@ -276,7 +276,7 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
   }
 
   return (
-    <ScrollArea className="w-full h-full">
+    <div className="w-full h-full overflow-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -307,7 +307,6 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
           )}
         </TableBody>
       </Table>
-      <ScrollBar orientation="horizontal" />
-    </ScrollArea>
+    </div>
   );
 };
