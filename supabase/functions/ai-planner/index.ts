@@ -172,12 +172,14 @@ Example response for "Register client ABC Corp":
       "params": {
         "name": "ABC Corp",
         "email": "contact@abccorp.com",
-        "companyId": "ABC-CORP-001"
+        "companyId": "123e4567-e89b-12d3-a456-426614174000"
       },
       "description": "Register ABC Corp as a new client in the system"
     }
   ]
 }
+
+IMPORTANT: For the register_client tool, always generate a proper UUID for companyId (format: 550e8400-e29b-41d4-a716-446655440000), not a simple string like "ACME-CORP-001".
 
 CONTEXT: ${chatHistory.length > 0 ? `Previous conversation:\n${chatHistory.map((msg: any) => `${msg.role}: ${msg.content}`).join('\n')}\n\n` : ''}Current request: ${userPrompt}
 

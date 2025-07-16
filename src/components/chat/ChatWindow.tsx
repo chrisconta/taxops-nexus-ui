@@ -84,26 +84,15 @@ export const ChatWindow: React.FC = () => {
   
   const { toast } = useToast();
 
-  // Load conversation from URL parameter and handle generate requests
+  // Load conversation from URL parameter
   useEffect(() => {
     const convId = searchParams.get('conv');
-    const generate = searchParams.get('generate');
     
     if (convId) {
       load(convId);
     }
-
-    // Auto-generate report request if specified
-    if (generate) {
-      const reportPrompt = `Please generate a ${generate} report based on the available data and rules.`;
-      send(reportPrompt);
-
-      // Clear the generate parameter from URL
-      const newSearchParams = new URLSearchParams(searchParams);
-      newSearchParams.delete('generate');
-      window.history.replaceState({}, '', `${window.location.pathname}?${newSearchParams.toString()}`);
-    }
-  }, [searchParams, load, send]);
+    // Removed auto-report generation - users should manually start planning
+  }, [searchParams, load]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
