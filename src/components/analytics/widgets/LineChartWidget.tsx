@@ -163,7 +163,7 @@ export const LineChartWidget = ({ widget }: LineChartWidgetProps) => {
   }
 
   return (
-    <div className="h-full">
+    <div className="w-full h-64">{/* give this a fixed height so ResponsiveContainer can fill it */}
       <ResponsiveContainer width="100%" height="100%">
         <RechartsLineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />

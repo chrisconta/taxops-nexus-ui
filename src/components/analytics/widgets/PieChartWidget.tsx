@@ -183,7 +183,7 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
   }
 
   return (
-    <div className="h-full">
+    <div className="w-full h-64">{/* give this a fixed height so ResponsiveContainer can fill it */}
       <ResponsiveContainer width="100%" height="100%">
         <RechartsPieChart>
           <Pie
