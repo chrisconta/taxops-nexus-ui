@@ -10,7 +10,13 @@ interface BarChartProps {
 }
 
 export const BarChart = ({ widget }: BarChartProps) => {
-  console.log("BarChart received columns ➞", widget.columns);
+  console.log("BarChart props ➞", {
+    dataSource: widget.dataSource,
+    xAxis: widget.chartConfig?.xAxis,
+    yAxis: widget.chartConfig?.yAxis,
+    aggregation: widget.chartConfig?.aggregation,
+    script: widget.script
+  });
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,17 +36,19 @@ export const BarChart = ({ widget }: BarChartProps) => {
     try {
       const { xAxis, yAxis, aggregation = 'count' } = widget.chartConfig;
       
+      // join without spaces so Supabase returns the columns
       let query = supabase
         .from(widget.dataSource as any)
-        .select(`${xAxis}, ${yAxis}`);
+        .select([xAxis, yAxis].join(','));
 
       const { data: result, error } = await query.limit(1000);
+      console.log("BarChart supabase rows ➞", Array.isArray(result) ? result.length : result);
 
       if (error) throw error;
 
       // Process data for chart
       const processedData = processChartData(result || [], xAxis, yAxis, aggregation);
-      console.log("Sample row keys ➞", Object.keys((result || [])[0] || {}));
+      console.log("BarChart sample row keys ➞", Object.keys((result || [])[0] || {}));
       setData(processedData);
     } catch (err: any) {
       console.error('Error loading chart data:', err);

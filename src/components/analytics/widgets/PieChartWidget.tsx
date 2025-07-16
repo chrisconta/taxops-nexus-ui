@@ -23,7 +23,13 @@ const COLORS = [
 ];
 
 export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
-  console.log("PieChartWidget received columns ➞", widget.columns);
+  console.log("PieChartWidget props ➞", {
+    dataSource: widget.dataSource,
+    xAxis: widget.chartConfig?.xAxis,
+    yAxis: widget.chartConfig?.yAxis,
+    aggregation: widget.chartConfig?.aggregation,
+    script: widget.script
+  });
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,17 +54,19 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
         selectColumns += `, ${yAxis}`;
       }
       
+      // join without spaces so Supabase returns the columns
       let query = supabase
         .from(widget.dataSource as any)
-        .select(selectColumns);
+        .select(selectColumns.split(',').map(c => c.trim()).join(','));
 
       const { data: result, error } = await query.limit(1000);
+      console.log("PieChartWidget supabase rows ➞", Array.isArray(result) ? result.length : result);
 
       if (error) throw error;
 
       // Process data for pie chart
       const processedData = processPieData(result || [], xAxis, yAxis, aggregation);
-      console.log("Sample row keys ➞", Object.keys((result || [])[0] || {}));
+      console.log("PieChartWidget sample row keys ➞", Object.keys((result || [])[0] || {}));
       setData(processedData);
     } catch (err: any) {
       console.error('Error loading pie chart data:', err);
