@@ -259,7 +259,7 @@ export const DataTable = ({ widget }: DataTableProps) => {
   }
 
   return (
-    <ScrollArea className="h-full w-full">
+    <div className="w-full overflow-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -273,10 +273,7 @@ export const DataTable = ({ widget }: DataTableProps) => {
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell 
-                colSpan={widget.columns.length} 
-                className="text-center text-muted-foreground py-8"
-              >
+              <TableCell colSpan={widget.columns.length} className="text-center text-muted-foreground py-8">
                 No data available
               </TableCell>
             </TableRow>
@@ -293,8 +290,6 @@ export const DataTable = ({ widget }: DataTableProps) => {
           )}
         </TableBody>
       </Table>
-      <ScrollBar orientation="horizontal" />
-      <ScrollBar orientation="vertical" />
-    </ScrollArea>
+    </div>
   );
 };
