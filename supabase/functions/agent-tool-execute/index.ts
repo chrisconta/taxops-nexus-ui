@@ -77,7 +77,7 @@ function validateToolParams(toolName: ToolName, params: unknown): boolean {
 }
 
 // Tool execution functions
-async function registerClient(params: any, supabase: any) {
+async function registerClient(params: any, supabase: any, userId: string) {
   console.log('Running register_client with params:', params);
   
   // Create client in database
@@ -87,7 +87,7 @@ async function registerClient(params: any, supabase: any) {
       name: params.name,
       email: params.email,
       taxid: params.companyId, // Map companyId to taxid field
-      user_id: (await supabase.auth.getUser()).data.user?.id
+      user_id: userId
     })
     .select()
     .single();
@@ -125,7 +125,7 @@ async function createConnection(params: any, supabase: any) {
   };
 }
 
-async function buildDashboard(params: any, supabase: any) {
+async function buildDashboard(params: any, supabase: any, userId: string) {
   console.log('Running build_dashboard with params:', params);
   
   // Create dashboard configuration
@@ -141,7 +141,7 @@ async function buildDashboard(params: any, supabase: any) {
     .insert({
       name: `Dashboard for ${params.clientId}`,
       config: dashboardConfig,
-      user_id: (await supabase.auth.getUser()).data.user?.id
+      user_id: userId
     })
     .select()
     .single();
@@ -157,14 +157,14 @@ async function buildDashboard(params: any, supabase: any) {
   };
 }
 
-async function executeToolRunner(toolName: ToolName, params: any, supabase: any) {
+async function executeToolRunner(toolName: ToolName, params: any, supabase: any, userId: string) {
   switch (toolName) {
     case "register_client":
-      return await registerClient(params, supabase);
+      return await registerClient(params, supabase, userId);
     case "create_connection":
       return await createConnection(params, supabase);
     case "build_dashboard":
-      return await buildDashboard(params, supabase);
+      return await buildDashboard(params, supabase, userId);
     default:
       throw new Error(`Unsupported tool: ${toolName}`);
   }
@@ -214,12 +214,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Initialize Supabase client
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     // Get auth header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -232,9 +226,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Set auth context
-    const token = authHeader.replace('Bearer ', '');
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    // Initialize Supabase client with user's JWT token
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: authHeader }
+        }
+      }
+    );
+
+    // Get user from JWT token
+    const { data: userData, error: userError } = await supabase.auth.getUser();
     
     if (userError || !userData.user) {
       return new Response(
@@ -280,7 +284,7 @@ Deno.serve(async (req) => {
 
     // Execute tool
     try {
-      const result = await executeToolRunner(toolName as ToolName, params, supabase);
+      const result = await executeToolRunner(toolName as ToolName, params, supabase, userId);
       const executionTime = Date.now() - startTime;
       
       await logToolInvocation(supabase, userId, toolName, params, true, null, result, executionTime);
