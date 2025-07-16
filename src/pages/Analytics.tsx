@@ -513,7 +513,7 @@ const Analytics = () => {
             <div className="flex items-center gap-4">
               <h1 className="text-xl font-bold text-white flex items-center gap-2">
                 <div 
-                  className="w-8 h-8 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/80 transition-colors"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={() => setCurrentDashboard(null)}
                 >
                   <Zap className="w-4 h-4 text-white" />
