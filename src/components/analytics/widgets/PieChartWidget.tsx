@@ -61,12 +61,12 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
 
       const { data: result, error } = await query.limit(1000);
       console.log("PieChartWidget supabase rows ➞", Array.isArray(result) ? result.length : result);
+      console.log("PieChartWidget sample row keys ➞", Object.keys((result || [])[0] || {}));
 
       if (error) throw error;
 
       // Process data for pie chart
       const processedData = processPieData(result || [], xAxis, yAxis, aggregation);
-      console.log("PieChartWidget sample row keys ➞", Object.keys((result || [])[0] || {}));
       setData(processedData);
     } catch (err: any) {
       console.error('Error loading pie chart data:', err);

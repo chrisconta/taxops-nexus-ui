@@ -44,12 +44,12 @@ export const LineChartWidget = ({ widget }: LineChartWidgetProps) => {
 
       const { data: result, error } = await query.limit(1000);
       console.log("LineChartWidget supabase rows ➞", Array.isArray(result) ? result.length : result);
+      console.log("LineChartWidget sample row keys ➞", Object.keys((result || [])[0] || {}));
 
       if (error) throw error;
 
       // Process data for line chart
       const processedData = processLineData(result || [], xAxis, yAxis, aggregation);
-      console.log("LineChartWidget sample row keys ➞", Object.keys((result || [])[0] || {}));
       setData(processedData);
     } catch (err: any) {
       console.error('Error loading line chart data:', err);

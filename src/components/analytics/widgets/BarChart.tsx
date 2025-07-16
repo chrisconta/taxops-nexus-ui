@@ -43,12 +43,12 @@ export const BarChart = ({ widget }: BarChartProps) => {
 
       const { data: result, error } = await query.limit(1000);
       console.log("BarChart supabase rows ➞", Array.isArray(result) ? result.length : result);
+      console.log("BarChart sample row keys ➞", Object.keys((result || [])[0] || {}));
 
       if (error) throw error;
 
       // Process data for chart
       const processedData = processChartData(result || [], xAxis, yAxis, aggregation);
-      console.log("BarChart sample row keys ➞", Object.keys((result || [])[0] || {}));
       setData(processedData);
     } catch (err: any) {
       console.error('Error loading chart data:', err);
