@@ -43,7 +43,20 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
   }, [widget.dataSource, widget.columns, widget.transformations, widget.script, globalFilter]);
 
   const loadData = async () => {
-    if (!widget.dataSource || !widget.columns || widget.columns.length === 0) return;
+    console.log('loadData function called with:', {
+      dataSource: widget.dataSource,
+      columns: widget.columns,
+      columnsLength: widget.columns?.length
+    });
+    
+    if (!widget.dataSource || !widget.columns || widget.columns.length === 0) {
+      console.log('Early return from loadData:', {
+        noDataSource: !widget.dataSource,
+        noColumns: !widget.columns,
+        emptyColumns: widget.columns?.length === 0
+      });
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -54,12 +67,15 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
       const allColumns = [...widget.columns, ...transformationColumns];
       const uniqueColumns = [...new Set(allColumns)];
       
+      console.log('Building query with columns:', uniqueColumns);
+      
       let query = supabase
         .from(widget.dataSource as any)
         .select(uniqueColumns.join(','));
 
       // Apply cross-table filtering
       if (globalFilter) {
+        console.log('Applying global filter:', globalFilter);
         try {
           query = await applyCrossTableFilter(query, widget.dataSource, {
             sourceTable: 'clients', // Default source for now
@@ -73,10 +89,14 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
         }
       }
 
+      console.log('Executing query...');
       const { data: result, error } = await query;
       console.log("Supabase returned rows ➞", Array.isArray(result) ? result.length : result);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase query error:', error);
+        throw error;
+      }
 
       // Apply transformations or execute custom script
       const transformedData = executeScript(result || []);
