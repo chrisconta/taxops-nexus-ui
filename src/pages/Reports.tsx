@@ -180,11 +180,7 @@ const Reports = () => {
   if (featureFlags.reportsFullScreenChat) {
     return (
       <div className="h-screen flex flex-col bg-background">
-        {/* 
-          flex-1: take all remaining vertical space
-          min-h-0: allow children to set their own scroll bounds 
-        */}
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 overflow-hidden">
           <ChatWindow />
         </div>
       </div>

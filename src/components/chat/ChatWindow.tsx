@@ -202,28 +202,25 @@ export const ChatWindow = () => {
     }
   };
   return (
-    // full height, column layout
-    <div className="flex flex-col h-full bg-background">
-      {/* Header with New Chat Button - Fixed height */}
+    <div className="flex flex-col h-full">
+      {/* Header with New Chat Button - Fixed outside scroll area */}
       {messages.length > 0 && (
-        <div className="flex-shrink-0 px-4 py-3 border-b border-glass-border bg-glass-bg/30">
-          <div className="flex justify-end">
-            <Button 
-              onClick={handleNewChat}
-              className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 hover:border-primary/50"
-              variant="outline"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Chat
-            </Button>
-          </div>
+        <div className="flex-shrink-0 p-4 flex justify-end">
+          <Button 
+            onClick={handleNewChat}
+            className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 hover:border-primary/50"
+            variant="outline"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Chat
+          </Button>
         </div>
       )}
 
-      {/* Messages pane: flex-1 so it expands; overflow-y-auto for its own scroll */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Chat Messages - Constrained scrollable area */}
+      <div className="flex-1 overflow-y-auto min-h-0">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full px-4">
+          <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px]">
             <div className="text-center max-w-2xl">
               <TypingAnimation />
             </div>
@@ -253,7 +250,7 @@ export const ChatWindow = () => {
         )}
       </div>
 
-      {/* Input area: fixed height */}
+      {/* Chat Input - Fixed at bottom */}
       <div className={`flex-shrink-0 p-6 ${messages.length === 0 ? 'pb-8' : 'border-t border-glass-border bg-glass-bg/30'}`}>
         <div className={`${messages.length === 0 ? 'max-w-4xl mx-auto' : ''}`}>
           <div className="flex space-x-3">
