@@ -506,7 +506,7 @@ const Analytics = () => {
 
   return (
     <TooltipProvider>
-      <div className="h-full flex flex-col">
+      <div className="min-h-screen flex flex-col foldable:min-h-[calc(100vh-4rem)] foldable-portrait:min-h-[calc(100vh-3rem)]">
         {/* Toolbar */}
         <div className="border-b border-glass-border bg-glass-bg/30 backdrop-blur-sm p-4 foldable:p-3 foldable-portrait:p-2">
           <div className="flex items-center justify-between foldable-portrait:flex-col foldable-portrait:gap-2">
@@ -626,7 +626,7 @@ const Analytics = () => {
 
         {/* Main Content */}
         {currentDashboard ? (
-          <div className="flex-1 bg-background/50">
+          <div className="flex-1 bg-background/50 min-h-[600px] foldable:min-h-[500px] foldable-portrait:min-h-[400px]">
             <DashboardCanvas
               dashboard={currentDashboard}
               selectedWidget={selectedWidget}
