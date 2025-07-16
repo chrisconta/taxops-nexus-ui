@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from "react";
-import { Send, Loader2, Brain, AlertCircle, Download, Plus } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useChatStore } from "@/store/useChatStore";
 import { useSearchParams } from "react-router-dom";
+import { MessageList } from "@/components/agent/MessageList";
+import { MessageInput } from "@/components/agent/MessageInput";
+import { ToolLauncher } from "@/components/agent/ToolLauncher";
 import { TransactionDataCollector } from "./TransactionDataCollector";
 
 const TypingAnimation = () => {
@@ -55,101 +56,29 @@ const TypingAnimation = () => {
     </h1>
   );
 };
-const TypingDots = () => <div className="flex space-x-1">
-    <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{
-    animationDelay: '0ms'
-  }}></div>
-    <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{
-    animationDelay: '150ms'
-  }}></div>
-    <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{
-    animationDelay: '300ms'
-  }}></div>
-  </div>;
-const FileLink = ({
-  url,
-  filename
-}: {
-  url: string;
-  filename: string;
-}) => <Badge variant="secondary" className="bg-primary/20 text-primary hover:bg-primary/30 cursor-pointer inline-flex items-center gap-1 mt-2" onClick={() => window.open(url, '_blank')}>
-    <Download className="w-3 h-3" />
-    {filename}
-  </Badge>;
-const DownloadButton = ({
-  label,
-  url,
-  filename
-}: {
-  label: string;
-  url: string;
-  filename: string;
-}) => <div className="mt-4 mb-2">
-    <p className="text-sm text-white/70 mb-3">Here is the report to download:</p>
-    <button onClick={() => window.open(url, '_blank')} className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
-      <Download className="w-5 h-5" />
-      {label}
-    </button>
-  </div>;
-const MessageContent = ({
-  content
-}: {
-  content: string | {
-    text: string;
-    downloadButton?: {
-      label: string;
-      url: string;
-      filename: string;
-    };
-  };
-}) => {
-  // Handle structured content with download button
-  if (typeof content === 'object' && content.downloadButton) {
-    return <div className="whitespace-pre-wrap">
-        <span>{content.text}</span>
-        <DownloadButton label={content.downloadButton.label} url={content.downloadButton.url} filename={content.downloadButton.filename} />
-      </div>;
-  }
 
-  // Handle string content (backward compatibility)
-  const stringContent = typeof content === 'string' ? content : content.text;
-
-  // Detect file links
-  const parts = stringContent.split(/(\[Download report\]\([^)]+\))/g);
-  return <div className="whitespace-pre-wrap">
-      {parts.map((part, index) => {
-      const linkMatch = part.match(/\[Download report\]\(([^)]+)\)/);
-      if (linkMatch) {
-        const url = linkMatch[1];
-        const filename = url.split('/').pop() || 'report.csv';
-        return <FileLink key={index} url={url} filename={filename} />;
-      }
-      return <span key={index}>{part}</span>;
-    })}
-    </div>;
-};
-export const ChatWindow = () => {
-  const [input, setInput] = useState("");
+export const ChatWindow: React.FC = () => {
   const [searchParams] = useSearchParams();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [dataCollectors, setDataCollectors] = useState<Set<string>>(new Set());
+  
   const {
     messages,
     isLoading,
     send,
     load,
-    startNew
+    startNew,
+    invokeTool,
+    markDataCollected
   } = useChatStore();
-  const {
-    toast
-  } = useToast();
-
-  // Track which messages have data collectors
-  const [dataCollectors, setDataCollectors] = useState<Set<string>>(new Set());
+  
+  const { toast } = useToast();
 
   // Load conversation from URL parameter and handle generate requests
   useEffect(() => {
     const convId = searchParams.get('conv');
     const generate = searchParams.get('generate');
+    
     if (convId) {
       load(convId);
     }
@@ -168,10 +97,9 @@ export const ChatWindow = () => {
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: "smooth"
-    });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
   const handleNewChat = () => {
     startNew();
     toast({
@@ -180,12 +108,9 @@ export const ChatWindow = () => {
     });
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading || input.length > 4000) return;
-    const message = input.trim();
-    setInput("");
+  const handleSend = async (text: string) => {
     try {
-      await send(message);
+      await send(text);
     } catch (error) {
       toast({
         title: "Error",
@@ -194,13 +119,15 @@ export const ChatWindow = () => {
       });
     }
   };
-  
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+
+  const handleToolInvoke = (toolName: string, params: Record<string, any>) => {
+    invokeTool(toolName, params);
+    toast({
+      title: "Tool Launched",
+      description: `${toolName} has been invoked with the provided parameters.`,
+    });
   };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header with New Chat Button - Fixed outside scroll area */}
@@ -226,54 +153,47 @@ export const ChatWindow = () => {
             </div>
           </div>
         ) : (
-          <div className="px-4 py-6 space-y-4">
+          <div className="px-4 py-6">
+            <MessageList messages={messages} />
+            
+            {/* Data Collectors for messages that require data */}
             {messages.map(message => (
-              <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-full ${message.role === 'user' ? 'max-w-xs lg:max-w-md' : 'max-w-4xl'}`}>
-                  <div className={`px-4 py-2 rounded-2xl ${message.role === 'user' ? 'bg-primary text-white' : 'bg-glass-bg/30 border border-glass-border text-white'}`}>
-                    {message.typing ? <TypingDots /> : <MessageContent content={message.content} />}
-                  </div>
-                  {message.requiresData && !message.dataCollected && !dataCollectors.has(message.id) && (
-                    <TransactionDataCollector 
-                      messageId={message.id} 
-                      missingParams={message.missingParams} 
-                      onDataSubmitted={() => {
-                        setDataCollectors(prev => new Set(prev).add(message.id));
-                      }} 
-                    />
-                  )}
+              message.requiresData && !message.dataCollected && !dataCollectors.has(message.id) && (
+                <div key={`collector-${message.id}`} className="mt-4">
+                  <TransactionDataCollector 
+                    messageId={message.id} 
+                    missingParams={message.missingParams} 
+                    onDataSubmitted={() => {
+                      setDataCollectors(prev => new Set(prev).add(message.id));
+                      markDataCollected(message.id);
+                    }} 
+                  />
                 </div>
-              </div>
+              )
             ))}
+            
             <div ref={messagesEndRef} />
           </div>
         )}
       </div>
 
-      {/* Chat Input - Fixed at bottom */}
+      {/* Tool Launcher & Input - Fixed at bottom */}
       <div className={`flex-shrink-0 p-6 ${messages.length === 0 ? 'pb-8' : 'border-t border-glass-border bg-glass-bg/30'}`}>
         <div className={`${messages.length === 0 ? 'max-w-4xl mx-auto' : ''}`}>
-          <div className="flex space-x-3">
-            <Input 
-              value={input} 
-              onChange={e => setInput(e.target.value)} 
-              placeholder="Type your message... (max 4000 chars)" 
-              className="flex-1 bg-glass-bg/20 border-glass-border text-white placeholder:text-taxops-gray-light h-16 text-lg" 
-              onKeyPress={handleKeyPress} 
-              disabled={isLoading} 
-              maxLength={4000} 
-            />
-            <Button 
-              onClick={handleSend} 
-              disabled={!input.trim() || isLoading || input.length > 4000} 
-              className="bg-primary hover:bg-primary/80 h-16 px-6"
-            >
-              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-            </Button>
-          </div>
+          <ToolLauncher
+            onInvoke={handleToolInvoke}
+            availableTools={["register_client", "create_connection", "build_dashboard"]}
+            disabled={isLoading}
+          />
+          
+          <MessageInput 
+            onSend={handleSend}
+            placeholder="Type your message..."
+            isLoading={isLoading}
+          />
           
           <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
-            <span>{input.length}/4000 characters</span>
+            <span>Use tools above or type naturally</span>
           </div>
           
           <div className="text-xs text-taxops-gray-light/60 mt-2 text-center">
