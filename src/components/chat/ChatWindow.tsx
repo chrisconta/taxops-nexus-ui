@@ -110,15 +110,67 @@ export const ChatWindow: React.FC = () => {
   };
 
   const handleSend = async (text: string) => {
-    setLastUserMessage(text); // Store for potential plan generation
-    try {
-      await send(text);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to send message',
-        variant: "destructive"
-      });
+    setLastUserMessage(text);
+    
+    // Check if this looks like an actionable request that should generate a plan
+    const actionableKeywords = ['add', 'create', 'register', 'setup', 'build', 'connect'];
+    const isActionable = actionableKeywords.some(keyword => 
+      text.toLowerCase().includes(keyword)
+    );
+    
+    if (isActionable) {
+      // Automatically generate plan for actionable requests
+      try {
+        const chatHistory = messages.slice(-5).map(msg => ({
+          role: msg.author === "user" ? "user" : "assistant",
+          content: typeof msg.content === 'string' ? msg.content : msg.content.text || ""
+        }));
+
+        // Add user message first
+        addMessage({
+          id: crypto.randomUUID(),
+          author: "user",
+          content: text,
+          timestamp: Date.now(),
+        });
+
+        // Generate plan automatically
+        planMutation.mutate(
+          { userPrompt: text, chatHistory },
+          {
+            onSuccess: (plan) => {
+              setCurrentPlan(plan);
+              setIsPlanModalOpen(true);
+            },
+            onError: (error: any) => {
+              toast({
+                title: "Plan Generation Failed",
+                description: error.message,
+                variant: "destructive"
+              });
+              // Fallback to regular chat if plan generation fails
+              send(text);
+            }
+          }
+        );
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : 'Failed to process request',
+          variant: "destructive"
+        });
+      }
+    } else {
+      // For non-actionable messages, use regular chat
+      try {
+        await send(text);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : 'Failed to send message',
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -281,19 +333,9 @@ export const ChatWindow: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header with New Chat Button and Plan Generator - Fixed outside scroll area */}
+      {/* Header with New Chat Button - Fixed outside scroll area */}
       {messages.length > 0 && (
-        <div className="flex-shrink-0 p-4 flex justify-between items-center">
-          <Button 
-            onClick={handleGeneratePlan}
-            disabled={planMutation.isPending || !lastUserMessage}
-            className="bg-accent/20 hover:bg-accent/30 text-accent-foreground border border-accent/30 hover:border-accent/50"
-            variant="outline"
-          >
-            <Sparkles className="w-4 h-4 mr-2" />
-            {planMutation.isPending ? "Generating..." : "Generate Plan"}
-          </Button>
-          
+        <div className="flex-shrink-0 p-4 flex justify-end items-center">
           <Button 
             onClick={handleNewChat}
             className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 hover:border-primary/50"
