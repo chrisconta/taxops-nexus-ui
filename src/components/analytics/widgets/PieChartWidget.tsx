@@ -78,6 +78,8 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
   };
 
   const processPieData = (rawData: any[], xAxis: string, yAxis?: string, aggregation: string = 'count') => {
+    if (!rawData || rawData.length === 0) return [];
+
     const grouped = rawData.reduce((acc, item) => {
       const key = item[xAxis] || 'Unknown';
       if (!acc[key]) {
@@ -112,16 +114,22 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
           break;
       }
 
+      // For pie charts, use absolute values to ensure proper rendering
+      // Pie charts represent parts of a whole and work best with positive values
       return {
         name: key,
-        value: Number(value.toFixed(2))
+        value: Math.abs(Number(value.toFixed(2))),
+        originalValue: Number(value.toFixed(2)) // Keep original for tooltip/display
       };
     });
 
-    // Sort by value and take top 10 to prevent overcrowding
-    return result
+    // Filter out zero values and sort by value in descending order
+    const filteredData = result
+      .filter(item => item.value > 0)
       .sort((a, b) => b.value - a.value)
       .slice(0, 10);
+
+    return filteredData;
   };
 
   const formatValue = (value: number) => {
@@ -200,14 +208,18 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip 
+           <Tooltip 
             contentStyle={{
               backgroundColor: 'hsl(var(--background))',
               border: '1px solid hsl(var(--border))',
               borderRadius: '8px',
               color: 'hsl(var(--foreground))'
             }}
-            formatter={(value: number) => [formatValue(value), widget.chartConfig?.aggregation || 'count']}
+            formatter={(value: number, name: string, props: any) => {
+              // Show original value in tooltip if it was negative
+              const displayValue = props.payload?.originalValue || value;
+              return [formatValue(displayValue), widget.chartConfig?.aggregation || 'count'];
+            }}
           />
           <Legend 
             wrapperStyle={{
