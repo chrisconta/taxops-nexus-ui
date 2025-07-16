@@ -182,6 +182,9 @@ export const ChatWindow = () => {
           <span>{input.length}/4000 characters</span>
         </div>
         
+        <div className="text-xs text-taxops-gray-light/60 mt-2 text-center">
+          AI can make mistakes. Always review your work.
+        </div>
         
       </div>
     </div>;
