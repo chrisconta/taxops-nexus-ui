@@ -44,9 +44,10 @@ export const DataTable = ({ widget }: DataTableProps) => {
       
       let query = supabase
         .from(widget.dataSource as any)
-        .select(uniqueColumns.join(', '));
+        .select(uniqueColumns.join(','));
 
       const { data: result, error } = await query;
+      console.log("Supabase returned rows ➞", Array.isArray(result) ? result.length : result);
 
       if (error) throw error;
 
