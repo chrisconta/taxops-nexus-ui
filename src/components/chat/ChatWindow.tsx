@@ -154,10 +154,10 @@ export const ChatWindow = () => {
     }
   };
   return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-200px)] relative">
-      {/* New Chat Button - Fixed position, higher up */}
+    <div className="flex flex-col h-full max-h-[calc(100vh-200px)]">
+      {/* Header with New Chat Button - Fixed outside scroll area */}
       {messages.length > 0 && (
-        <div className="absolute top-2 right-2 z-20">
+        <div className="flex-shrink-0 p-4 flex justify-end">
           <Button 
             onClick={handleNewChat}
             className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 hover:border-primary/50"
@@ -169,8 +169,8 @@ export const ChatWindow = () => {
         </div>
       )}
 
-      {/* Chat Messages - Constrained height */}
-      <div className="flex-1 overflow-y-auto max-h-[calc(100vh-400px)] min-h-0">
+      {/* Chat Messages - Constrained scrollable area */}
+      <div className="flex-1 overflow-y-auto min-h-0">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px]">
             <div className="text-center max-w-2xl">
@@ -180,7 +180,7 @@ export const ChatWindow = () => {
             </div>
           </div>
         ) : (
-          <div className="px-4 py-6 pb-16 space-y-4 min-h-0">
+          <div className="px-4 py-6 space-y-4">
             {messages.map(message => (
               <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-full ${message.role === 'user' ? 'max-w-xs lg:max-w-md' : 'max-w-4xl'}`}>
