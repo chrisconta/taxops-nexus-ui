@@ -212,7 +212,7 @@ export const ChatWindow = () => {
               value={input} 
               onChange={e => setInput(e.target.value)} 
               placeholder="Type your message... (max 4000 chars)" 
-              className="flex-1 bg-glass-bg/20 border-glass-border text-white placeholder:text-taxops-gray-light" 
+              className="flex-1 bg-glass-bg/20 border-glass-border text-white placeholder:text-taxops-gray-light h-16 text-lg" 
               onKeyPress={handleKeyPress} 
               disabled={isLoading} 
               maxLength={4000} 
@@ -220,9 +220,9 @@ export const ChatWindow = () => {
             <Button 
               onClick={handleSend} 
               disabled={!input.trim() || isLoading || input.length > 4000} 
-              className="bg-primary hover:bg-primary/80"
+              className="bg-primary hover:bg-primary/80 h-16 px-6"
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
             </Button>
           </div>
           
