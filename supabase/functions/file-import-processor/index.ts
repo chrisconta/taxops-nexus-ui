@@ -15,9 +15,11 @@ interface ImportFile {
 }
 
 interface ColumnMapping {
-  sourceColumn: string;
+  fileColumn: string;
   targetField: string;
-  transform?: string;
+  isNewColumn?: boolean;
+  newColumnName?: string;
+  newColumnType?: string;
 }
 
 interface ImportError {
@@ -172,8 +174,11 @@ async function processFile(
   // Create a mapping lookup for faster processing
   const mappingLookup = new Map<string, ColumnMapping>()
   mappings.forEach(mapping => {
-    mappingLookup.set(mapping.sourceColumn, mapping)
+    mappingLookup.set(mapping.fileColumn, mapping)
   })
+  
+  console.log('Mapping lookup:', Array.from(mappingLookup.entries()))
+  console.log('Sample row structure:', fileData[0] ? Object.keys(fileData[0]) : 'No data')
   
   // Process each row of data
   for (let i = 0; i < totalRecords; i++) {
@@ -187,6 +192,7 @@ async function processFile(
       for (const [sourceColumn, value] of Object.entries(row)) {
         const mapping = mappingLookup.get(sourceColumn)
         if (mapping && mapping.targetField !== 'none') {
+          console.log(`Processing column '${sourceColumn}' -> '${mapping.targetField}' with value:`, value)
           try {
             // Transform the value based on target field
             let transformedValue = value
@@ -237,14 +243,19 @@ async function processFile(
               value: value as string
             })
           }
+        } else {
+          console.log(`No mapping found for column '${sourceColumn}' or targetField is 'none'`)
         }
       }
+      
+      console.log(`Row ${i + 1} - hasValidData: ${hasValidData}, rowErrors: ${rowErrors.length}, transformedRow:`, transformedRow)
       
       // Add any row-level errors to the main errors array
       errors.push(...rowErrors)
       
       // If there were errors or no valid data, skip this row
       if (rowErrors.length > 0 || !hasValidData) {
+        console.log(`Skipping row ${i + 1} - rowErrors: ${rowErrors.length}, hasValidData: ${hasValidData}`)
         recordsSkipped++
         continue
       }
