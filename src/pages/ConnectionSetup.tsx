@@ -694,65 +694,63 @@ const ConnectionSetup = () => {
       {/* Tab Content */}
       <div className="animate-fade-in">
         {activeTab === "setup" && (
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="space-y-6 p-6">
             {/* Client Selection */}
-            <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Client Selection
-                  </CardTitle>
-                  <CardDescription>
-                    Select clients to sync Mercury data for. You can choose multiple clients.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1">
-                      <Label htmlFor="search">Search clients</Label>
-                      <Input
-                        id="search"
-                        placeholder="Search by name, email, or Tax ID..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Client Selection
+                </CardTitle>
+                <CardDescription>
+                  Select clients to sync Mercury data for. You can choose multiple clients.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Search by name, email, or Tax ID..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <Button variant="outline" onClick={handleSelectAll}>
+                    {selectedClients.length === filteredClients.length ? "Deselect All" : "Select All"}
+                  </Button>
+                </div>
+
+                <div className="max-h-64 overflow-y-auto space-y-2">
+                  {filteredClients.map((client) => (
+                    <div
+                      key={client.id}
+                      className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                      onClick={() => handleClientToggle(client.id)}
+                    >
+                      <Checkbox
+                        checked={selectedClients.includes(client.id)}
+                        onChange={() => handleClientToggle(client.id)}
                       />
-                    </div>
-                    <Button variant="outline" onClick={handleSelectAll} className="mt-6">
-                      {selectedClients.length === filteredClients.length ? "Deselect All" : "Select All"}
-                    </Button>
-                  </div>
-
-                  <div className="max-h-64 overflow-y-auto space-y-2">
-                    {filteredClients.map((client) => (
-                      <div
-                        key={client.id}
-                        className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                        onClick={() => handleClientToggle(client.id)}
-                      >
-                        <Checkbox
-                          checked={selectedClients.includes(client.id)}
-                          onChange={() => handleClientToggle(client.id)}
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium">{client.name}</div>
-                          <div className="text-sm text-muted-foreground">{client.email} • Tax ID: {client.taxid}</div>
-                        </div>
-                        <Badge variant={client.sat_status === "active" ? "default" : "secondary"}>
-                          {client.sat_status}
-                        </Badge>
+                      <div className="flex-1">
+                        <div className="font-semibold text-base">{client.name}</div>
+                        <div className="text-sm text-muted-foreground">{client.email} • Tax ID: {client.taxid}</div>
                       </div>
-                    ))}
-                  </div>
-
-                  {selectedClients.length > 0 && (
-                    <div className="text-sm text-muted-foreground">
-                      {selectedClients.length} client(s) selected
+                      <Badge variant={client.sat_status === "active" ? "default" : "secondary"}>
+                        {client.sat_status}
+                      </Badge>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  ))}
+                </div>
 
+                {selectedClients.length > 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    {selectedClients.length} client(s) selected
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-6 lg:grid-cols-2">
               {/* Sync Type Selection */}
               <Card>
                 <CardHeader>
@@ -768,24 +766,25 @@ const ConnectionSetup = () => {
                   <RadioGroup
                     value={syncSettings.syncType}
                     onValueChange={(value) => setSyncSettings(prev => ({ ...prev, syncType: value as any }))}
+                    className="space-y-3"
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="automatic" id="automatic" />
-                      <Label htmlFor="automatic">Automatic Sync</Label>
+                      <Label htmlFor="automatic" className="text-base">Automatic Sync</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="historical" id="historical" />
-                      <Label htmlFor="historical">Historical Data Sync</Label>
+                      <Label htmlFor="historical" className="text-base">Historical Data Sync</Label>
                     </div>
                   </RadioGroup>
 
                   {syncSettings.syncType === "automatic" && (
                     <div>
-                      <Label>Sync Frequency</Label>
+                      <Label className="text-base font-medium">Sync Frequency</Label>
                       <RadioGroup
                         value={syncSettings.frequency}
                         onValueChange={(value) => setSyncSettings(prev => ({ ...prev, frequency: value as any }))}
-                        className="mt-2"
+                        className="mt-3 space-y-2"
                       >
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="daily" id="freq-daily" />
@@ -827,10 +826,8 @@ const ConnectionSetup = () => {
                   )}
                 </CardContent>
               </Card>
-            </div>
 
-            {/* Action Panel */}
-            <div className="space-y-6">
+              {/* Sync Control */}
               <Card>
                 <CardHeader>
                   <CardTitle>Sync Control</CardTitle>
@@ -842,7 +839,7 @@ const ConnectionSetup = () => {
                   <Button
                     onClick={handleCreateSync}
                     disabled={selectedClients.length === 0 || !credentialsValid || loadingSync}
-                    className="w-full"
+                    className="w-full bg-blue-600 hover:bg-blue-700"
                     size="lg"
                   >
                     {loadingSync ? (
@@ -877,6 +874,35 @@ const ConnectionSetup = () => {
                 </CardContent>
               </Card>
             </div>
+          </div>
+        )}
+
+        {activeTab === "upload" && (
+          <div className="space-y-6 p-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>File Upload for {connectionInfo.title}</CardTitle>
+                <CardDescription>
+                  Upload files directly (CSV, Excel, XML, TXT) for selected clients.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {selectedClients.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Please select clients in the Setup tab first
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-sm text-muted-foreground">
+                      Selected clients: {selectedClients.length}
+                    </div>
+                    <div className="text-center py-8 text-muted-foreground">
+                      File upload functionality coming soon...
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
 
