@@ -7,9 +7,10 @@ import type { Widget } from "@/pages/Analytics";
 
 interface BarChartProps {
   widget: Widget;
+  globalFilter?: { column: string; value: string } | null;
 }
 
-export const BarChart = ({ widget }: BarChartProps) => {
+export const BarChart = ({ widget, globalFilter }: BarChartProps) => {
   console.log("BarChart props ➞", {
     dataSource: widget.dataSource,
     xAxis: widget.chartConfig?.xAxis,
@@ -25,7 +26,7 @@ export const BarChart = ({ widget }: BarChartProps) => {
     if (widget.dataSource && widget.chartConfig?.xAxis && widget.chartConfig?.yAxis) {
       loadData();
     }
-  }, [widget.dataSource, widget.chartConfig]);
+  }, [widget.dataSource, widget.chartConfig, globalFilter]);
 
   const loadData = async () => {
     if (!widget.dataSource || !widget.chartConfig?.xAxis || !widget.chartConfig?.yAxis) return;
@@ -40,6 +41,11 @@ export const BarChart = ({ widget }: BarChartProps) => {
       let query = supabase
         .from(widget.dataSource as any)
         .select([xAxis, yAxis].join(','));
+
+      // Apply global filter if it exists
+      if (globalFilter) {
+        query = query.eq(globalFilter.column, globalFilter.value);
+      }
 
       const { data: result, error } = await query.limit(1000);
       console.log("BarChart supabase rows ➞", Array.isArray(result) ? result.length : result);

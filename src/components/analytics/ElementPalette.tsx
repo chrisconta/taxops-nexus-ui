@@ -1,4 +1,4 @@
-import { BarChart3, LineChart, PieChart, Table as TableIcon } from "lucide-react";
+import { BarChart3, LineChart, PieChart, Table as TableIcon, Filter } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { Widget } from "@/pages/Analytics";
@@ -31,6 +31,12 @@ const elementTypes = [
     name: 'Pie Chart',
     description: 'Show proportions of a whole',
     icon: PieChart,
+  },
+  {
+    type: 'filter' as const,
+    name: 'Filter',
+    description: 'Apply filters to all widgets',
+    icon: Filter,
   },
 ];
 

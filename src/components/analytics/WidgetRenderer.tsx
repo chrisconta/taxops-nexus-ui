@@ -1,10 +1,11 @@
-import { X, Settings, BarChart3, LineChart, PieChart, Table as TableIcon, Code, RefreshCw, Minimize2 } from "lucide-react";
+import { X, Settings, BarChart3, LineChart, PieChart, Table as TableIcon, Code, RefreshCw, Minimize2, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "./widgets/DataTable";
 import { BarChart } from "./widgets/BarChart";
 import { LineChartWidget } from "./widgets/LineChartWidget";
 import { PieChartWidget } from "./widgets/PieChartWidget";
+import { FilterWidget } from "./widgets/FilterWidget";
 import type { Widget } from "@/pages/Analytics";
 
 interface WidgetRendererProps {
@@ -15,6 +16,8 @@ interface WidgetRendererProps {
   onUpdate: () => void;
   onMinimize: () => void;
   isSelected: boolean;
+  globalFilter?: { column: string; value: string } | null;
+  onFilterChange?: (column: string, value: string) => void;
 }
 
 const widgetIcons = {
@@ -22,21 +25,24 @@ const widgetIcons = {
   'bar-chart': BarChart3,
   'line-chart': LineChart,
   'pie-chart': PieChart,
+  'filter': Filter,
 };
 
-export const WidgetRenderer = ({ widget, onDelete, onSelect, onEdit, onUpdate, onMinimize, isSelected }: WidgetRendererProps) => {
+export const WidgetRenderer = ({ widget, onDelete, onSelect, onEdit, onUpdate, onMinimize, isSelected, globalFilter, onFilterChange }: WidgetRendererProps) => {
   const Icon = widgetIcons[widget.type];
 
   const renderWidget = () => {
     switch (widget.type) {
       case 'table':
-        return <DataTable widget={widget} />;
+        return <DataTable widget={widget} globalFilter={globalFilter} />;
       case 'bar-chart':
-        return <BarChart widget={widget} />;
+        return <BarChart widget={widget} globalFilter={globalFilter} />;
       case 'line-chart':
-        return <LineChartWidget widget={widget} />;
+        return <LineChartWidget widget={widget} globalFilter={globalFilter} />;
       case 'pie-chart':
-        return <PieChartWidget widget={widget} />;
+        return <PieChartWidget widget={widget} globalFilter={globalFilter} />;
+      case 'filter':
+        return <FilterWidget widget={widget} onFilterChange={onFilterChange || (() => {})} globalFilter={globalFilter} />;
       default:
         return (
           <div className="flex items-center justify-center h-full text-taxops-gray-light">

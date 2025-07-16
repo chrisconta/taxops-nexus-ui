@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Download, Save, Trash2, BarChart3, LineChart, PieChart, Table as TableIcon, MoreVertical } from "lucide-react";
+import { Plus, Download, Save, Trash2, BarChart3, LineChart, PieChart, Table as TableIcon, MoreVertical, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface Widget {
   id: string;
-  type: 'table' | 'bar-chart' | 'line-chart' | 'pie-chart';
+  type: 'table' | 'bar-chart' | 'line-chart' | 'pie-chart' | 'filter';
   name: string;
   dataSource?: string;
   columns?: string[];
@@ -64,6 +64,7 @@ const Analytics = () => {
   }>({ visible: false, widget: null });
   const [isSaving, setIsSaving] = useState(false);
   const [minimizedWidgets, setMinimizedWidgets] = useState<Widget[]>([]);
+  const [globalFilter, setGlobalFilter] = useState<{ column: string; value: string } | null>(null);
   const { toast } = useToast();
 
   // Auto-save timer reference
@@ -418,6 +419,14 @@ const Analytics = () => {
     setMinimizedWidgets(prev => prev.filter(w => w.id !== widget.id));
   };
 
+  const handleFilterChange = (column: string, value: string) => {
+    if (column && value) {
+      setGlobalFilter({ column, value });
+    } else {
+      setGlobalFilter(null);
+    }
+  };
+
   // Element types for palette
   const elementTypes = [
     {
@@ -443,6 +452,12 @@ const Analytics = () => {
       name: 'Pie Chart',
       description: 'Show proportions of a whole',
       icon: PieChart,
+    },
+    {
+      type: 'filter' as const,
+      name: 'Filter',
+      description: 'Apply filters to all widgets',
+      icon: Filter,
     },
   ];
 
@@ -579,6 +594,8 @@ const Analytics = () => {
               onRefreshWidget={handleUpdateWidget}
               onMinimizeWidget={handleMinimizeWidget}
               isFrozen={configModalState.visible}
+              globalFilter={globalFilter}
+              onFilterChange={handleFilterChange}
             />
             
             {/* Minimized Widgets Area */}

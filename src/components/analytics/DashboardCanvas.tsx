@@ -13,6 +13,8 @@ interface DashboardCanvasProps {
   onRefreshWidget: (widget: Widget) => void;
   onMinimizeWidget: (widget: Widget) => void;
   isFrozen?: boolean;
+  globalFilter?: { column: string; value: string } | null;
+  onFilterChange?: (column: string, value: string) => void;
 }
 
 export const DashboardCanvas = ({ 
@@ -24,7 +26,9 @@ export const DashboardCanvas = ({
   onEditWidget,
   onRefreshWidget,
   onMinimizeWidget,
-  isFrozen = false
+  isFrozen = false,
+  globalFilter,
+  onFilterChange
 }: DashboardCanvasProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [draggedWidget, setDraggedWidget] = useState<Widget | null>(null);
@@ -170,6 +174,8 @@ export const DashboardCanvas = ({
             onUpdate={() => onRefreshWidget(widget)}
             onMinimize={() => onMinimizeWidget(widget)}
             isSelected={selectedWidget?.id === widget.id}
+            globalFilter={globalFilter}
+            onFilterChange={onFilterChange}
           />
           
           {/* Resize handle */}

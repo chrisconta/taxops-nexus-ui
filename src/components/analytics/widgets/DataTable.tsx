@@ -9,9 +9,10 @@ import type { Widget } from "@/pages/Analytics";
 
 interface DataTableProps {
   widget: Widget;
+  globalFilter?: { column: string; value: string } | null;
 }
 
-export const DataTable = ({ widget }: DataTableProps) => {
+export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
   console.log("DataTable received columns ➞", widget.columns);
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,7 +29,7 @@ export const DataTable = ({ widget }: DataTableProps) => {
     if (widget.dataSource && widget.columns && widget.columns.length > 0) {
       loadData();
     }
-  }, [widget.dataSource, widget.columns, widget.transformations, widget.script]);
+  }, [widget.dataSource, widget.columns, widget.transformations, widget.script, globalFilter]);
 
   const loadData = async () => {
     if (!widget.dataSource || !widget.columns || widget.columns.length === 0) return;
@@ -45,6 +46,11 @@ export const DataTable = ({ widget }: DataTableProps) => {
       let query = supabase
         .from(widget.dataSource as any)
         .select(uniqueColumns.join(','));
+
+      // Apply global filter if it exists
+      if (globalFilter) {
+        query = query.eq(globalFilter.column, globalFilter.value);
+      }
 
       const { data: result, error } = await query;
       console.log("Supabase returned rows ➞", Array.isArray(result) ? result.length : result);

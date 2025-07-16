@@ -8,6 +8,7 @@ import type { Widget } from "@/pages/Analytics";
 
 interface PieChartWidgetProps {
   widget: Widget;
+  globalFilter?: { column: string; value: string } | null;
 }
 
 const COLORS = [
@@ -23,7 +24,7 @@ const COLORS = [
   '#ff00ff'
 ];
 
-export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
+export const PieChartWidget = ({ widget, globalFilter }: PieChartWidgetProps) => {
   console.log("PieChartWidget props ➞", {
     dataSource: widget.dataSource,
     xAxis: widget.chartConfig?.xAxis,
@@ -40,7 +41,7 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
     if (widget.dataSource && widget.chartConfig?.xAxis) {
       loadData();
     }
-  }, [widget.dataSource, widget.chartConfig, selectedSlice]);
+  }, [widget.dataSource, widget.chartConfig, selectedSlice, globalFilter]);
 
   const loadData = async () => {
     if (!widget.dataSource || !widget.chartConfig?.xAxis) return;
@@ -60,6 +61,11 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
       let query = supabase
         .from(widget.dataSource as any)
         .select(selectColumns.split(',').map(c => c.trim()).join(','));
+
+      // Apply global filter if it exists
+      if (globalFilter) {
+        query = query.eq(globalFilter.column, globalFilter.value);
+      }
 
       // Apply filter if a slice is selected
       if (selectedSlice) {
