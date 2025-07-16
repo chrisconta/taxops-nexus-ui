@@ -328,7 +328,8 @@ const ConnectionSetup = () => {
             id: f.id,
             name: f.name,
             type: f.type,
-            columns: f.columns
+            columns: f.columns,
+            data: f.data // Include the parsed CSV data
           })),
           mappings: columnMappings,
           connectionType: connectionId,

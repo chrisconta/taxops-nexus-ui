@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { parseFile } from '@/lib/fileProcessing';
 
 export interface UploadedFile {
   id: string;
@@ -13,6 +14,7 @@ export interface UploadedFile {
   size: number;
   type: string;
   columns: string[];
+  data?: any[]; // Parsed CSV data rows
   progress: number;
   status: 'pending' | 'processing' | 'complete' | 'error';
   error?: string;
@@ -103,6 +105,7 @@ const FileUploadPanel: React.FC<FileUploadPanelProps> = ({
         break;
       }
 
+      // Create initial file object
       const uploadedFile: UploadedFile = {
         id: `${Date.now()}-${i}`,
         file,
@@ -119,6 +122,39 @@ const FileUploadPanel: React.FC<FileUploadPanelProps> = ({
 
     if (validFiles.length > 0) {
       onFilesUploaded(validFiles);
+      
+      // Now parse each file
+      for (const uploadedFile of validFiles) {
+        try {
+          // Update status to processing
+          uploadedFile.status = 'processing';
+          uploadedFile.progress = 50;
+          onFilesUploaded([...uploadedFiles, ...validFiles]);
+          
+          // Parse the file
+          const parseResult = await parseFile(uploadedFile.file);
+          
+          if (parseResult.success && parseResult.data) {
+            // Extract columns and data
+            uploadedFile.columns = parseResult.data.columns.map(col => col.name);
+            uploadedFile.data = parseResult.data.rows;
+            uploadedFile.status = 'complete';
+            uploadedFile.progress = 100;
+            
+            console.log(`Successfully parsed ${uploadedFile.name}: ${uploadedFile.data.length} rows`);
+          } else {
+            throw new Error(parseResult.error || 'Failed to parse file');
+          }
+        } catch (error) {
+          uploadedFile.status = 'error';
+          uploadedFile.error = error instanceof Error ? error.message : 'Unknown error';
+          uploadedFile.progress = 0;
+          console.error(`Error parsing ${uploadedFile.name}:`, error);
+        }
+        
+        // Update the parent component with the processed file
+        onFilesUploaded([...uploadedFiles, ...validFiles]);
+      }
     }
   }, [uploadedFiles.length, maxFiles, onFilesUploaded]);
 

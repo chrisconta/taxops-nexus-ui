@@ -11,6 +11,7 @@ interface ImportFile {
   name: string;
   type: string;
   columns: string[];
+  data?: any[]; // Parsed CSV data rows
 }
 
 interface ColumnMapping {
@@ -61,6 +62,13 @@ serve(async (req) => {
     }
 
     const { files, mappings, connectionType, clientIds } = await req.json()
+
+    console.log('Received import request:', {
+      fileCount: files?.length,
+      mappingCount: Object.keys(mappings || {}).length,
+      connectionType,
+      clientIds
+    })
 
     if (!files || !Array.isArray(files)) {
       throw new Error('Invalid files data')
@@ -153,34 +161,125 @@ async function processFile(
   let recordsInserted = 0
   let recordsSkipped = 0
   
-  // This is a placeholder - in a real implementation, you would:
-  // 1. Parse the actual file content from storage or base64 data
-  // 2. Apply the column mappings
-  // 3. Validate and transform the data
-  // 4. Insert into the transactions table
+  console.log(`Processing file: ${file.name} with ${file.data?.length || 0} rows`)
   
-  // For now, simulate processing
-  const totalRecords = Math.floor(Math.random() * 100) + 1
+  // Get the actual file data (should be passed from the frontend)
+  const fileData = file.data || []
+  const totalRecords = fileData.length
   
+  console.log(`Total records to process: ${totalRecords}`)
+  
+  // Create a mapping lookup for faster processing
+  const mappingLookup = new Map<string, ColumnMapping>()
+  mappings.forEach(mapping => {
+    mappingLookup.set(mapping.sourceColumn, mapping)
+  })
+  
+  // Process each row of data
   for (let i = 0; i < totalRecords; i++) {
     try {
-      // Simulate data processing and insertion
-      // In reality, you'd transform the data according to mappings
-      // and insert into the appropriate tables
+      const row = fileData[i]
+      const transformedRow: any = {}
+      let hasValidData = false
+      let rowErrors: ImportError[] = []
       
-      // Simulate some records being skipped due to validation errors
-      if (Math.random() < 0.05) { // 5% error rate
+      // Apply column mappings
+      for (const [sourceColumn, value] of Object.entries(row)) {
+        const mapping = mappingLookup.get(sourceColumn)
+        if (mapping && mapping.targetField !== 'none') {
+          try {
+            // Transform the value based on target field
+            let transformedValue = value
+            
+            // Handle amount transformation (convert to cents)
+            if (mapping.targetField === 'amount_cents') {
+              if (value && typeof value === 'string') {
+                const numValue = parseFloat(value.replace(/[,$]/g, ''))
+                if (isNaN(numValue)) {
+                  rowErrors.push({
+                    row: i + 1,
+                    column: sourceColumn,
+                    error: 'Invalid amount format',
+                    value: value as string
+                  })
+                  continue
+                }
+                transformedValue = Math.round(numValue * 100) // Convert to cents
+              } else {
+                transformedValue = 0
+              }
+            }
+            
+            // Handle date transformations
+            if (mapping.targetField.includes('_at') || mapping.targetField.includes('_date')) {
+              if (value && typeof value === 'string') {
+                const dateValue = new Date(value)
+                if (isNaN(dateValue.getTime())) {
+                  rowErrors.push({
+                    row: i + 1,
+                    column: sourceColumn,
+                    error: 'Invalid date format',
+                    value: value as string
+                  })
+                  continue
+                }
+                transformedValue = dateValue.toISOString()
+              }
+            }
+            
+            transformedRow[mapping.targetField] = transformedValue
+            hasValidData = true
+          } catch (error) {
+            rowErrors.push({
+              row: i + 1,
+              column: sourceColumn,
+              error: `Transformation error: ${error.message}`,
+              value: value as string
+            })
+          }
+        }
+      }
+      
+      // Add any row-level errors to the main errors array
+      errors.push(...rowErrors)
+      
+      // If there were errors or no valid data, skip this row
+      if (rowErrors.length > 0 || !hasValidData) {
+        recordsSkipped++
+        continue
+      }
+      
+      // Add required fields
+      transformedRow.sync_request_id = syncRequestId
+      transformedRow.client_id = clientId
+      transformedRow.connection_code = 'mercury'
+      transformedRow.transaction_type = 'mercury'
+      
+      // Add mercury_transaction_id if not present
+      if (!transformedRow.mercury_transaction_id) {
+        transformedRow.mercury_transaction_id = `imported_${syncRequestId}_${i}`
+      }
+      
+      // Insert into transactions table
+      const { error: insertError } = await supabase
+        .from('transactions')
+        .insert(transformedRow)
+      
+      if (insertError) {
+        console.error(`Insert error for row ${i + 1}:`, insertError)
         errors.push({
           row: i + 1,
-          column: 'amount',
-          error: 'Invalid amount format',
-          value: 'invalid_value'
+          column: 'general',
+          error: `Database insert error: ${insertError.message}`,
+          value: ''
         })
         recordsSkipped++
       } else {
         recordsInserted++
       }
+      
     } catch (error) {
+      console.error(`Processing error for row ${i + 1}:`, error)
       errors.push({
         row: i + 1,
         column: 'general',
