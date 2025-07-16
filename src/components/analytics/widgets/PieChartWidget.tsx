@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Skeleton } from "@/components/ui/skeleton";
-import { PieChart } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PieChart, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Widget } from "@/pages/Analytics";
 
@@ -33,12 +34,13 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSlice, setSelectedSlice] = useState<string | null>(null);
 
   useEffect(() => {
     if (widget.dataSource && widget.chartConfig?.xAxis) {
       loadData();
     }
-  }, [widget.dataSource, widget.chartConfig]);
+  }, [widget.dataSource, widget.chartConfig, selectedSlice]);
 
   const loadData = async () => {
     if (!widget.dataSource || !widget.chartConfig?.xAxis) return;
@@ -58,6 +60,11 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
       let query = supabase
         .from(widget.dataSource as any)
         .select(selectColumns.split(',').map(c => c.trim()).join(','));
+
+      // Apply filter if a slice is selected
+      if (selectedSlice) {
+        query = query.eq(xAxis, selectedSlice);
+      }
 
       const { data: result, error } = await query.limit(1000);
       console.log("PieChartWidget supabase rows ➞", Array.isArray(result) ? result.length : result);
@@ -142,6 +149,20 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
     return value.toLocaleString();
   };
 
+  const handleSliceClick = (entry: any) => {
+    if (selectedSlice === entry.name) {
+      // If clicking on the same slice, clear the filter
+      setSelectedSlice(null);
+    } else {
+      // Filter to show only this slice's data
+      setSelectedSlice(entry.name);
+    }
+  };
+
+  const clearFilter = () => {
+    setSelectedSlice(null);
+  };
+
   const renderCustomLabel = (entry: any) => {
     const percent = ((entry.value / data.reduce((sum, item) => sum + item.value, 0)) * 100).toFixed(1);
     return `${percent}%`;
@@ -191,44 +212,67 @@ export const PieChartWidget = ({ widget }: PieChartWidgetProps) => {
   }
 
   return (
-    <div className="w-full h-64">{/* give this a fixed height so ResponsiveContainer can fill it */}
-      <ResponsiveContainer width="100%" height="100%">
-        <RechartsPieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            labelLine={false}
-            label={renderCustomLabel}
-            outerRadius={80}
-            fill="#8884d8"
-            dataKey="value"
+    <div className="w-full">
+      {selectedSlice && (
+        <div className="mb-2 flex items-center justify-between bg-muted/50 p-2 rounded-md">
+          <span className="text-sm text-muted-foreground">
+            Filtered by: <span className="font-medium text-foreground">{selectedSlice}</span>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilter}
+            className="h-6 w-6 p-0"
           >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-            ))}
-          </Pie>
-           <Tooltip 
-            contentStyle={{
-              backgroundColor: 'hsl(var(--background))',
-              border: '1px solid hsl(var(--border))',
-              borderRadius: '8px',
-              color: 'hsl(var(--foreground))'
-            }}
-            formatter={(value: number, name: string, props: any) => {
-              // Show original value in tooltip if it was negative
-              const displayValue = props.payload?.originalValue || value;
-              return [formatValue(displayValue), widget.chartConfig?.aggregation || 'count'];
-            }}
-          />
-          <Legend 
-            wrapperStyle={{
-              color: 'hsl(var(--foreground))',
-              fontSize: '12px'
-            }}
-          />
-        </RechartsPieChart>
-      </ResponsiveContainer>
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
+      <div className="w-full h-64">{/* give this a fixed height so ResponsiveContainer can fill it */}
+        <ResponsiveContainer width="100%" height="100%">
+          <RechartsPieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={renderCustomLabel}
+              outerRadius={80}
+              fill="#8884d8"
+              dataKey="value"
+              onClick={handleSliceClick}
+              style={{ cursor: 'pointer' }}
+            >
+              {data.map((entry, index) => (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={COLORS[index % COLORS.length]}
+                  style={{ cursor: 'pointer' }}
+                />
+              ))}
+            </Pie>
+            <Tooltip 
+              contentStyle={{
+                backgroundColor: 'hsl(var(--background))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '8px',
+                color: 'hsl(var(--foreground))'
+              }}
+              formatter={(value: number, name: string, props: any) => {
+                // Show original value in tooltip if it was negative
+                const displayValue = props.payload?.originalValue || value;
+                return [formatValue(displayValue), widget.chartConfig?.aggregation || 'count'];
+              }}
+            />
+            <Legend 
+              wrapperStyle={{
+                color: 'hsl(var(--foreground))',
+                fontSize: '12px'
+              }}
+            />
+          </RechartsPieChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 };
