@@ -131,6 +131,7 @@ export const DashboardCanvas = ({
   return (
     <div 
       ref={canvasRef}
+      data-dashboard-canvas
       className={`h-[1200px] foldable:h-[1000px] w-full relative bg-gradient-to-br from-background/50 to-background/30 transition-all duration-200 ${
         isFrozen ? 'pointer-events-none opacity-60' : ''
       }`}

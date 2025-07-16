@@ -12,6 +12,9 @@ import { DashboardList } from "@/components/analytics/DashboardList";
 import { WidgetConfigModal } from "@/components/analytics/WidgetConfigModal";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import Papa from 'papaparse';
 
 export interface Widget {
   id: string;
@@ -504,6 +507,214 @@ const Analytics = () => {
     }
   };
 
+  // Export functions
+  const exportAsPDF = async () => {
+    if (!currentDashboard) return;
+    
+    try {
+      const dashboardElement = document.querySelector('[data-dashboard-canvas]') as HTMLElement;
+      if (!dashboardElement) {
+        toast({
+          title: "Error",
+          description: "Dashboard canvas not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Show loading state
+      toast({
+        title: "Exporting...",
+        description: "Generating PDF, please wait...",
+      });
+
+      const canvas = await html2canvas(dashboardElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#1a1a1a',
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`${currentDashboard.name}-dashboard.pdf`);
+      
+      toast({
+        title: "Success",
+        description: "Dashboard exported as PDF successfully",
+      });
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export dashboard as PDF",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportAsPNG = async () => {
+    if (!currentDashboard) return;
+    
+    try {
+      const dashboardElement = document.querySelector('[data-dashboard-canvas]') as HTMLElement;
+      if (!dashboardElement) {
+        toast({
+          title: "Error",
+          description: "Dashboard canvas not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Show loading state
+      toast({
+        title: "Exporting...",
+        description: "Generating PNG, please wait...",
+      });
+
+      const canvas = await html2canvas(dashboardElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#1a1a1a',
+      });
+
+      // Create download link
+      const link = document.createElement('a');
+      link.download = `${currentDashboard.name}-dashboard.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+
+      toast({
+        title: "Success",
+        description: "Dashboard exported as PNG successfully",
+      });
+    } catch (error) {
+      console.error('Error exporting PNG:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export dashboard as PNG",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportAsCSV = async () => {
+    if (!currentDashboard) return;
+    
+    try {
+      const tableWidgets = currentDashboard.config.widgets.filter(w => w.type === 'table');
+      
+      if (tableWidgets.length === 0) {
+        toast({
+          title: "No Data Tables",
+          description: "No data table widgets found to export",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Show loading state
+      toast({
+        title: "Exporting...",
+        description: "Generating CSV files, please wait...",
+      });
+
+      const csvFiles: { name: string; data: string }[] = [];
+
+      // Export each table widget
+      for (const widget of tableWidgets) {
+        if (!widget.dataSource) continue;
+
+        let query = supabase.from(widget.dataSource as any).select('*');
+        
+        // Apply filters if they exist
+        if (widget.filters) {
+          widget.filters.forEach(filter => {
+            if (filter.column && filter.operator && filter.value) {
+              switch (filter.operator) {
+                case '=':
+                  query = query.eq(filter.column, filter.value);
+                  break;
+                case '!=':
+                  query = query.neq(filter.column, filter.value);
+                  break;
+                case '>':
+                  query = query.gt(filter.column, filter.value);
+                  break;
+                case '<':
+                  query = query.lt(filter.column, filter.value);
+                  break;
+                case '>=':
+                  query = query.gte(filter.column, filter.value);
+                  break;
+                case '<=':
+                  query = query.lte(filter.column, filter.value);
+                  break;
+                case 'LIKE':
+                  query = query.ilike(filter.column, `%${filter.value}%`);
+                  break;
+              }
+            }
+          });
+        }
+
+        const { data, error } = await query.limit(10000);
+        
+        if (error) {
+          console.error(`Error fetching data for ${widget.name}:`, error);
+          continue;
+        }
+
+        if (data && data.length > 0) {
+          const csv = Papa.unparse(data);
+          csvFiles.push({
+            name: widget.name || 'untitled-table',
+            data: csv
+          });
+        }
+      }
+
+      if (csvFiles.length === 0) {
+        toast({
+          title: "No Data",
+          description: "No data found to export",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create and download CSV files
+      csvFiles.forEach(file => {
+        const blob = new Blob([file.data], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${file.name}.csv`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      });
+
+      toast({
+        title: "Success",
+        description: `Exported ${csvFiles.length} CSV file${csvFiles.length > 1 ? 's' : ''} successfully`,
+      });
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export data as CSV",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <TooltipProvider>
       <div className="h-full flex flex-col">
@@ -581,15 +792,15 @@ const Analytics = () => {
                         <Save className="w-4 h-4 mr-2" />
                         {isSaving ? "Saving..." : "Save"}
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportAsPDF}>
                         <Download className="w-4 h-4 mr-2" />
                         Export as PDF
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportAsPNG}>
                         <Download className="w-4 h-4 mr-2" />
                         Export as PNG
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportAsCSV}>
                         <Download className="w-4 h-4 mr-2" />
                         Export Data as CSV
                       </DropdownMenuItem>
