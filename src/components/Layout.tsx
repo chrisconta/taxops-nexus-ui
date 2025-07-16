@@ -86,11 +86,11 @@ const Layout = () => {
       case "/connections":
         return "Connections";
       case "/reports":
-        return "AI Reports";
+        return "AI Assistant";
       case "/analytics":
         return "Analytics";
       default:
-        return "Dashboard";
+        return "AI Assistant";
     }
   };
 
@@ -101,15 +101,19 @@ const Layout = () => {
       case "/connections":
         return "Connect and manage financial service integrations";
       case "/reports":
-        return "Generate tax and financial reports from your data sources using generative AI";
+        return "Your AI-powered assistant for reports, clients, connections, and analytics";
       case "/analytics":
         return "Create interactive dashboards and visualizations from your financial data";
       default:
-        return "Welcome to TaxOps";
+        return "Your AI-powered assistant for reports, clients, connections, and analytics";
     }
   };
 
   const navItems = [{
+    to: "/reports",
+    label: "AI Assistant",
+    icon: Brain
+  }, {
     to: "/clients",
     label: "Clients",
     icon: Users
@@ -117,10 +121,6 @@ const Layout = () => {
     to: "/connections",
     label: "Connections",
     icon: Link2
-  }, {
-    to: "/reports",
-    label: "AI Reports",
-    icon: Brain
   }, {
     to: "/analytics",
     label: "Analytics",

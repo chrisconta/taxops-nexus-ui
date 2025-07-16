@@ -36,7 +36,7 @@ const App = () => {
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<Layout />}>
-              <Route index element={<Navigate to="/clients" replace />} />
+              <Route index element={<Navigate to="/reports" replace />} />
               <Route path="clients" element={<Clients />} />
               <Route path="clients/new" element={<ClientNew />} />
               <Route path="clients/:id" element={<ClientDetail />} />

@@ -16,7 +16,7 @@ import { useChatStore } from "@/store/useChatStore";
 
 const Reports = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'reports';
+  const activeTab = searchParams.get('tab') || 'assistant';
   const [searchTerm, setSearchTerm] = useState("");
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
   const [generatedReports, setGeneratedReports] = useState<string[]>([]);
@@ -30,7 +30,7 @@ const Reports = () => {
 
   const setActiveTab = (tab: string) => {
     const newSearchParams = new URLSearchParams(searchParams);
-    if (tab === 'reports') {
+    if (tab === 'assistant') {
       newSearchParams.delete('tab');
     } else {
       newSearchParams.set('tab', tab);
@@ -170,13 +170,13 @@ const Reports = () => {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <TabsList className="grid w-full grid-cols-3 bg-glass-bg/50 border border-glass-border">
-          <TabsTrigger value="reports" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
-            <FileText className="w-4 h-4 mr-2" />
-            Reports
-          </TabsTrigger>
           <TabsTrigger value="assistant" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Brain className="w-4 h-4 mr-2" />
             Assistant
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <FileText className="w-4 h-4 mr-2" />
+            Reports
           </TabsTrigger>
           <TabsTrigger value="history" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <History className="w-4 h-4 mr-2" />
