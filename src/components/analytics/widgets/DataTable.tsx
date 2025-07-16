@@ -125,31 +125,52 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
   };
 
   const applyBasicTransformations = (data: any[]) => {
+    console.log('applyBasicTransformations called with:', {
+      dataLength: data.length,
+      transformations: widget.transformations,
+      transformationsLength: widget.transformations?.length
+    });
+    
     if (!widget.transformations || widget.transformations.length === 0) {
+      console.log('No transformations to apply');
       return data;
     }
 
     return data.map(row => {
       const transformedRow = { ...row };
       
-      widget.transformations?.forEach(transformation => {
+      widget.transformations?.forEach((transformation, index) => {
         const func = (transformation as any).function;
         const column = (transformation as any).column;
         const name = transformation.name;
         
+        console.log(`Processing transformation ${index}:`, {
+          func,
+          column,
+          name,
+          transformation
+        });
+        
         if (func && column && name) {
           const values = data.map(r => r[column]).filter(v => v !== null && v !== undefined);
+          console.log(`Values for column ${column}:`, values);
           
           switch (func) {
             case 'sum':
-              transformedRow[name] = values.reduce((sum, val) => sum + (Number(val) || 0), 0);
+              const sum = values.reduce((sum, val) => sum + (Number(val) || 0), 0);
+              transformedRow[name] = sum;
+              console.log(`Sum calculation: ${sum} added to column ${name}`);
               break;
             case 'average':
-              transformedRow[name] = values.length > 0 ? 
+              const average = values.length > 0 ? 
                 values.reduce((sum, val) => sum + (Number(val) || 0), 0) / values.length : 0;
+              transformedRow[name] = average;
+              console.log(`Average calculation: ${average} added to column ${name}`);
               break;
             case 'count':
-              transformedRow[name] = values.length;
+              const count = values.length;
+              transformedRow[name] = count;
+              console.log(`Count calculation: ${count} added to column ${name}`);
               break;
             default:
               // Fallback to expression evaluation if available
@@ -163,18 +184,32 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
                 }
               }
           }
+        } else {
+          console.log(`Skipping transformation ${index} - missing required fields`);
         }
       });
       
+      console.log('Final transformed row:', transformedRow);
       return transformedRow;
     });
   };
 
   const getAllColumns = () => {
-    return (widget.columns || []).map(colKey => ({
+    // Get original columns
+    const originalColumns = (widget.columns || []).map(colKey => ({
       key: colKey,
       title: colKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
     }));
+    
+    // Get transformation columns
+    const transformationColumns = (widget.transformations || []).map(t => ({
+      key: t.name,
+      title: t.name
+    }));
+    
+    console.log('getAllColumns result:', { originalColumns, transformationColumns });
+    
+    return [...originalColumns, ...transformationColumns];
   };
 
   const formatCellValue = (value: any, columnName: string) => {
@@ -285,14 +320,16 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
     );
   }
 
+  const allColumns = getAllColumns();
+  
   return (
     <div className="w-full">
       <Table>
         <TableHeader>
           <TableRow>
-            {widget.columns.map(colKey => (
-              <TableHead key={colKey} className="text-foreground whitespace-nowrap">
-                {colKey}
+            {allColumns.map(column => (
+              <TableHead key={column.key} className="text-foreground whitespace-nowrap">
+                {column.title}
               </TableHead>
             ))}
           </TableRow>
@@ -301,16 +338,16 @@ export const DataTable = ({ widget, globalFilter }: DataTableProps) => {
           <TableBody>
             {data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={widget.columns.length} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={allColumns.length} className="text-center text-muted-foreground py-8">
                   No data available
                 </TableCell>
               </TableRow>
             ) : (
               data.map((row, rowIndex) => (
                 <TableRow key={rowIndex}>
-                  {widget.columns.map(colKey => (
-                    <TableCell key={colKey} className="whitespace-nowrap">
-                      {formatCellValue(row[colKey], colKey)}
+                  {allColumns.map(column => (
+                    <TableCell key={column.key} className="whitespace-nowrap">
+                      {formatCellValue(row[column.key], column.key)}
                     </TableCell>
                   ))}
                 </TableRow>
