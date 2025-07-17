@@ -51,6 +51,10 @@ export const Sidebar: React.FC = () => {
                 <MessageSquare className="w-4 h-4 mr-2" />
                 New Chat
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/client-new')}>
+                <User className="w-4 h-4 mr-2" />
+                Add a Client
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/reports?tab=history')}>
                 <History className="w-4 h-4 mr-2" />
                 Chat History
