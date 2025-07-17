@@ -12,6 +12,7 @@ import { FieldPrompt } from "@/components/registration/FieldPrompt";
 import { DuplicateClientCard } from "@/components/registration/DuplicateClientCard";
 import { FallbackForm } from "@/components/registration/FallbackForm";
 import { TransactionDataCollector } from "./TransactionDataCollector";
+import { ValidationErrorCollector } from "./ValidationErrorCollector";
 import { useExecuteTool } from "@/hooks/useExecuteTool";
 import { usePlan, ValidationError } from "@/hooks/usePlan";
 import { PlanModal } from "@/components/agent/PlanModal";
@@ -352,12 +353,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             
             // Handle validation errors specifically
             if (error instanceof ValidationError) {
-              toast({
-                title: "Plan Generation Failed",
-                description: error.details || error.message,
-                variant: "destructive"
+              // Instead of showing toast, add message with data collector
+              get().removeTyping();
+              const msgId = crypto.randomUUID();
+              get().addMessage({
+                id: msgId,
+                author: "agent",
+                content: `I need some additional information to complete this request:`,
+                timestamp: Date.now(),
+                requiresData: true,
+                validationErrors: error.validationResponse
               });
-              // Don't open modal for validation errors
               return;
             }
             
