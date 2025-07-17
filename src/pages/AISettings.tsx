@@ -161,6 +161,37 @@ const AISettings = () => {
     });
   };
 
+  const downloadChatLogs = () => {
+    const textContent = sessions.map(session => {
+      const sessionHeader = `=== SESSION ${session.id} ===\nTitle: ${session.title}\nStatus: ${session.status}\nStarted: ${new Date(session.startTime).toLocaleString()}\nEnded: ${session.endTime ? new Date(session.endTime).toLocaleString() : 'Ongoing'}\nEntries: ${session.entries.length}\n\n`;
+      
+      const logsText = session.entries.map(entry => {
+        const timestamp = new Date(entry.timestamp).toLocaleString();
+        const header = `[${timestamp}] ${entry.type.toUpperCase()} - ${entry.action} (${entry.status})`;
+        const details = entry.details ? `\nDetails: ${entry.details}` : '';
+        const data = entry.data ? `\nData: ${JSON.stringify(entry.data, null, 2)}` : '';
+        return `${header}${details}${data}\n`;
+      }).join('\n');
+      
+      return `${sessionHeader}${logsText}\n${'='.repeat(70)}\n\n`;
+    }).join('');
+    
+    const blob = new Blob([textContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-logs-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Success",
+      description: "Chat logs downloaded successfully",
+    });
+  };
+
   const getLogTypeIcon = (type: string) => {
     switch (type) {
       case 'message': return <MessageSquare className="w-4 h-4" />;
@@ -466,15 +497,26 @@ const AISettings = () => {
                       Detailed logs of chat conversations, system routing, processes, and errors
                     </CardDescription>
                   </div>
-                  <Button
-                    onClick={clearSessions}
-                    variant="outline"
-                    className="bg-glass-bg/20 border-glass-border text-white hover:bg-glass-bg/30"
-                    disabled={sessions.length === 0}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Clear All Logs
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={downloadChatLogs}
+                      variant="outline"
+                      className="bg-glass-bg/20 border-glass-border text-white hover:bg-glass-bg/30"
+                      disabled={sessions.length === 0}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download TXT
+                    </Button>
+                    <Button
+                      onClick={clearSessions}
+                      variant="outline"
+                      className="bg-glass-bg/20 border-glass-border text-white hover:bg-glass-bg/30"
+                      disabled={sessions.length === 0}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Clear All Logs
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
