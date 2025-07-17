@@ -113,8 +113,8 @@ export const Sidebar: React.FC = () => {
         </div>
         
         {/* Chat Container */}
-        <div className="flex-1 flex flex-col min-h-0 p-4">
-          <div className="flex-1 bg-card rounded-lg border border-border overflow-hidden">
+        <div className="p-4" style={{ height: '60vh' }}>
+          <div className="h-full bg-card rounded-lg border border-border overflow-hidden">
             <ChatWindow 
               onSend={handleSend}
               onToolInvoke={handleToolInvoke}
