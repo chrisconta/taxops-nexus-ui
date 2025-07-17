@@ -13,11 +13,11 @@ const toolRegistry = {
   register_client: {
     type: "object",
     properties: {
-      name: { type: "string", minLength: 1 },
-      email: { type: "string", format: "email" },
-      companyId: { type: "string", pattern: "^[a-f0-9\\-]{36}$" },
+      name: { type: "string", minLength: 1, maxLength: 200 },
+      email: { type: "string", format: "email", maxLength: 254 },
+      ein: { type: "string", pattern: "^\\d{2}-?\\d{7}$" },
     },
-    required: ["name", "email", "companyId"],
+    required: ["name", "email", "ein"],
     additionalProperties: false,
   },
   create_connection: {
@@ -76,17 +76,58 @@ function validateToolParams(toolName: ToolName, params: unknown): boolean {
   return valid;
 }
 
+// Helper function to normalize EIN
+function normalizeEIN(ein: string): string {
+  const numbersOnly = ein.replace(/[-\s]/g, '');
+  if (/^\d{9}$/.test(numbersOnly)) {
+    return numbersOnly.replace(/^(\d{2})(\d{7})$/, '$1-$2');
+  }
+  return ein;
+}
+
 // Tool execution functions
 async function registerClient(params: any, supabase: any, userId: string) {
   console.log('Running register_client with params:', params);
   
+  // Generate UUID server-side
+  const clientId = crypto.randomUUID();
+  
+  // Normalize EIN format
+  const normalizedEIN = normalizeEIN(params.ein);
+  
+  // Check for duplicate clients by EIN
+  const { data: existingClient, error: checkError } = await supabase
+    .from('clients')
+    .select('id, name, email, taxid')
+    .eq('taxid', normalizedEIN)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (checkError) {
+    console.error('Error checking for duplicate client:', checkError);
+  }
+
+  if (existingClient) {
+    return {
+      success: false,
+      duplicate: {
+        existingClientId: existingClient.id,
+        name: existingClient.name,
+        ein: existingClient.taxid,
+        email: existingClient.email
+      },
+      message: `Client with EIN ${normalizedEIN} already exists`
+    };
+  }
+
   // Create client in database
   const { data, error } = await supabase
     .from('clients')
     .insert({
-      name: params.name,
-      email: params.email,
-      taxid: params.companyId, // Map companyId to taxid field
+      id: clientId,
+      name: params.name.trim(),
+      email: params.email.toLowerCase().trim(),
+      taxid: normalizedEIN,
       user_id: userId
     })
     .select()
@@ -99,7 +140,7 @@ async function registerClient(params: any, supabase: any, userId: string) {
   return { 
     success: true, 
     clientId: data.id,
-    message: `Client "${params.name}" registered successfully`
+    message: `Client "${params.name}" registered successfully with EIN ${normalizedEIN}`
   };
 }
 

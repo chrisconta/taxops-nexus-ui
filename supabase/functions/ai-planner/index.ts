@@ -35,20 +35,49 @@ const planSchema = {
   additionalProperties: false,
 };
 
-// Simple schema validation function
-function validatePlan(plan: any): boolean {
-  if (!plan || typeof plan !== 'object') return false;
-  if (!plan.intent || typeof plan.intent !== 'string' || plan.intent.length === 0) return false;
-  if (!Array.isArray(plan.steps) || plan.steps.length === 0) return false;
+// Enhanced response validation function
+function validateResponse(response: any): boolean {
+  if (!response || typeof response !== 'object') return false;
   
-  for (const step of plan.steps) {
-    if (!step.stepId || typeof step.stepId !== 'string' || step.stepId.length === 0) return false;
-    if (!step.toolName || !["register_client", "create_connection", "build_dashboard"].includes(step.toolName)) return false;
-    if (!step.params || typeof step.params !== 'object') return false;
-    if (!step.description || typeof step.description !== 'string' || step.description.length === 0) return false;
+  // Check if it's a validation response
+  if (response.missing || response.invalid) {
+    // Validation response format
+    if (response.missing && !Array.isArray(response.missing)) return false;
+    if (response.invalid && !Array.isArray(response.invalid)) return false;
+    
+    // Validate missing fields structure
+    if (response.missing) {
+      for (const item of response.missing) {
+        if (!item.field || !item.reason) return false;
+      }
+    }
+    
+    // Validate invalid fields structure
+    if (response.invalid) {
+      for (const item of response.invalid) {
+        if (!item.field || !item.reason) return false;
+      }
+    }
+    
+    return true;
   }
   
-  return true;
+  // Check if it's a plan response
+  if (response.intent && response.steps) {
+    if (typeof response.intent !== 'string' || response.intent.length === 0) return false;
+    if (!Array.isArray(response.steps) || response.steps.length === 0) return false;
+    
+    for (const step of response.steps) {
+      if (!step.stepId || typeof step.stepId !== 'string' || step.stepId.length === 0) return false;
+      if (!step.toolName || !["register_client", "create_connection", "build_dashboard"].includes(step.toolName)) return false;
+      if (!step.params || typeof step.params !== 'object') return false;
+      if (!step.description || typeof step.description !== 'string' || step.description.length === 0) return false;
+    }
+    
+    return true;
+  }
+  
+  return false;
 }
 
 serve(async (req) => {
@@ -125,39 +154,60 @@ serve(async (req) => {
       );
     }
 
-    // Build system prompt with enforced JSON-only output
-    const systemPrompt = `You are an intelligent tax operations assistant. When you respond, output ONLY the JSON object—no explanations, no extra text—conforming exactly to this schema:
+    // Build system prompt with parameter inspection and validation logic
+    const systemPrompt = `You are an intelligent tax operations assistant with parameter inspection capabilities. 
 
-${JSON.stringify(planSchema, null, 2)}
+For register_client requests, you MUST first inspect the available parameters and validate them before generating any plans.
 
-AVAILABLE TOOLS:
-1. register_client - Register a new client in the system
-   - Required params: name (string), email (string), companyId (string - use as taxid)
+PARAMETER INSPECTION RULES:
+1. Check for required client registration parameters: name, email, ein
+2. Validate format and content of each parameter
+3. Return validation response if any issues found
+4. Only generate plans when all parameters are valid
 
-2. create_connection - Set up a data connection for a client  
-   - Required params: clientId (string), connectionType (string), institution (string - e.g. "Mercury", "Brex", "JPMorgan"), syncMode (string - one of: "automatic", "historical", "file_upload"), credentials (object with placeholder keys like {"username":"", "password":""})
+RESPONSE FORMATS:
 
-3. build_dashboard - Create analytics dashboard for a client
-   - Required params: clientId (string), metrics (array), timeframe (object with start/end dates)
-
-Example response format:
+1. For missing/invalid parameters, return ONLY this JSON structure:
 {
-  "intent": "Register ABC Corp and set up bank connection",
+  "missing": [
+    {"field": "name", "reason": "Company name is required", "hint": "Enter the full legal name of the company"}
+  ],
+  "invalid": [
+    {"field": "ein", "reason": "Invalid EIN format", "hint": "Enter the 9-digit EIN in format 12-3456789"}
+  ]
+}
+
+2. For valid parameters, return a plan with this structure:
+{
+  "intent": "Register [company name] as a new client",
   "steps": [
     {
       "stepId": "550e8400-e29b-41d4-a716-446655440000",
       "toolName": "register_client",
       "params": {
-        "name": "ABC Corp",
-        "email": "contact@abccorp.com",
-        "companyId": "123e4567-e89b-12d3-a456-426614174000"
+        "name": "[company name]",
+        "email": "[email address]",
+        "ein": "[formatted EIN]"
       },
-      "description": "Register ABC Corp as a new client in the system"
+      "description": "Register [company name] as a new client in the system"
     }
   ]
 }
 
-IMPORTANT: For register_client tool, always generate a proper UUID for companyId (format: 550e8400-e29b-41d4-a716-446655440000).
+VALIDATION RULES:
+- name: Required, must contain letters, max 200 chars
+- email: Required, valid email format, max 254 chars  
+- ein: Required, 9 digits, format XX-XXXXXXX or XXXXXXXXX
+
+AVAILABLE TOOLS:
+1. register_client - Register a new client in the system
+   - Required params: name (string), email (string), ein (string)
+
+2. create_connection - Set up a data connection for a client  
+   - Required params: clientId (string), connectionType (string), institution (string), syncMode (string), credentials (object)
+
+3. build_dashboard - Create analytics dashboard for a client
+   - Required params: clientId (string), metrics (array), timeframe (object)
 
 CONTEXT: ${chatHistory.length > 0 ? `Previous conversation:\n${chatHistory.map((msg: any) => `${msg.role}: ${msg.content}`).join('\n')}\n\n` : ''}Current request: ${userPrompt}
 
@@ -243,16 +293,16 @@ OUTPUT ONLY JSON - NO ADDITIONAL TEXT.`;
       );
     }
 
-    // Validate plan structure
-    if (!validatePlan(plan)) {
-      console.error('Plan validation failed:', plan);
+    // Validate response structure (either validation or plan)
+    if (!validateResponse(plan)) {
+      console.error('Response validation failed:', plan);
       return new Response(
-        JSON.stringify({ error: 'Generated plan does not match required schema' }),
+        JSON.stringify({ error: 'Generated response does not match required schema' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Successfully generated and validated plan:', plan);
+    console.log('Successfully generated and validated response:', plan);
 
     return new Response(JSON.stringify(plan), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
