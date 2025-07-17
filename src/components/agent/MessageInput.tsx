@@ -33,7 +33,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   };
 
   return (
-    <div className="flex space-x-3">
+    <div className="flex space-x-3 p-1">{/* Added p-1 to prevent focus ring clipping */}
       <Input 
         value={input} 
         onChange={e => setInput(e.target.value)} 
