@@ -1,4 +1,5 @@
 import Ajv from "ajv";
+import addFormats from "ajv-formats";
 import { toolRegistry } from "@/agent/tools/index";
 import { useChatStore } from "@/store/useChatStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -6,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Plan } from "@/agent/planner/schema";
 
 const ajv = new Ajv({ allErrors: true, strict: true });
+addFormats(ajv);
 
 async function invokeTool(toolName: string, params: Record<string, any>) {
   const { data: { session } } = await supabase.auth.getSession();
@@ -69,6 +71,7 @@ export async function executePlanSequentially(plan: Plan) {
     if (schema) {
       const validate = ajv.compile(schema);
       if (!validate(step.params)) {
+        console.error("Validation failed for step:", step.toolName, "Errors:", validate.errors);
         const err = validate.errors?.find((e) => e.keyword === "required");
         const missing = err?.params?.missingProperty as string;
         if (missing) {
@@ -81,6 +84,15 @@ export async function executePlanSequentially(plan: Plan) {
           });
           setRecovery({ pendingStep: step, missingField: missing });
           return; // pause execution
+        } else {
+          // Other validation errors
+          addMessage({
+            id: crypto.randomUUID(),
+            author: "agent", 
+            content: `❌ Parameter validation failed for "${step.toolName}": ${validate.errors?.map(e => e.message).join(', ')}`,
+            timestamp: Date.now(),
+          });
+          return;
         }
       }
     }
