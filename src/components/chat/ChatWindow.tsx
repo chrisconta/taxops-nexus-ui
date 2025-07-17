@@ -395,26 +395,28 @@ export const ChatWindow: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="px-4 py-6 w-full max-w-full overflow-y-auto h-full">{/* Added overflow-y-auto only when needed (when there are messages) */}
-            <MessageList messages={messages} />
-            
-            {/* Data Collectors for messages that require data */}
-            {messages.map(message => (
-              message.requiresData && !message.dataCollected && !dataCollectors.has(message.id) && (
-                <div key={`collector-${message.id}`} className="mt-4">
-                  <TransactionDataCollector 
-                    messageId={message.id} 
-                    missingParams={message.missingParams} 
-                    onDataSubmitted={() => {
-                      setDataCollectors(prev => new Set(prev).add(message.id));
-                      markDataCollected(message.id);
-                    }} 
-                  />
-                </div>
-              )
-            ))}
-            
-            <div ref={messagesEndRef} />
+          <div className="flex-1 px-4 py-6 w-full max-w-full overflow-hidden">{/* Changed to flex-1 and overflow-hidden to prevent scroll */}
+            <div className="h-full overflow-y-auto overflow-x-hidden">
+              <MessageList messages={messages} />
+              
+              {/* Data Collectors for messages that require data */}
+              {messages.map(message => (
+                message.requiresData && !message.dataCollected && !dataCollectors.has(message.id) && (
+                  <div key={`collector-${message.id}`} className="mt-4">
+                    <TransactionDataCollector 
+                      messageId={message.id} 
+                      missingParams={message.missingParams} 
+                      onDataSubmitted={() => {
+                        setDataCollectors(prev => new Set(prev).add(message.id));
+                        markDataCollected(message.id);
+                      }} 
+                    />
+                  </div>
+                )
+              ))}
+              
+              <div ref={messagesEndRef} />
+            </div>
           </div>
         )}
       </div>
