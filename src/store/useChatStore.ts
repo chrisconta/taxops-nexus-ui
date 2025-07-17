@@ -48,6 +48,7 @@ interface ChatState {
   setAction: (action?: ChatState['currentAction'], target?: string) => void;
   clearAction: () => void;
   shouldShowBanner: () => boolean;
+  setRegistrationModeActive: (active: boolean) => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -121,6 +122,10 @@ export const useChatStore = create<ChatState>()(
       shouldShowBanner: () => {
         const state = get();
         return !state.registrationModeActive && !state.isLoading;
+      },
+      
+      setRegistrationModeActive: (active: boolean) => {
+        set({ registrationModeActive: active });
       },
       
       

@@ -18,6 +18,8 @@ import { PlanModal } from "@/components/agent/PlanModal";
 import { executePlanSequentially } from "@/utils/planExecutor";
 import type { Plan } from "@/agent/planner/schema";
 import { supabase } from "@/integrations/supabase/client";
+import { withAction } from "@/lib/actionWrapper";
+import { ActionBanner } from "@/components/agent/ActionBanner";
 const TypingAnimation = () => {
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
   const [currentText, setCurrentText] = useState("");
@@ -98,7 +100,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     recovery,
     setRecovery,
     feedbackContext,
-    setFeedbackContext
+    setFeedbackContext,
+    registrationModeActive,
+    setAction,
+    setRegistrationModeActive
   } = useChatStore();
   const executeToolMutation = useExecuteTool();
   const planMutation = usePlan();
@@ -124,6 +129,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       behavior: "smooth"
     });
   }, [messages]);
+
+  // Update registration mode active state in chat store
+  useEffect(() => {
+    const isActive = registrationMode !== 'chat';
+    if (registrationModeActive !== isActive) {
+      setRegistrationModeActive(isActive);
+      if (isActive) {
+        setAction(undefined); // Clear any action when entering registration mode
+      }
+    }
+  }, [registrationMode, registrationModeActive, setAction, setRegistrationModeActive]);
   const handleNewChat = useCallback(async () => {
     try {
       // First, start the new chat to clear the messages
@@ -319,34 +335,44 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       return;
     }
 
-    // Convert messages to chat history format
-    const chatHistory = messages.slice(-5).map(msg => ({
-      role: msg.author === "user" ? "user" : "assistant",
-      content: typeof msg.content === 'string' ? msg.content : msg.content.text || ""
-    }));
-    planMutation.mutate({
-      userPrompt: lastUserMessage,
-      chatHistory
-    }, {
-      onSuccess: plan => {
-        setCurrentPlan(plan);
-        setIsPlanModalOpen(true);
-      },
-      onError: (error: any) => {
-        toast({
-          title: "Plan Generation Failed",
-          description: error.message,
-          variant: "destructive"
+    withAction('validate', 'plan generation', async () => {
+      // Convert messages to chat history format
+      const chatHistory = messages.slice(-5).map(msg => ({
+        role: msg.author === "user" ? "user" : "assistant",
+        content: typeof msg.content === 'string' ? msg.content : msg.content.text || ""
+      }));
+      
+      return new Promise((resolve, reject) => {
+        planMutation.mutate({
+          userPrompt: lastUserMessage,
+          chatHistory
+        }, {
+          onSuccess: plan => {
+            setCurrentPlan(plan);
+            setIsPlanModalOpen(true);
+            resolve(plan);
+          },
+          onError: (error: any) => {
+            toast({
+              title: "Plan Generation Failed",
+              description: error.message,
+              variant: "destructive"
+            });
+            reject(error);
+          }
         });
-      }
-    });
+      });
+    }, 'planner', { userPrompt: lastUserMessage });
   };
   const handleExecutePlan = async (plan: Plan) => {
     // Store the current plan for recovery purposes
     setCurrentPlan(plan);
 
     // Use the centralized plan executor with recovery logic
-    executePlanSequentially(plan);
+    withAction('execute', 'plan execution', async () => {
+      executePlanSequentially(plan);
+      return plan;
+    }, 'plan-executor', { intent: plan.intent });
   };
   const handleToolInvoke = (toolName: string, params: Record<string, any>) => {
     // Use external handler if provided, otherwise use internal logic
@@ -370,49 +396,53 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       }
     });
 
-    // 2) Call server
-    executeToolMutation.mutate({
-      toolName,
-      params
-    }, {
-      onSuccess: ({
-        result
-      }) => {
-        // Add success message with result
-        addMessage({
-          id: crypto.randomUUID(),
-          author: "agent",
-          content: `✅ ${toolName} completed successfully`,
-          timestamp: Date.now(),
-          toolCall: {
-            name: toolName,
-            params
+    // 2) Call server with action wrapper
+    withAction('execute', toolName, async () => {
+      return new Promise((resolve, reject) => {
+        executeToolMutation.mutate({
+          toolName,
+          params
+        }, {
+          onSuccess: ({ result }) => {
+            // Add success message with result
+            addMessage({
+              id: crypto.randomUUID(),
+              author: "agent",
+              content: `✅ ${toolName} completed successfully`,
+              timestamp: Date.now(),
+              toolCall: {
+                name: toolName,
+                params
+              }
+            });
+            toast({
+              title: "Tool Completed",
+              description: `${toolName} executed successfully`
+            });
+            resolve(result);
+          },
+          onError: (error: any) => {
+            // Add error message
+            addMessage({
+              id: crypto.randomUUID(),
+              author: "agent",
+              content: `❌ ${toolName} failed: ${error.message}`,
+              timestamp: Date.now(),
+              toolCall: {
+                name: toolName,
+                params
+              }
+            });
+            toast({
+              title: "Tool Error",
+              description: error.message,
+              variant: "destructive"
+            });
+            reject(error);
           }
         });
-        toast({
-          title: "Tool Completed",
-          description: `${toolName} executed successfully`
-        });
-      },
-      onError: (error: any) => {
-        // Add error message
-        addMessage({
-          id: crypto.randomUUID(),
-          author: "agent",
-          content: `❌ ${toolName} failed: ${error.message}`,
-          timestamp: Date.now(),
-          toolCall: {
-            name: toolName,
-            params
-          }
-        });
-        toast({
-          title: "Tool Error",
-          description: error.message,
-          variant: "destructive"
-        });
-      }
-    });
+      });
+    }, toolName, params);
   };
   return <div className="h-full w-full flex flex-col overflow-hidden max-w-full">
       {/* Header with New Chat Button - Fixed at top, properly positioned */}
@@ -445,6 +475,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 </div>}
             </div>
           </div> : <div className="h-full flex flex-col overflow-hidden">
+            <ActionBanner />
             {/* Progressive Registration UI */}
             {registrationMode === 'field' && currentField && (
               <div className="p-4 border-b bg-muted/50">
