@@ -3,10 +3,14 @@ import { Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useChatStore } from "@/store/useChatStore";
+import { useClientRegistrationStore } from "@/stores/useClientRegistrationStore";
 import { useSearchParams } from "react-router-dom";
 import { MessageList } from "@/components/agent/MessageList";
 import { MessageInput } from "@/components/agent/MessageInput";
 import { ToolLauncher } from "@/components/agent/ToolLauncher";
+import { FieldPrompt } from "@/components/registration/FieldPrompt";
+import { DuplicateClientCard } from "@/components/registration/DuplicateClientCard";
+import { FallbackForm } from "@/components/registration/FallbackForm";
 import { TransactionDataCollector } from "./TransactionDataCollector";
 import { useExecuteTool } from "@/hooks/useExecuteTool";
 import { usePlan } from "@/hooks/usePlan";
@@ -65,6 +69,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
   const [lastUserMessage, setLastUserMessage] = useState<string>("");
+  
+  // Registration store
+  const {
+    currentField,
+    isDuplicate,
+    duplicateInfo,
+    partialParams,
+    retryCount,
+    validateAndSetField,
+    incrementRetry,
+    canRetry,
+    reset: resetRegistration,
+    setDuplicateInfo,
+    clearDuplicateInfo,
+  } = useClientRegistrationStore();
+  
+  const [registrationMode, setRegistrationMode] = useState<'chat' | 'field' | 'form' | 'duplicate'>('chat');
+  
   const {
     messages,
     isLoading: internalIsLoading,
@@ -423,6 +445,30 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 </div>}
             </div>
           </div> : <div className="h-full flex flex-col overflow-hidden">
+            {/* Progressive Registration UI */}
+            {registrationMode === 'field' && currentField && (
+              <div className="p-4 border-b bg-muted/50">
+                <FieldPrompt
+                  field={currentField as keyof typeof partialParams}
+                  value={partialParams[currentField as keyof typeof partialParams] || ''}
+                  retryCount={retryCount[currentField] || 0}
+                  isLoading={isLoading}
+                  onSubmit={(value) => {
+                    const result = validateAndSetField(currentField as keyof typeof partialParams, value);
+                    if (!result.success) {
+                      incrementRetry(currentField as keyof typeof partialParams);
+                      toast({
+                        title: "Validation Error",
+                        description: result.error,
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                  onFallback={() => setRegistrationMode('form')}
+                />
+              </div>
+            )}
+            
             {/* Messages container with proper scrolling */}
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-6">
               <div className="space-y-4">
