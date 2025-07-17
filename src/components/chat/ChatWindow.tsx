@@ -389,8 +389,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   };
 
   return (
-    <div className="h-full w-full flex flex-col overflow-hidden max-w-full">
-      {/* Header with New Chat Button - Fixed at top, properly positioned */}
+    <div className="h-full w-full flex flex-col overflow-hidden">
+      {/* Header with New Chat Button - Fixed at top */}
       {messages.length > 0 && (
         <div className="flex-shrink-0 p-4 bg-background/80 backdrop-blur-sm border-b border-glass-border">
           <div className="flex justify-end">
@@ -406,42 +406,43 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
       )}
 
-      {/* Chat Messages - Properly constrained scrollable area */}
-      <div className="flex-1 min-h-0 w-full overflow-hidden">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px] w-full max-w-full overflow-hidden">
-            <div className="text-center max-w-2xl w-full overflow-hidden">
-              <TypingAnimation />
-              {/* Tool Launcher & Input centered below animation - only show when standalone */}
-              {!externalOnSend && (
-                <div className="mt-12 max-w-4xl w-full overflow-hidden">
-                  <ToolLauncher
-                    onInvoke={handleToolInvoke}
-                    availableTools={["register_client", "create_connection", "build_dashboard"]}
-                    disabled={isLoading}
-                  />
-                  
-                  <MessageInput 
-                    onSend={handleSend}
-                    placeholder="Type your message..."
-                    isLoading={isLoading}
-                  />
-                  
-                  <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
-                    <span>Use tools above or type naturally</span>
-                  </div>
-                  
-                  <div className="text-xs text-taxops-gray-light/60 mt-2 text-center">
-                    AI can make mistakes. Always review your work.
-                  </div>
+      {messages.length === 0 ? (
+        /* Empty state - full height available */
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          <div className="text-center max-w-2xl w-full">
+            <TypingAnimation />
+            {/* Tool Launcher & Input centered below animation - only show when standalone */}
+            {!externalOnSend && (
+              <div className="mt-12 max-w-4xl w-full">
+                <ToolLauncher
+                  onInvoke={handleToolInvoke}
+                  availableTools={["register_client", "create_connection", "build_dashboard"]}
+                  disabled={isLoading}
+                />
+                
+                <MessageInput 
+                  onSend={handleSend}
+                  placeholder="Type your message..."
+                  isLoading={isLoading}
+                />
+                
+                <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
+                  <span>Use tools above or type naturally</span>
                 </div>
-              )}
-            </div>
+                
+                <div className="text-xs text-taxops-gray-light/60 mt-2 text-center">
+                  AI can make mistakes. Always review your work.
+                </div>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="h-full flex flex-col overflow-hidden">
-            {/* Messages container with proper scrolling */}
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-6">
+        </div>
+      ) : (
+        /* Chat with messages - split layout */
+        <>
+          {/* Messages container - takes available space and scrolls */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <div className="h-full overflow-y-auto px-4 py-6">
               <div className="space-y-4">
                 <MessageList messages={messages} />
                 
@@ -465,34 +466,34 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               </div>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Input section for standalone mode when there are messages */}
-      {messages.length > 0 && !externalOnSend && (
-        <div className="flex-shrink-0 border-t border-glass-border bg-glass-bg/30 w-full max-w-full overflow-hidden">
-          <div className="p-4 space-y-4 w-full max-w-full overflow-hidden">
-            <ToolLauncher
-              onInvoke={handleToolInvoke}
-              availableTools={["register_client", "create_connection", "build_dashboard"]}
-              disabled={isLoading}
-            />
-            
-            <MessageInput 
-              onSend={handleSend}
-              placeholder="Type your message..."
-              isLoading={isLoading}
-            />
-            
-            <div className="flex justify-between text-xs text-taxops-gray-light">
-              <span>Use tools above or type naturally</span>
+          {/* Input section - Fixed at bottom when standalone */}
+          {!externalOnSend && (
+            <div className="flex-shrink-0 border-t border-glass-border bg-glass-bg/30">
+              <div className="p-4 space-y-4">
+                <ToolLauncher
+                  onInvoke={handleToolInvoke}
+                  availableTools={["register_client", "create_connection", "build_dashboard"]}
+                  disabled={isLoading}
+                />
+                
+                <MessageInput 
+                  onSend={handleSend}
+                  placeholder="Type your message..."
+                  isLoading={isLoading}
+                />
+                
+                <div className="flex justify-between text-xs text-taxops-gray-light">
+                  <span>Use tools above or type naturally</span>
+                </div>
+                
+                <div className="text-xs text-taxops-gray-light/60 text-center">
+                  AI can make mistakes. Always review your work.
+                </div>
+              </div>
             </div>
-            
-            <div className="text-xs text-taxops-gray-light/60 text-center">
-              AI can make mistakes. Always review your work.
-            </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
       
       {/* Plan Modal */}
