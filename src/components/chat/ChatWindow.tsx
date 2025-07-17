@@ -419,9 +419,9 @@ export const ChatWindow: React.FC = () => {
         )}
       </div>
 
-      {/* Tool Launcher & Input - Properly positioned at bottom without overflow */}
+      {/* Tool Launcher & Input - Properly positioned at bottom with 2cm spacing from bottom */}
       {messages.length > 0 && (
-        <div className="flex-shrink-0 border-t border-glass-border bg-glass-bg/30">
+        <div className="flex-shrink-0 border-t border-glass-border bg-glass-bg/30 mb-20">
           <div className="p-4 space-y-4">
             <ToolLauncher
               onInvoke={handleToolInvoke}
