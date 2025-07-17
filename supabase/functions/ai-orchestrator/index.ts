@@ -192,6 +192,7 @@ serve(async (req) => {
     // Check if this is a structured transaction request (bypass intent check)
     let isTransactionRequest = false;
     let transactionParams = null;
+    let confirmationMessage: string | null = null;
     try {
       const parsed = JSON.parse(message);
       if (parsed.clientId && parsed.startDate && parsed.endDate) {
@@ -332,22 +333,13 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
           });
         }
         
-        // Step 3: If we have all parameters, send confirmation and convert to transaction request
+        // Step 3: If we have all parameters, store confirmation and convert to transaction request
         if (extractedParams.reportType && extractedParams.clientId && extractedParams.startDate && extractedParams.endDate) {
           const reportName = AVAILABLE_REPORTS.find(r => r.key === extractedParams.reportType)?.name;
-          
-          // Send confirmation message first
-          const encoder = new TextEncoder();
-          const stream = new ReadableStream({
-            start(controller) {
-              const content = `Great—generating a ${reportName} for ${extractedParams.clientId} from ${extractedParams.startDate} to ${extractedParams.endDate}. This may take a moment...`;
-              
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
-              controller.close();
-            }
-          });
 
-          // Then proceed with transaction request
+          confirmationMessage = `Great—generating a ${reportName} for ${extractedParams.clientId} from ${extractedParams.startDate} to ${extractedParams.endDate}. This may take a moment...`;
+
+          // Proceed with transaction request on the same connection
           isTransactionRequest = true;
           transactionParams = extractedParams;
         }
@@ -457,6 +449,10 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
     const stream = new ReadableStream({
       async start(controller) {
         let assistantReply = '';
+        if (confirmationMessage) {
+          assistantReply += confirmationMessage;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: confirmationMessage })}\n\n`));
+        }
         
         try {
           const reader = dsRes.body?.getReader();
@@ -514,11 +510,6 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
           // Handle CSV generation for transaction-based reports
           if (isTransactionRequest && transactionParams) {
             try {
-              // Send confirmation message before starting CSV generation
-              const reportName = AVAILABLE_REPORTS.find(r => r.key === transactionParams.reportType)?.name || 'Financial Report';
-              const confirmationMsg = `\n\nGenerating your ${reportName} for ${transactionParams.clientId} from ${transactionParams.startDate} to ${transactionParams.endDate}… This usually takes a few seconds.`;
-              assistantReply += confirmationMsg;
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: confirmationMsg })}\n\n`));
               
               // Generate CSV from transactions
               const { data: transactions } = await supabaseClient
@@ -551,12 +542,12 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
 
                   // Send download button message
                   const reportName = AVAILABLE_REPORTS.find(r => r.key === transactionParams.reportType)?.name || 'Financial Report';
-                  const confirmationMessage = `✅ Here's your ${reportName} for ${transactionParams.clientId} (${transactionParams.startDate} to ${transactionParams.endDate}):`;
+                  const downloadConfirmation = `✅ Here's your ${reportName} for ${transactionParams.clientId} (${transactionParams.startDate} to ${transactionParams.endDate}):`;
                   
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
                     type: 'assistant_message',
                     content: {
-                      text: confirmationMessage,
+                      text: downloadConfirmation,
                       downloadButton: {
                         label: "Download CSV",
                         url: urlData.publicUrl,
@@ -567,7 +558,7 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
                   
                   // Send closing message
                   const closingMessage = "\n\nLet me know if you need anything else or another report.";
-                  assistantReply += confirmationMessage + closingMessage;
+                  assistantReply += downloadConfirmation + closingMessage;
                   
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: closingMessage })}\n\n`));
                 } else {
