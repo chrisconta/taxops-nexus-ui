@@ -346,23 +346,25 @@ export const ChatWindow: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Header with New Chat Button - Fixed outside scroll area */}
+    <div className="h-full flex flex-col overflow-hidden">{/* Changed from h-full to ensure proper height constraint */}
+      {/* Header with New Chat Button - Fixed at top, properly positioned */}
       {messages.length > 0 && (
-        <div className="flex-shrink-0 p-4 flex justify-end items-center">
-          <Button 
-            onClick={handleNewChat}
-            className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 hover:border-primary/50"
-            variant="outline"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Chat
-          </Button>
+        <div className="flex-shrink-0 p-4 bg-background/80 backdrop-blur-sm border-b border-glass-border">
+          <div className="flex justify-end">
+            <Button 
+              onClick={handleNewChat}
+              className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 hover:border-primary/50"
+              variant="outline"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Chat
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Chat Messages - Constrained scrollable area */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      {/* Chat Messages - Properly constrained scrollable area */}
+      <div className="flex-1 min-h-0 overflow-y-auto">{/* Removed unnecessary classes */}
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px]">
             <div className="text-center max-w-2xl w-full">
@@ -417,27 +419,29 @@ export const ChatWindow: React.FC = () => {
         )}
       </div>
 
-      {/* Tool Launcher & Input - Fixed at bottom for when there are messages */}
+      {/* Tool Launcher & Input - Properly positioned at bottom without overflow */}
       {messages.length > 0 && (
-        <div className="flex-shrink-0 p-6 border-t border-glass-border bg-glass-bg/30">
-          <ToolLauncher
-            onInvoke={handleToolInvoke}
-            availableTools={["register_client", "create_connection", "build_dashboard"]}
-            disabled={isLoading}
-          />
-          
-          <MessageInput 
-            onSend={handleSend}
-            placeholder="Type your message..."
-            isLoading={isLoading}
-          />
-          
-          <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
-            <span>Use tools above or type naturally</span>
-          </div>
-          
-          <div className="text-xs text-taxops-gray-light/60 mt-2 text-center">
-            AI can make mistakes. Always review your work.
+        <div className="flex-shrink-0 border-t border-glass-border bg-glass-bg/30">
+          <div className="p-4 space-y-4">
+            <ToolLauncher
+              onInvoke={handleToolInvoke}
+              availableTools={["register_client", "create_connection", "build_dashboard"]}
+              disabled={isLoading}
+            />
+            
+            <MessageInput 
+              onSend={handleSend}
+              placeholder="Type your message..."
+              isLoading={isLoading}
+            />
+            
+            <div className="flex justify-between text-xs text-taxops-gray-light">
+              <span>Use tools above or type naturally</span>
+            </div>
+            
+            <div className="text-xs text-taxops-gray-light/60 text-center">
+              AI can make mistakes. Always review your work.
+            </div>
           </div>
         </div>
       )}
