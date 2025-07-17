@@ -623,6 +623,45 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
             }
           }
 
+          // ==== Tool Call Detection ====
+          const toolCall = extractToolCallJson(assistantReply);
+          if (toolCall) {
+            try {
+              const execRes = await fetch(
+                'https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/agent-tool-execute',
+                {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    toolName: toolCall.tool,
+                    params: toolCall.args
+                  })
+                }
+              );
+              const execData = await execRes.json();
+              if (execRes.ok) {
+                const successMsg = execData.result?.message || `${toolCall.tool} executed`;
+                assistantReply += `\n\n${successMsg}`;
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: successMsg })}\n\n`));
+              } else {
+                console.error('Tool execution failed:', execData);
+                const failMsg = `Tool execution failed: ${execData.error || execRes.statusText}`;
+                assistantReply += `\n\n${failMsg}`;
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: failMsg })}\n\n`));
+              }
+            } catch (err) {
+              console.error('Tool execution error:', err);
+              const errMsg = `Tool execution error: ${err instanceof Error ? err.message : String(err)}`;
+              assistantReply += `\n\n${errMsg}`;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: errMsg })}\n\n`));
+            }
+          } else if (assistantReply.trim().startsWith('{')) {
+            console.error('Malformed tool call output:', assistantReply);
+          }
+
           // Prepare API logs
           const apiLogs = {
             request: {
@@ -686,6 +725,26 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
     });
   }
 });
+
+function extractToolCallJson(content: string): { tool: string; args: any } | null {
+  let text = content.trim();
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  }
+  const first = text.indexOf('{');
+  const last = text.lastIndexOf('}');
+  if (first === -1 || last === -1 || last <= first) return null;
+  const jsonStr = text.slice(first, last + 1);
+  try {
+    const obj = JSON.parse(jsonStr);
+    if (obj.tool && obj.args) {
+      return { tool: obj.tool, args: obj.args };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 function convertToCSV(data: any[]): string {
   if (!data || data.length === 0) return '';
