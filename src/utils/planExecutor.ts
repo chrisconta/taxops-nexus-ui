@@ -1,6 +1,7 @@
 import Ajv from "ajv";
 import { toolRegistry } from "@/agent/tools/index";
 import { useChatStore } from "@/store/useChatStore";
+import { useUIStore } from "@/stores/uiStore";
 import { supabase } from "@/integrations/supabase/client";
 import type { Plan } from "@/agent/planner/schema";
 
@@ -32,6 +33,10 @@ async function invokeTool(toolName: string, params: Record<string, any>) {
 
 export async function executePlanSequentially(plan: Plan) {
   const { addMessage, setRecovery, recovery } = useChatStore.getState();
+  const { openSidebar } = useUIStore.getState();
+  
+  // Open the sidebar to show chat during plan execution
+  openSidebar();
 
   for (const step of plan.steps) {
     // Skip already completed steps when recovering
