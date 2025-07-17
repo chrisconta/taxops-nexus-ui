@@ -623,6 +623,33 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
             }
           }
 
+          // Check if the assistant returned a tool execution plan
+          const planObj = extractJsonObject(assistantReply);
+          if (planObj && isToolPlan(planObj)) {
+            for (const step of planObj.steps) {
+              try {
+                const { data: execResult, error: execError } = await supabaseClient.functions.invoke('agent-tool-execute', {
+                  body: { toolName: step.toolName, params: step.params },
+                  headers: { Authorization: `Bearer ${token}` }
+                });
+
+                if (execError || !execResult) {
+                  const errMsg = `\n\nError executing ${step.toolName}: ${execError?.message || 'unknown error'}`;
+                  assistantReply += errMsg;
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: errMsg })}\n\n`));
+                } else {
+                  const successMsg = `\n\n✅ ${step.toolName} completed successfully.`;
+                  assistantReply += successMsg;
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: successMsg })}\n\n`));
+                }
+              } catch (err) {
+                const errMsg = `\n\nError executing ${step.toolName}: ${err.message}`;
+                assistantReply += errMsg;
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: errMsg })}\n\n`));
+              }
+            }
+          }
+
           // Prepare API logs
           const apiLogs = {
             request: {
@@ -728,4 +755,25 @@ function convertTransactionsToCsv(transactions: any[]): string {
   );
   
   return [headers.join(','), ...csvRows].join('\n');
+}
+
+function extractJsonObject(content: string): any | null {
+  let text = content.trim();
+  if (text.startsWith('```')) {
+    text = text.replace(/^```[a-zA-Z]*\s*/, '').replace(/\s*```$/, '');
+  }
+  const first = text.indexOf('{');
+  const last = text.lastIndexOf('}');
+  if (first >= 0 && last > first) {
+    text = text.slice(first, last + 1);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function isToolPlan(obj: any): obj is { intent: string; steps: Array<{ toolName: string; params: any }> } {
+  return obj && typeof obj.intent === 'string' && Array.isArray(obj.steps);
 }
