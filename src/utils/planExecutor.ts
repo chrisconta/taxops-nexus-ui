@@ -37,6 +37,26 @@ export async function executePlanSequentially(plan: Plan) {
   
   // Open the sidebar to show chat during plan execution
   openSidebar();
+  
+  // Navigate to appropriate page based on the plan's first tool
+  const firstTool = plan.steps[0]?.toolName;
+  if (firstTool) {
+    const pageMapping: Record<string, string> = {
+      'register_client': '/clients',
+      'create_connection': '/connections', 
+      'build_dashboard': '/analytics',
+      'sync_data': '/connections',
+      'generate_report': '/reports'
+    };
+    
+    const targetPage = pageMapping[firstTool];
+    if (targetPage && window.location.pathname !== targetPage) {
+      // Use history API to navigate without page reload
+      window.history.pushState({}, '', targetPage);
+      // Dispatch a popstate event to trigger router navigation
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+  }
 
   for (const step of plan.steps) {
     // Skip already completed steps when recovering
