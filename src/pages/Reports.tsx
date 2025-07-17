@@ -2,7 +2,7 @@ import React from "react";
 import { ChatLayout } from "@/components/agent/ChatLayout";
 
 export const ReportsPage: React.FC = () => (
-  <div className="h-screen overflow-hidden">
+  <div className="h-[calc(100vh-80px)] overflow-hidden">
     <ChatLayout />
   </div>
 );
