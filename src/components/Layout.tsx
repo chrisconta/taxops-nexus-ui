@@ -20,7 +20,7 @@ const Layout = () => {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    loadUserProfile();
+    checkAuthAndLoadProfile();
     
     // Check if device is mobile/tablet and auto-collapse sidebar
     const checkMobileView = () => {
@@ -33,7 +33,22 @@ const Layout = () => {
     window.addEventListener('resize', checkMobileView);
     
     return () => window.removeEventListener('resize', checkMobileView);
-  }, []);
+  }, [navigate]);
+
+  const checkAuthAndLoadProfile = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate('/auth');
+        return;
+      }
+      
+      await loadUserProfile();
+    } catch (error) {
+      console.error('Auth check error:', error);
+      navigate('/auth');
+    }
+  };
 
   const loadUserProfile = async () => {
     try {
