@@ -346,50 +346,107 @@ export const ChatWindow: React.FC = () => {
   };
 
   return (
-    <div className="h-full w-full flex flex-col overflow-hidden bg-background">
-      {/* Chat Messages - Clean scrollable area */}
-      <div className="flex-1 min-h-0 w-full overflow-hidden">
+    <div className="h-full w-full flex flex-col overflow-hidden max-w-full">{/* Added width constraints and max-width */}
+      {/* Header with New Chat Button - Fixed at top, properly positioned */}
+      {messages.length > 0 && (
+        <div className="flex-shrink-0 p-4 bg-background/80 backdrop-blur-sm border-b border-glass-border">
+          <div className="flex justify-end">
+            <Button 
+              onClick={handleNewChat}
+              className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 hover:border-primary/50"
+              variant="outline"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Chat
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Messages - Properly constrained scrollable area */}
+      <div className="flex-1 min-h-0 w-full overflow-hidden">{/* Changed from overflow-y-auto to overflow-hidden to eliminate persistent scrollbar */}
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full px-4">
-            <div className="text-center w-full">
-              <div className="text-lg font-medium text-muted-foreground mb-8">
-                How can I help you today?
+          <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px] w-full max-w-full overflow-hidden">{/* Added width constraints */}
+            <div className="text-center max-w-2xl w-full overflow-hidden">
+              <TypingAnimation />
+              
+              {/* Tool Launcher & Input centered below animation */}
+              <div className="mt-12 max-w-4xl w-full overflow-hidden">{/* Added overflow-hidden */}
+                <ToolLauncher
+                  onInvoke={handleToolInvoke}
+                  availableTools={["register_client", "create_connection", "build_dashboard"]}
+                  disabled={isLoading}
+                />
+                
+                <MessageInput 
+                  onSend={handleSend}
+                  placeholder="Type your message..."
+                  isLoading={isLoading}
+                />
+                
+                <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
+                  <span>Use tools above or type naturally</span>
+                </div>
+                
+                <div className="text-xs text-taxops-gray-light/60 mt-2 text-center">
+                  AI can make mistakes. Always review your work.
+                </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="h-full overflow-y-auto px-3 py-4">
-            <MessageList messages={messages} />
-            
-            {/* Data Collectors for messages that require data */}
-            {messages.map(message => (
-              message.requiresData && !message.dataCollected && !dataCollectors.has(message.id) && (
-                <div key={`collector-${message.id}`} className="mt-4">
-                  <TransactionDataCollector 
-                    messageId={message.id} 
-                    missingParams={message.missingParams} 
-                    onDataSubmitted={() => {
-                      setDataCollectors(prev => new Set(prev).add(message.id));
-                      markDataCollected(message.id);
-                    }} 
-                  />
-                </div>
-              )
-            ))}
-            
-            <div ref={messagesEndRef} />
+          <div className="flex-1 px-4 py-6 w-full max-w-full overflow-hidden">{/* Changed to flex-1 and overflow-hidden to prevent scroll */}
+            <div className="h-full overflow-y-auto overflow-x-hidden">
+              <MessageList messages={messages} />
+              
+              {/* Data Collectors for messages that require data */}
+              {messages.map(message => (
+                message.requiresData && !message.dataCollected && !dataCollectors.has(message.id) && (
+                  <div key={`collector-${message.id}`} className="mt-4">
+                    <TransactionDataCollector 
+                      messageId={message.id} 
+                      missingParams={message.missingParams} 
+                      onDataSubmitted={() => {
+                        setDataCollectors(prev => new Set(prev).add(message.id));
+                        markDataCollected(message.id);
+                      }} 
+                    />
+                  </div>
+                )
+              ))}
+              
+              <div ref={messagesEndRef} />
+            </div>
           </div>
         )}
       </div>
 
-      {/* Input at bottom - Clean Lovable style */}
-      <div className="flex-shrink-0 border-t border-border/50 bg-background/50 backdrop-blur-sm">
-        <MessageInput 
-          onSend={handleSend}
-          placeholder="Type your message..."
-          isLoading={isLoading}
-        />
-      </div>
+      {/* Tool Launcher & Input - Properly positioned at bottom with 2cm spacing from bottom */}
+      {messages.length > 0 && (
+        <div className="flex-shrink-0 border-t border-glass-border bg-glass-bg/30 mb-20 w-full max-w-full overflow-hidden">{/* Added width constraints */}
+          <div className="p-4 space-y-4 w-full max-w-full overflow-hidden">{/* Added width constraints */}
+            <ToolLauncher
+              onInvoke={handleToolInvoke}
+              availableTools={["register_client", "create_connection", "build_dashboard"]}
+              disabled={isLoading}
+            />
+            
+            <MessageInput 
+              onSend={handleSend}
+              placeholder="Type your message..."
+              isLoading={isLoading}
+            />
+            
+            <div className="flex justify-between text-xs text-taxops-gray-light">
+              <span>Use tools above or type naturally</span>
+            </div>
+            
+            <div className="text-xs text-taxops-gray-light/60 text-center">
+              AI can make mistakes. Always review your work.
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Plan Modal */}
       <PlanModal
