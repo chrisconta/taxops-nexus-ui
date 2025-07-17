@@ -42,13 +42,16 @@ export const PlanModal: React.FC<PlanModalProps> = ({
 
   // Initialize edited steps when plan changes
   React.useEffect(() => {
-    if (plan) {
+    if (plan && plan.steps && Array.isArray(plan.steps)) {
       setEditedSteps(plan.steps);
+      setEditErrors({});
+    } else {
+      setEditedSteps([]);
       setEditErrors({});
     }
   }, [plan]);
 
-  if (!plan) return null;
+  if (!plan || !plan.steps || !Array.isArray(plan.steps)) return null;
 
   const updateStepParams = (stepIndex: number, newParamsString: string) => {
     try {

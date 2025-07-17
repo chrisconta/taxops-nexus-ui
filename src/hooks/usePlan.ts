@@ -7,6 +7,26 @@ interface PlanRequest {
   chatHistory?: Array<{ role: string; content: string }>;
 }
 
+// Interface for validation error response
+interface ValidationErrorResponse {
+  missing: Array<{ field: string; reason: string; hint: string }>;
+  invalid: Array<{ field: string; reason: string; hint: string }>;
+}
+
+function isValidationErrorResponse(data: any): data is ValidationErrorResponse {
+  return data && 
+    typeof data === 'object' && 
+    Array.isArray(data.missing) && 
+    Array.isArray(data.invalid);
+}
+
+function isPlanResponse(data: any): data is Plan {
+  return data && 
+    typeof data === 'object' && 
+    typeof data.intent === 'string' && 
+    Array.isArray(data.steps);
+}
+
 export async function fetchPlan({ userPrompt, chatHistory = [] }: PlanRequest): Promise<Plan> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
@@ -22,6 +42,27 @@ export async function fetchPlan({ userPrompt, chatHistory = [] }: PlanRequest): 
 
   if (error) {
     throw new Error(error.message || "Failed to generate plan");
+  }
+
+  // Check if response is a validation error
+  if (isValidationErrorResponse(data)) {
+    const missingFields = data.missing.map(m => m.field).join(', ');
+    const invalidFields = data.invalid.map(i => i.field).join(', ');
+    
+    let errorMessage = "Cannot generate plan: ";
+    if (missingFields) {
+      errorMessage += `Missing required fields: ${missingFields}`;
+    }
+    if (invalidFields) {
+      errorMessage += `${missingFields ? '. ' : ''}Invalid fields: ${invalidFields}`;
+    }
+    
+    throw new Error(errorMessage);
+  }
+
+  // Validate that we received a proper plan
+  if (!isPlanResponse(data)) {
+    throw new Error("Invalid plan response from server");
   }
   
   return data;
