@@ -393,7 +393,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     onSend={handleSend} 
                     placeholder="Type your message..." 
                     isLoading={isLoading} 
-                    onNewChat={startNew}
+                    onNewChat={handleNewChat}
                     showNewChatButton={true}
                   />
                   
@@ -435,7 +435,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               onSend={handleSend} 
               placeholder="Type your message..." 
               isLoading={isLoading} 
-              onNewChat={startNew}
+              onNewChat={handleNewChat}
               showNewChatButton={true}
             />
             
