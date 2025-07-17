@@ -354,9 +354,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             // Handle validation errors specifically
             if (error instanceof ValidationError) {
               // Instead of showing toast, add message with data collector
-              get().removeTyping();
+              const { removeTyping, addMessage } = useChatStore.getState();
+              removeTyping();
               const msgId = crypto.randomUUID();
-              get().addMessage({
+              addMessage({
                 id: msgId,
                 author: "agent",
                 content: `I need some additional information to complete this request:`,
@@ -426,12 +427,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           onError: (error: any) => {
             // Handle validation errors specifically
             if (error instanceof ValidationError) {
-              toast({
-                title: "Plan Generation Failed",
-                description: error.details || error.message,
-                variant: "destructive"
+              // Instead of showing toast, add message with data collector
+              const { removeTyping, addMessage } = useChatStore.getState();
+              const msgId = crypto.randomUUID();
+              addMessage({
+                id: msgId,
+                author: "agent",
+                content: `I need some additional information to complete this request:`,
+                timestamp: Date.now(),
+                requiresData: true,
+                validationErrors: error.validationResponse
               });
-              // Don't open modal for validation errors
               reject(error);
               return;
             }
@@ -589,12 +595,36 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 <MessageList messages={messages} />
                 
                 {/* Data Collectors for messages that require data */}
-                {messages.map(message => message.requiresData && !message.dataCollected && !dataCollectors.has(message.id) && <div key={`collector-${message.id}`} className="mt-4">
-                      <TransactionDataCollector messageId={message.id} missingParams={message.missingParams} onDataSubmitted={() => {
-                setDataCollectors(prev => new Set(prev).add(message.id));
-                markDataCollected(message.id);
-              }} />
-                    </div>)}
+                {messages.map(message => 
+                  message.requiresData && !message.dataCollected && (
+                    <div key={`collector-${message.id}`} className="mt-4">
+                      {message.validationErrors ? (
+                        <ValidationErrorCollector 
+                          errors={message.validationErrors}
+                          toolName={message.content.toString().includes("register") ? "register_client" : 
+                                  message.content.toString().includes("connection") ? "create_connection" : 
+                                  "build_dashboard"}
+                          onComplete={(collectedData) => {
+                            // Generate a new plan with the collected data
+                            const userPrompt = `Use these parameters: ${JSON.stringify(collectedData)}`;
+                            handleSend(userPrompt);
+                            markDataCollected(message.id);
+                            setDataCollectors(prev => new Set(prev).add(message.id));
+                          }}
+                        />
+                      ) : (
+                        <TransactionDataCollector 
+                          messageId={message.id} 
+                          missingParams={message.missingParams} 
+                          onDataSubmitted={() => {
+                            setDataCollectors(prev => new Set(prev).add(message.id));
+                            markDataCollected(message.id);
+                          }} 
+                        />
+                      )}
+                    </div>
+                  )
+                )}
                 
                 <div ref={messagesEndRef} />
               </div>

@@ -13,6 +13,10 @@ export interface Message {
   requiresData?: boolean;
   dataCollected?: boolean;
   missingParams?: string[];
+  validationErrors?: {
+    missing: Array<{ field: string; reason: string; hint: string }>;
+    invalid: Array<{ field: string; reason: string; hint: string }>;
+  };
 }
 
 interface RecoveryState {
