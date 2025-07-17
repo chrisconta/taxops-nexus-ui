@@ -13,6 +13,7 @@ import { usePlan } from "@/hooks/usePlan";
 import { PlanModal } from "@/components/agent/PlanModal";
 import { executePlanSequentially } from "@/utils/planExecutor";
 import type { Plan } from "@/agent/planner/schema";
+import { supabase } from "@/integrations/supabase/client";
 
 const TypingAnimation = () => {
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
@@ -79,7 +80,9 @@ export const ChatWindow: React.FC = () => {
     addMessage,
     markDataCollected,
     recovery,
-    setRecovery
+    setRecovery,
+    feedbackContext,
+    setFeedbackContext
   } = useChatStore();
   
   const executeToolMutation = useExecuteTool();
@@ -113,6 +116,55 @@ export const ChatWindow: React.FC = () => {
   };
 
   const handleSend = async (text: string) => {
+    // Handle feedback input
+    const trimmed = text.trim();
+    if (trimmed.startsWith("👍") || trimmed.startsWith("👎")) {
+      const positive = trimmed.startsWith("👍");
+      const comment = trimmed.slice(1).trim() || undefined;
+
+      // Send feedback to edge function
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetch('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/agent-feedback', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              planId: feedbackContext.lastPlanId,
+              stepId: feedbackContext.lastStepId,
+              toolName: feedbackContext.toolName,
+              feedback: positive,
+              comments: comment,
+            }),
+          });
+        }
+      } catch (err) {
+        console.error('Feedback error:', err);
+      }
+
+      // Clear feedback context
+      setFeedbackContext({});
+      
+      addMessage({
+        id: crypto.randomUUID(),
+        author: "user",
+        content: text,
+        timestamp: Date.now(),
+      });
+
+      addMessage({
+        id: crypto.randomUUID(),
+        author: "agent",
+        content: "Thanks for your feedback! 🙏",
+        timestamp: Date.now(),
+      });
+
+      return;
+    }
+
     // If we're waiting for a missing field in recovery mode...
     if (recovery.pendingStep && recovery.missingField) {
       // 1) Update the pending step's params

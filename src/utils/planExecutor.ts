@@ -76,6 +76,20 @@ export async function executePlanSequentially(plan: Plan) {
         content: `✅ Step completed successfully.`,
         timestamp: Date.now(),
       });
+
+      // Prompt for step feedback
+      addMessage({
+        id: crypto.randomUUID(),
+        author: "agent",
+        content: `How did the step "${step.toolName}" go? (👍/👎) You can add a comment.`,
+        timestamp: Date.now(),
+      });
+      setRecovery({});
+      useChatStore.getState().setFeedbackContext({
+        lastPlanId: plan.intent || crypto.randomUUID(),
+        lastStepId: step.stepId,
+        toolName: step.toolName,
+      });
     } catch (err: any) {
       addMessage({
         id: crypto.randomUUID(),
@@ -95,5 +109,18 @@ export async function executePlanSequentially(plan: Plan) {
     author: "agent",
     content: `🎉 Plan execution completed successfully! All steps finished.`,
     timestamp: Date.now(),
+  });
+
+  // Prompt for overall plan feedback
+  addMessage({
+    id: crypto.randomUUID(),
+    author: "agent",
+    content: `Overall plan is complete—was this helpful? (👍/👎)`,
+    timestamp: Date.now(),
+  });
+  useChatStore.getState().setFeedbackContext({
+    lastPlanId: plan.intent || crypto.randomUUID(),
+    lastStepId: undefined,
+    toolName: "plan_execution",
   });
 }

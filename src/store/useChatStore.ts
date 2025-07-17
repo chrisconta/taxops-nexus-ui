@@ -20,11 +20,18 @@ interface RecoveryState {
   missingField?: string;
 }
 
+interface FeedbackContext {
+  lastPlanId?: string;
+  lastStepId?: string;
+  toolName?: string;
+}
+
 interface ChatState {
   currentConvId?: string;
   messages: Message[];
   isLoading: boolean;
   recovery: RecoveryState;
+  feedbackContext: FeedbackContext;
   addMessage: (message: Message) => void;
   clearMessages: () => void;
   send: (text: string) => Promise<void>;
@@ -34,6 +41,7 @@ interface ChatState {
   removeTyping: () => void;
   markDataCollected: (messageId: string) => void;
   setRecovery: (recovery: RecoveryState) => void;
+  setFeedbackContext: (ctx: FeedbackContext) => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -42,6 +50,7 @@ export const useChatStore = create<ChatState>()(
       messages: [],
       isLoading: false,
       recovery: {},
+      feedbackContext: {},
       
       addMessage: (message: Message) => {
         set(state => ({ messages: [...state.messages, message] }));
@@ -86,6 +95,10 @@ export const useChatStore = create<ChatState>()(
 
       setRecovery: (recovery: RecoveryState) => {
         set({ recovery });
+      },
+
+      setFeedbackContext: (feedbackContext: FeedbackContext) => {
+        set({ feedbackContext });
       },
       
       
