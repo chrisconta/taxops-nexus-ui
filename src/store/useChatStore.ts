@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '@/integrations/supabase/client';
+import type { PlanStep } from '@/agent/planner/schema';
 
 export interface Message {
   id: string;
@@ -14,10 +15,16 @@ export interface Message {
   missingParams?: string[];
 }
 
+interface RecoveryState {
+  pendingStep?: PlanStep;
+  missingField?: string;
+}
+
 interface ChatState {
   currentConvId?: string;
   messages: Message[];
   isLoading: boolean;
+  recovery: RecoveryState;
   addMessage: (message: Message) => void;
   clearMessages: () => void;
   send: (text: string) => Promise<void>;
@@ -26,6 +33,7 @@ interface ChatState {
   updateLastMessage: (content: string) => void;
   removeTyping: () => void;
   markDataCollected: (messageId: string) => void;
+  setRecovery: (recovery: RecoveryState) => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -33,6 +41,7 @@ export const useChatStore = create<ChatState>()(
     (set, get) => ({
       messages: [],
       isLoading: false,
+      recovery: {},
       
       addMessage: (message: Message) => {
         set(state => ({ messages: [...state.messages, message] }));
@@ -73,6 +82,10 @@ export const useChatStore = create<ChatState>()(
             m.id === messageId ? { ...m, dataCollected: true } : m
           )
         }));
+      },
+
+      setRecovery: (recovery: RecoveryState) => {
+        set({ recovery });
       },
       
       

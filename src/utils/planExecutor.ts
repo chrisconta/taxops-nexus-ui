@@ -1,0 +1,99 @@
+import Ajv from "ajv";
+import { toolRegistry } from "@/agent/tools/index";
+import { useChatStore } from "@/store/useChatStore";
+import { supabase } from "@/integrations/supabase/client";
+import type { Plan } from "@/agent/planner/schema";
+
+const ajv = new Ajv({ allErrors: true, strict: true });
+
+async function invokeTool(toolName: string, params: Record<string, any>) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  const response = await fetch('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/agent-tool-execute', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      toolName,
+      params
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Tool execution failed: ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export async function executePlanSequentially(plan: Plan) {
+  const { addMessage, setRecovery, recovery } = useChatStore.getState();
+
+  for (const step of plan.steps) {
+    // Skip already completed steps when recovering
+    if (recovery.pendingStep && recovery.pendingStep.stepId !== step.stepId) {
+      continue;
+    }
+
+    // 1) Validate parameters
+    const schema = toolRegistry[step.toolName as keyof typeof toolRegistry];
+    if (schema) {
+      const validate = ajv.compile(schema);
+      if (!validate(step.params)) {
+        const err = validate.errors?.find((e) => e.keyword === "required");
+        const missing = err?.params?.missingProperty as string;
+        if (missing) {
+          // 2) Prompt user for the missing field
+          addMessage({
+            id: crypto.randomUUID(),
+            author: "agent",
+            content: `⚠️ The "${step.toolName}" step is missing the required field "${missing}". Please provide that now.`,
+            timestamp: Date.now(),
+          });
+          setRecovery({ pendingStep: step, missingField: missing });
+          return; // pause execution
+        }
+      }
+    }
+
+    // 3) Execute the step
+    addMessage({
+      id: crypto.randomUUID(),
+      author: "agent",
+      content: `⚡ Step: ${step.description}`,
+      timestamp: Date.now(),
+    });
+    
+    try {
+      await invokeTool(step.toolName, step.params);
+      addMessage({
+        id: crypto.randomUUID(),
+        author: "agent",
+        content: `✅ Step completed successfully.`,
+        timestamp: Date.now(),
+      });
+    } catch (err: any) {
+      addMessage({
+        id: crypto.randomUUID(),
+        author: "agent",
+        content: `❌ Step failed: ${err.message || "Unknown error"}. Execution halted.`,
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
+    // Clear any recovery state after a successful step
+    setRecovery({});
+  }
+
+  addMessage({
+    id: crypto.randomUUID(),
+    author: "agent",
+    content: `🎉 Plan execution completed successfully! All steps finished.`,
+    timestamp: Date.now(),
+  });
+}

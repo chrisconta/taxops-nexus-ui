@@ -11,6 +11,7 @@ import { TransactionDataCollector } from "./TransactionDataCollector";
 import { useExecuteTool } from "@/hooks/useExecuteTool";
 import { usePlan } from "@/hooks/usePlan";
 import { PlanModal } from "@/components/agent/PlanModal";
+import { executePlanSequentially } from "@/utils/planExecutor";
 import type { Plan } from "@/agent/planner/schema";
 
 const TypingAnimation = () => {
@@ -76,7 +77,9 @@ export const ChatWindow: React.FC = () => {
     load,
     startNew,
     addMessage,
-    markDataCollected
+    markDataCollected,
+    recovery,
+    setRecovery
   } = useChatStore();
   
   const executeToolMutation = useExecuteTool();
@@ -110,6 +113,29 @@ export const ChatWindow: React.FC = () => {
   };
 
   const handleSend = async (text: string) => {
+    // If we're waiting for a missing field in recovery mode...
+    if (recovery.pendingStep && recovery.missingField) {
+      // 1) Update the pending step's params
+      recovery.pendingStep.params[recovery.missingField] = text.trim();
+      
+      // Add user message
+      addMessage({
+        id: crypto.randomUUID(),
+        author: "user",
+        content: text,
+        timestamp: Date.now(),
+      });
+      
+      // 2) Clear recovery state
+      setRecovery({});
+      
+      // 3) Resume execution with the current plan
+      if (currentPlan) {
+        executePlanSequentially(currentPlan);
+      }
+      return;
+    }
+
     setLastUserMessage(text);
     
     // Check if this looks like an actionable request that should generate a plan
@@ -209,95 +235,11 @@ export const ChatWindow: React.FC = () => {
   };
 
   const handleExecutePlan = async (plan: Plan) => {
-    // Validate each step's params before execution
-    const { toolRegistry } = await import('@/agent/tools/index');
-    for (const step of plan.steps) {
-      const schema = toolRegistry[step.toolName as keyof typeof toolRegistry];
-      if (schema) {
-        // Simple validation - check required fields
-        const required = schema.required || [];
-        const missing = required.filter(field => !(field in step.params));
-        if (missing.length > 0) {
-          addMessage({
-            id: crypto.randomUUID(),
-            author: "agent",
-            content: `⚠️ I'm missing some details for "${step.description}". Could you please provide: ${missing.join(', ')}?`,
-            timestamp: Date.now(),
-          });
-          return;
-        }
-      }
-    }
-
-    // Add plan preview message
-    addMessage({
-      id: crypto.randomUUID(),
-      author: "agent",
-      content: `🎯 Executing plan: ${plan.intent}`,
-      timestamp: Date.now(),
-    });
-
-    // Execute steps sequentially
-    for (let i = 0; i < plan.steps.length; i++) {
-      const step = plan.steps[i];
-      
-      // Show step start message
-      addMessage({
-        id: crypto.randomUUID(),
-        author: "agent", 
-        content: `⚡ Step ${i + 1}: ${step.description}`,
-        timestamp: Date.now(),
-      });
-
-      try {
-        const result = await new Promise<{ success: boolean; result: unknown }>((resolve, reject) => {
-          executeToolMutation.mutate(
-            { toolName: step.toolName, params: step.params },
-            {
-              onSuccess: resolve,
-              onError: reject
-            }
-          );
-        });
-
-        // Show success message
-        addMessage({
-          id: crypto.randomUUID(),
-          author: "agent",
-          content: `✅ Step ${i + 1} completed successfully`,
-          timestamp: Date.now(),
-        });
-
-      } catch (error: any) {
-        // Show error and stop execution
-        addMessage({
-          id: crypto.randomUUID(),
-          author: "agent",
-          content: `❌ Step ${i + 1} failed: ${error.message}. Plan execution stopped.`,
-          timestamp: Date.now(),
-        });
-        
-        toast({
-          title: "Plan Execution Failed",
-          description: `Step ${i + 1} failed: ${error.message}`,
-          variant: "destructive"
-        });
-        return;
-      }
-    }
-
-    // Show completion message
-    addMessage({
-      id: crypto.randomUUID(),
-      author: "agent",
-      content: `🎉 Plan execution completed successfully! All ${plan.steps.length} steps finished.`,
-      timestamp: Date.now(),
-    });
-
-    toast({
-      title: "Plan Completed",
-      description: `Successfully executed ${plan.steps.length} steps`,
-    });
+    // Store the current plan for recovery purposes
+    setCurrentPlan(plan);
+    
+    // Use the centralized plan executor with recovery logic
+    executePlanSequentially(plan);
   };
 
   const handleToolInvoke = (toolName: string, params: Record<string, any>) => {
