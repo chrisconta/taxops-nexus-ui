@@ -7,6 +7,17 @@ interface PlanRequest {
   chatHistory?: Array<{ role: string; content: string }>;
 }
 
+// Custom error class for validation errors
+export class ValidationError extends Error {
+  constructor(
+    message: string,
+    public details: string
+  ) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
 // Interface for validation error response
 interface ValidationErrorResponse {
   missing: Array<{ field: string; reason: string; hint: string }>;
@@ -49,15 +60,15 @@ export async function fetchPlan({ userPrompt, chatHistory = [] }: PlanRequest): 
     const missingFields = data.missing.map(m => m.field).join(', ');
     const invalidFields = data.invalid.map(i => i.field).join(', ');
     
-    let errorMessage = "Cannot generate plan: ";
+    let details = '';
     if (missingFields) {
-      errorMessage += `Missing required fields: ${missingFields}`;
+      details += `Missing required fields: ${missingFields}`;
     }
     if (invalidFields) {
-      errorMessage += `${missingFields ? '. ' : ''}Invalid fields: ${invalidFields}`;
+      details += `${missingFields ? '. ' : ''}Invalid fields: ${invalidFields}`;
     }
     
-    throw new Error(errorMessage);
+    throw new ValidationError("Cannot generate plan", details);
   }
 
   // Validate that we received a proper plan

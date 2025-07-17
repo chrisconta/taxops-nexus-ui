@@ -36,22 +36,25 @@ export const PlanModal: React.FC<PlanModalProps> = ({
   onConfirm,
   isExecuting = false
 }) => {
+  // Default steps to empty array for safety
+  const steps = plan?.steps ?? [];
+  
   const [editedSteps, setEditedSteps] = useState<PlanStep[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editErrors, setEditErrors] = useState<{ [key: number]: string }>({});
 
   // Initialize edited steps when plan changes
   React.useEffect(() => {
-    if (plan && plan.steps && Array.isArray(plan.steps)) {
-      setEditedSteps(plan.steps);
+    if (plan && Array.isArray(steps)) {
+      setEditedSteps(steps);
       setEditErrors({});
     } else {
       setEditedSteps([]);
       setEditErrors({});
     }
-  }, [plan]);
+  }, [plan, steps]);
 
-  if (!plan || !plan.steps || !Array.isArray(plan.steps)) return null;
+  if (!plan) return null;
 
   const updateStepParams = (stepIndex: number, newParamsString: string) => {
     try {

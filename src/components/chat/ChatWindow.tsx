@@ -13,7 +13,7 @@ import { DuplicateClientCard } from "@/components/registration/DuplicateClientCa
 import { FallbackForm } from "@/components/registration/FallbackForm";
 import { TransactionDataCollector } from "./TransactionDataCollector";
 import { useExecuteTool } from "@/hooks/useExecuteTool";
-import { usePlan } from "@/hooks/usePlan";
+import { usePlan, ValidationError } from "@/hooks/usePlan";
 import { PlanModal } from "@/components/agent/PlanModal";
 import { executePlanSequentially } from "@/utils/planExecutor";
 import type { Plan } from "@/agent/planner/schema";
@@ -296,6 +296,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               removeTyping
             } = useChatStore.getState();
             removeTyping();
+            
+            // Handle validation errors specifically
+            if (error instanceof ValidationError) {
+              toast({
+                title: "Plan Generation Failed",
+                description: error.details || error.message,
+                variant: "destructive"
+              });
+              // Don't open modal for validation errors
+              return;
+            }
+            
             toast({
               title: "Plan Generation Failed",
               description: error.message,
@@ -353,6 +365,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             resolve(plan);
           },
           onError: (error: any) => {
+            // Handle validation errors specifically
+            if (error instanceof ValidationError) {
+              toast({
+                title: "Plan Generation Failed",
+                description: error.details || error.message,
+                variant: "destructive"
+              });
+              // Don't open modal for validation errors
+              reject(error);
+              return;
+            }
+            
             toast({
               title: "Plan Generation Failed",
               description: error.message,
