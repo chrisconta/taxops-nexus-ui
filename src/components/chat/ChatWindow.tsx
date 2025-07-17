@@ -396,7 +396,30 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px] w-full max-w-full overflow-hidden">{/* Added width constraints */}
             <div className="text-center max-w-2xl w-full overflow-hidden">
               <TypingAnimation />
-              {/* Tool Launcher & Input removed - now handled by Sidebar */}
+              {/* Tool Launcher & Input centered below animation - only show when standalone */}
+              {!externalOnSend && (
+                <div className="mt-12 max-w-4xl w-full overflow-hidden">
+                  <ToolLauncher
+                    onInvoke={handleToolInvoke}
+                    availableTools={["register_client", "create_connection", "build_dashboard"]}
+                    disabled={isLoading}
+                  />
+                  
+                  <MessageInput 
+                    onSend={handleSend}
+                    placeholder="Type your message..."
+                    isLoading={isLoading}
+                  />
+                  
+                  <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
+                    <span>Use tools above or type naturally</span>
+                  </div>
+                  
+                  <div className="text-xs text-taxops-gray-light/60 mt-2 text-center">
+                    AI can make mistakes. Always review your work.
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -426,7 +449,32 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         )}
       </div>
 
-      {/* Input section removed - now handled by Sidebar */}
+      {/* Input section for standalone mode when there are messages */}
+      {messages.length > 0 && !externalOnSend && (
+        <div className="flex-shrink-0 border-t border-glass-border bg-glass-bg/30 w-full max-w-full overflow-hidden">
+          <div className="p-4 space-y-4 w-full max-w-full overflow-hidden">
+            <ToolLauncher
+              onInvoke={handleToolInvoke}
+              availableTools={["register_client", "create_connection", "build_dashboard"]}
+              disabled={isLoading}
+            />
+            
+            <MessageInput 
+              onSend={handleSend}
+              placeholder="Type your message..."
+              isLoading={isLoading}
+            />
+            
+            <div className="flex justify-between text-xs text-taxops-gray-light">
+              <span>Use tools above or type naturally</span>
+            </div>
+            
+            <div className="text-xs text-taxops-gray-light/60 text-center">
+              AI can make mistakes. Always review your work.
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Plan Modal */}
       <PlanModal
