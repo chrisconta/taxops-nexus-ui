@@ -232,15 +232,31 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           timestamp: Date.now(),
         });
 
+        // Add thinking message with typing animation
+        const thinkingMessageId = crypto.randomUUID();
+        addMessage({
+          id: thinkingMessageId,
+          author: "agent",
+          content: "Thinking",
+          timestamp: Date.now(),
+          typing: true,
+        });
+
         // Generate plan automatically
         planMutation.mutate(
           { userPrompt: text, chatHistory },
           {
             onSuccess: (plan) => {
+              // Remove thinking message and show plan modal
+              const { removeTyping } = useChatStore.getState();
+              removeTyping();
               setCurrentPlan(plan);
               setIsPlanModalOpen(true);
             },
             onError: (error: any) => {
+              // Remove thinking message and show error
+              const { removeTyping } = useChatStore.getState();
+              removeTyping();
               toast({
                 title: "Plan Generation Failed",
                 description: error.message,
