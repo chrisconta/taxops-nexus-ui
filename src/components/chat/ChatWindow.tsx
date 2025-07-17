@@ -364,7 +364,7 @@ export const ChatWindow: React.FC = () => {
       )}
 
       {/* Chat Messages - Properly constrained scrollable area */}
-      <div className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden">{/* Added overflow-x-hidden and w-full */}
+      <div className="flex-1 min-h-0 w-full overflow-hidden">{/* Changed from overflow-y-auto to overflow-hidden to eliminate persistent scrollbar */}
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px] w-full max-w-full overflow-hidden">{/* Added width constraints */}
             <div className="text-center max-w-2xl w-full overflow-hidden">
@@ -395,7 +395,7 @@ export const ChatWindow: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="px-4 py-6 w-full max-w-full overflow-hidden">{/* Added width constraints */}
+          <div className="px-4 py-6 w-full max-w-full overflow-y-auto h-full">{/* Added overflow-y-auto only when needed (when there are messages) */}
             <MessageList messages={messages} />
             
             {/* Data Collectors for messages that require data */}
