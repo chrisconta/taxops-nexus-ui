@@ -121,8 +121,8 @@ export const Sidebar: React.FC = () => {
           />
         </div>
         
-        {/* Input Section at Bottom with 8cm spacing */}
-        <div className="flex-shrink-0 border-t border-border bg-background p-4 space-y-4 mb-32">{/* Changed to mb-32 for ~8cm total spacing */}
+        {/* Input Section at Bottom - positioned as low as reference */}
+        <div className="absolute bottom-4 left-0 right-0 border-t border-border bg-background p-4 space-y-4">{/* Changed to absolute positioning at bottom */}
           <ToolLauncher
             onInvoke={handleToolInvoke}
             availableTools={["register_client", "create_connection", "build_dashboard"]}
