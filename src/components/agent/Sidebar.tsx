@@ -112,17 +112,19 @@ export const Sidebar: React.FC = () => {
           </Button>
         </div>
         
-        {/* Chat Content */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <ChatWindow 
-            onSend={handleSend}
-            onToolInvoke={handleToolInvoke}
-            isLoading={isLoading}
-          />
+        {/* Chat Container */}
+        <div className="flex-1 flex flex-col min-h-0 p-4">
+          <div className="flex-1 bg-card rounded-lg border border-border overflow-hidden">
+            <ChatWindow 
+              onSend={handleSend}
+              onToolInvoke={handleToolInvoke}
+              isLoading={isLoading}
+            />
+          </div>
         </div>
         
-        {/* Input Section at Bottom - positioned as low as reference */}
-        <div className="absolute bottom-4 left-0 right-0 border-t border-border bg-background p-4 space-y-4">{/* Changed to absolute positioning at bottom */}
+        {/* Input Section at Bottom */}
+        <div className="border-t border-border bg-background p-4 space-y-4">
           <ToolLauncher
             onInvoke={handleToolInvoke}
             availableTools={["register_client", "create_connection", "build_dashboard"]}
