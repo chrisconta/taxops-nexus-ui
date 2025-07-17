@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -102,15 +102,31 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       behavior: "smooth"
     });
   }, [messages]);
-  const handleNewChat = () => {
-    startNew();
-    // Clear localStorage cache to ensure clean start
-    localStorage.removeItem('taxops-chat-storage');
-    toast({
-      title: "New Chat Started",
-      description: "Previous conversation saved to history"
-    });
-  };
+  const handleNewChat = useCallback(async () => {
+    try {
+      // First, start the new chat to clear the messages
+      startNew();
+      
+      // Wait for the next tick to ensure state updates are applied
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Clear localStorage cache to ensure clean start
+      localStorage.removeItem('taxops-chat-storage');
+      
+      // Show success toast
+      toast({
+        title: "New Chat Started",
+        description: "Previous conversation saved to history"
+      });
+    } catch (error) {
+      console.error('Error starting new chat:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start new chat",
+        variant: "destructive"
+      });
+    }
+  }, [startNew, toast]);
   const handleSend = async (text: string) => {
     // Use external handler if provided, otherwise use internal logic
     if (externalOnSend) {
