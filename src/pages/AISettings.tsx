@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Key, FileText, Activity, Download, Code, Calendar, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, Key, FileText, Activity, Download, Code, Calendar, Clock, CheckCircle, XCircle, AlertCircle, MessageSquare, User, Bot, Cog, AlertTriangle, Info, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,8 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ReportRulesEditor } from "@/components/settings/ReportRulesEditor";
+import { useChatLogger } from "@/hooks/useChatLogger";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const AISettings = () => {
   const [apiKey, setApiKey] = useState("");
@@ -18,7 +20,9 @@ const AISettings = () => {
   const [loading, setLoading] = useState(true);
   const [apiLogs, setApiLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const { toast } = useToast();
+  const { sessions, clearSessions } = useChatLogger();
 
   useEffect(() => {
     checkExistingKey();
@@ -157,11 +161,40 @@ const AISettings = () => {
     });
   };
 
-  const getStatusIcon = (status: number) => {
-    if (status >= 200 && status < 300) return <CheckCircle className="w-4 h-4 text-green-400" />;
-    if (status >= 400 && status < 500) return <AlertCircle className="w-4 h-4 text-yellow-400" />;
-    if (status >= 500) return <XCircle className="w-4 h-4 text-red-400" />;
-    return <Clock className="w-4 h-4 text-gray-400" />;
+  const getLogTypeIcon = (type: string) => {
+    switch (type) {
+      case 'message': return <MessageSquare className="w-4 h-4" />;
+      case 'system': return <Cog className="w-4 h-4" />;
+      case 'process': return <Activity className="w-4 h-4" />;
+      case 'error': return <XCircle className="w-4 h-4" />;
+      default: return <Info className="w-4 h-4" />;
+    }
+  };
+
+  const getLogTypeColor = (type: string) => {
+    switch (type) {
+      case 'message': return 'bg-blue-500/20 text-blue-300';
+      case 'system': return 'bg-gray-500/20 text-gray-300';
+      case 'process': return 'bg-purple-500/20 text-purple-300';
+      case 'error': return 'bg-red-500/20 text-red-300';
+      default: return 'bg-gray-500/20 text-gray-300';
+    }
+  };
+
+  const getStatusIcon = (status: any) => {
+    if (typeof status === 'number') {
+      if (status >= 200 && status < 300) return <CheckCircle className="w-4 h-4 text-green-400" />;
+      if (status >= 400 && status < 500) return <AlertCircle className="w-4 h-4 text-yellow-400" />;
+      if (status >= 500) return <XCircle className="w-4 h-4 text-red-400" />;
+      return <Clock className="w-4 h-4 text-gray-400" />;
+    }
+    
+    switch (status) {
+      case 'success': return <CheckCircle className="w-4 h-4 text-green-400" />;
+      case 'error': return <XCircle className="w-4 h-4 text-red-400" />;
+      case 'pending': return <Clock className="w-4 h-4 text-yellow-400" />;
+      default: return <Info className="w-4 h-4 text-gray-400" />;
+    }
   };
 
   const currentApiDesign = {
@@ -198,7 +231,7 @@ const AISettings = () => {
         </div>
 
         <Tabs defaultValue="api-keys" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-glass-bg/50 border border-glass-border">
+          <TabsList className="grid w-full grid-cols-4 bg-glass-bg/50 border border-glass-border">
             <TabsTrigger value="api-keys" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
               <Key className="w-4 h-4 mr-2" />
               API Keys
@@ -206,6 +239,10 @@ const AISettings = () => {
             <TabsTrigger value="api-logs" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
               <Activity className="w-4 h-4 mr-2" />
               API Logs
+            </TabsTrigger>
+            <TabsTrigger value="chat-logs" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Chat Logs
             </TabsTrigger>
             <TabsTrigger value="report-rules" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
               <FileText className="w-4 h-4 mr-2" />
@@ -410,6 +447,118 @@ const AISettings = () => {
                     </div>
                     <ScrollBar orientation="horizontal" className="bg-glass-bg/30 hover:bg-glass-bg/50" />
                   </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="chat-logs" className="mt-6 space-y-6">
+            {/* Chat Logs Header */}
+            <Card className="bg-glass-bg/30 border-glass-border">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white flex items-center gap-2">
+                      <MessageSquare className="w-5 h-5" />
+                      Chat Activity Logs
+                    </CardTitle>
+                    <CardDescription className="text-taxops-gray-light">
+                      Detailed logs of chat conversations, system routing, processes, and errors
+                    </CardDescription>
+                  </div>
+                  <Button
+                    onClick={clearSessions}
+                    variant="outline"
+                    className="bg-glass-bg/20 border-glass-border text-white hover:bg-glass-bg/30"
+                    disabled={sessions.length === 0}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Clear All Logs
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {sessions.length === 0 ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-taxops-gray-light">No chat sessions found</div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {sessions.map((session) => (
+                      <Collapsible key={session.id}>
+                        <CollapsibleTrigger className="w-full">
+                          <Card className="bg-glass-bg/20 border-glass-border hover:bg-glass-bg/30 transition-colors">
+                            <CardHeader className="pb-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-taxops-gray-light" />
+                                    <span className="text-white font-medium">{session.title}</span>
+                                  </div>
+                                  <Badge 
+                                    variant="secondary"
+                                    className={`${session.status === 'active' ? 'bg-green-500/20 text-green-300' : 
+                                                session.status === 'failed' ? 'bg-red-500/20 text-red-300' : 
+                                                'bg-blue-500/20 text-blue-300'}`}
+                                  >
+                                    {session.status}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-4 text-sm text-taxops-gray-light">
+                                  <span>{session.entries.length} entries</span>
+                                  <span>{new Date(session.startTime).toLocaleString()}</span>
+                                </div>
+                              </div>
+                            </CardHeader>
+                          </Card>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <Card className="bg-glass-bg/10 border-glass-border/50 mt-2">
+                            <CardContent className="p-4">
+                              <ScrollArea className="h-96">
+                                <div className="space-y-2">
+                                  {session.entries.map((entry) => (
+                                    <div key={entry.id} className="flex items-start gap-3 p-3 bg-glass-bg/20 rounded border border-glass-border/30">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <div className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${getLogTypeColor(entry.type)}`}>
+                                          {getLogTypeIcon(entry.type)}
+                                          <span className="uppercase font-medium">{entry.type}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          {getStatusIcon(entry.status)}
+                                          <span className="text-xs text-taxops-gray-light">
+                                            {new Date(entry.timestamp).toLocaleTimeString()}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium text-white mb-1">{entry.action}</div>
+                                        <div className="text-xs text-taxops-gray-light break-words">{entry.details}</div>
+                                        {entry.data && (
+                                          <Collapsible>
+                                            <CollapsibleTrigger className="text-xs text-primary hover:text-primary/80 mt-1">
+                                              View Data
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent>
+                                              <ScrollArea className="h-20 mt-2 p-2 bg-glass-bg/30 border border-glass-border/50 rounded">
+                                                <pre className="text-xs text-taxops-gray-light font-mono whitespace-pre-wrap">
+                                                  {JSON.stringify(entry.data, null, 2)}
+                                                </pre>
+                                              </ScrollArea>
+                                            </CollapsibleContent>
+                                          </Collapsible>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </ScrollArea>
+                            </CardContent>
+                          </Card>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ))}
+                  </div>
                 )}
               </CardContent>
             </Card>

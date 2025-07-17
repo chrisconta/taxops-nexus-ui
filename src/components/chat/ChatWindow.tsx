@@ -20,6 +20,7 @@ import type { Plan } from "@/agent/planner/schema";
 import { supabase } from "@/integrations/supabase/client";
 import { withAction } from "@/lib/actionWrapper";
 import { ActionBanner } from "@/components/agent/ActionBanner";
+import { useChatLogger } from "@/hooks/useChatLogger";
 const TypingAnimation = () => {
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
   const [currentText, setCurrentText] = useState("");
@@ -111,6 +112,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     toast
   } = useToast();
 
+  // Initialize chat logger
+  const {
+    startSession,
+    endSession,
+    logMessage,
+    logSystemRoute,
+    logProcess,
+    logError,
+    getCurrentSession
+  } = useChatLogger();
+
   // Use external loading state if provided, otherwise use internal
   const isLoading = externalIsLoading !== undefined ? externalIsLoading : internalIsLoading;
 
@@ -119,9 +131,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const convId = searchParams.get('conv');
     if (convId) {
       load(convId);
+      // Start logger session
+      startSession(convId, `Chat Session ${new Date().toLocaleString()}`);
+      logSystemRoute('URL', 'Chat Window', `Loading conversation ${convId}`);
+    } else {
+      // Start a new session for new chats
+      const newSessionId = crypto.randomUUID();
+      startSession(newSessionId, `New Chat ${new Date().toLocaleString()}`);
+      logSystemRoute('Direct', 'Chat Window', 'New chat session started');
     }
-    // Removed auto-report generation - users should manually start planning
-  }, [searchParams, load]);
+  }, [searchParams, load, startSession, logSystemRoute]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -130,6 +149,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     });
   }, [messages]);
 
+  // Log messages when they are added
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      logMessage(lastMessage.author, 
+        typeof lastMessage.content === 'string' ? lastMessage.content : lastMessage.content.text || '',
+        lastMessage.id
+      );
+    }
+  }, [messages, logMessage]);
+
   // Update registration mode active state in chat store
   useEffect(() => {
     const isActive = registrationMode !== 'chat';
@@ -137,11 +167,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       setRegistrationModeActive(isActive);
       if (isActive) {
         setAction(undefined); // Clear any action when entering registration mode
+        logSystemRoute('Chat', 'Registration Mode', `Registration mode activated: ${registrationMode}`);
+      } else {
+        logSystemRoute('Registration Mode', 'Chat', 'Registration mode deactivated');
       }
     }
-  }, [registrationMode, registrationModeActive, setAction, setRegistrationModeActive]);
+  }, [registrationMode, registrationModeActive, setAction, setRegistrationModeActive, logSystemRoute]);
   const handleNewChat = useCallback(async () => {
     try {
+      logProcess('New Chat', 'started', 'Starting new chat session');
+      
+      // End current session
+      endSession('completed');
+      
       // First, start the new chat to clear the messages
       startNew();
       
@@ -151,12 +189,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       // Clear localStorage cache to ensure clean start
       localStorage.removeItem('taxops-chat-storage');
       
+      // Start new logger session
+      const newSessionId = crypto.randomUUID();
+      startSession(newSessionId, `New Chat ${new Date().toLocaleString()}`);
+      
+      logProcess('New Chat', 'completed', 'New chat session started successfully');
+      
       // Show success toast
       toast({
         title: "New Chat Started",
         description: "Previous conversation saved to history"
       });
     } catch (error) {
+      logError(error as Error, 'New Chat');
       console.error('Error starting new chat:', error);
       toast({
         title: "Error",
@@ -164,8 +209,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         variant: "destructive"
       });
     }
-  }, [startNew, toast]);
+  }, [startNew, toast, logProcess, logError, endSession, startSession]);
   const handleSend = async (text: string) => {
+    logProcess('Message Send', 'started', `User sending message: ${text.substring(0, 50)}...`);
+    
     // Use external handler if provided, otherwise use internal logic
     if (externalOnSend) {
       externalOnSend(text);
@@ -178,6 +225,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     if (trimmed.startsWith("👍") || trimmed.startsWith("👎")) {
       const positive = trimmed.startsWith("👍");
       const comment = trimmed.slice(1).trim() || undefined;
+      
+      logProcess('Feedback', 'started', `Processing ${positive ? 'positive' : 'negative'} feedback`);
 
       // Send feedback to edge function
       try {
