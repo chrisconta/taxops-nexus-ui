@@ -63,7 +63,17 @@ const TypingAnimation = () => {
   );
 };
 
-export const ChatWindow: React.FC = () => {
+interface ChatWindowProps {
+  onSend?: (text: string) => void;
+  onToolInvoke?: (toolName: string, params: Record<string, any>) => void;
+  isLoading?: boolean;
+}
+
+export const ChatWindow: React.FC<ChatWindowProps> = ({ 
+  onSend: externalOnSend, 
+  onToolInvoke: externalOnToolInvoke,
+  isLoading: externalIsLoading 
+}) => {
   const [searchParams] = useSearchParams();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [dataCollectors, setDataCollectors] = useState<Set<string>>(new Set());
@@ -73,7 +83,7 @@ export const ChatWindow: React.FC = () => {
   
   const {
     messages,
-    isLoading,
+    isLoading: internalIsLoading,
     send,
     load,
     startNew,
@@ -89,6 +99,9 @@ export const ChatWindow: React.FC = () => {
   const planMutation = usePlan();
   
   const { toast } = useToast();
+  
+  // Use external loading state if provided, otherwise use internal
+  const isLoading = externalIsLoading !== undefined ? externalIsLoading : internalIsLoading;
 
   // Load conversation from URL parameter
   useEffect(() => {
@@ -116,6 +129,13 @@ export const ChatWindow: React.FC = () => {
   };
 
   const handleSend = async (text: string) => {
+    // Use external handler if provided, otherwise use internal logic
+    if (externalOnSend) {
+      externalOnSend(text);
+      return;
+    }
+    
+    // Internal handling logic for when ChatWindow is standalone
     // Handle feedback input
     const trimmed = text.trim();
     if (trimmed.startsWith("👍") || trimmed.startsWith("👎")) {
@@ -295,6 +315,13 @@ export const ChatWindow: React.FC = () => {
   };
 
   const handleToolInvoke = (toolName: string, params: Record<string, any>) => {
+    // Use external handler if provided, otherwise use internal logic
+    if (externalOnToolInvoke) {
+      externalOnToolInvoke(toolName, params);
+      return;
+    }
+    
+    // Internal handling logic for when ChatWindow is standalone
     const invocationId = crypto.randomUUID();
     
     // 1) Show optimistic "pending" message
@@ -369,29 +396,7 @@ export const ChatWindow: React.FC = () => {
           <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px] w-full max-w-full overflow-hidden">{/* Added width constraints */}
             <div className="text-center max-w-2xl w-full overflow-hidden">
               <TypingAnimation />
-              
-              {/* Tool Launcher & Input centered below animation */}
-              <div className="mt-12 max-w-4xl w-full overflow-hidden">{/* Added overflow-hidden */}
-                <ToolLauncher
-                  onInvoke={handleToolInvoke}
-                  availableTools={["register_client", "create_connection", "build_dashboard"]}
-                  disabled={isLoading}
-                />
-                
-                <MessageInput 
-                  onSend={handleSend}
-                  placeholder="Type your message..."
-                  isLoading={isLoading}
-                />
-                
-                <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
-                  <span>Use tools above or type naturally</span>
-                </div>
-                
-                <div className="text-xs text-taxops-gray-light/60 mt-2 text-center">
-                  AI can make mistakes. Always review your work.
-                </div>
-              </div>
+              {/* Tool Launcher & Input removed - now handled by Sidebar */}
             </div>
           </div>
         ) : (
@@ -421,32 +426,7 @@ export const ChatWindow: React.FC = () => {
         )}
       </div>
 
-      {/* Tool Launcher & Input - Properly positioned at bottom with 2cm spacing from bottom */}
-      {messages.length > 0 && (
-        <div className="flex-shrink-0 border-t border-glass-border bg-glass-bg/30 mb-20 w-full max-w-full overflow-hidden">{/* Added width constraints */}
-          <div className="p-4 space-y-4 w-full max-w-full overflow-hidden">{/* Added width constraints */}
-            <ToolLauncher
-              onInvoke={handleToolInvoke}
-              availableTools={["register_client", "create_connection", "build_dashboard"]}
-              disabled={isLoading}
-            />
-            
-            <MessageInput 
-              onSend={handleSend}
-              placeholder="Type your message..."
-              isLoading={isLoading}
-            />
-            
-            <div className="flex justify-between text-xs text-taxops-gray-light">
-              <span>Use tools above or type naturally</span>
-            </div>
-            
-            <div className="text-xs text-taxops-gray-light/60 text-center">
-              AI can make mistakes. Always review your work.
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Input section removed - now handled by Sidebar */}
       
       {/* Plan Modal */}
       <PlanModal

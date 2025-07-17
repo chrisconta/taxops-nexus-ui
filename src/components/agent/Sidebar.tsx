@@ -10,11 +10,44 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChatWindow } from "@/components/chat/ChatWindow";
+import { ToolLauncher } from "@/components/agent/ToolLauncher";
+import { MessageInput } from "@/components/agent/MessageInput";
 import { useNavigate } from "react-router-dom";
+
+import { useChatStore } from "@/store/useChatStore";
+import { useExecuteTool } from "@/hooks/useExecuteTool";
 
 export const Sidebar: React.FC = () => {
   const { isSidebarOpen, closeSidebar } = useUIStore();
   const navigate = useNavigate();
+  
+  // Chat store for handlers
+  const { send, isLoading, addMessage } = useChatStore();
+  const executeToolMutation = useExecuteTool();
+  
+  const handleSend = async (text: string) => {
+    try {
+      await send(text);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+  };
+  
+  const handleToolInvoke = (toolName: string, params: Record<string, any>) => {
+    const invocationId = crypto.randomUUID();
+    
+    // Show optimistic message
+    addMessage({
+      id: invocationId,
+      author: "agent",
+      content: `Invoking ${toolName}...`,
+      timestamp: Date.now(),
+      toolCall: { name: toolName, params },
+    });
+
+    // Call server
+    executeToolMutation.mutate({ toolName, params });
+  };
   
   return (
     <>
@@ -80,8 +113,35 @@ export const Sidebar: React.FC = () => {
         </div>
         
         {/* Chat Content */}
-        <div className="flex-1 overflow-hidden">
-          <ChatWindow />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ChatWindow 
+            onSend={handleSend}
+            onToolInvoke={handleToolInvoke}
+            isLoading={isLoading}
+          />
+        </div>
+        
+        {/* Input Section at Bottom */}
+        <div className="flex-shrink-0 border-t border-border bg-background p-4 space-y-4">
+          <ToolLauncher
+            onInvoke={handleToolInvoke}
+            availableTools={["register_client", "create_connection", "build_dashboard"]}
+            disabled={isLoading}
+          />
+          
+          <MessageInput 
+            onSend={handleSend}
+            placeholder="Type your message..."
+            isLoading={isLoading}
+          />
+          
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Use tools above or type naturally</span>
+          </div>
+          
+          <div className="text-xs text-muted-foreground/60 text-center">
+            AI can make mistakes. Always review your work.
+          </div>
         </div>
       </div>
     </>
