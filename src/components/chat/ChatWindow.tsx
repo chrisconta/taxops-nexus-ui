@@ -14,23 +14,13 @@ import { PlanModal } from "@/components/agent/PlanModal";
 import { executePlanSequentially } from "@/utils/planExecutor";
 import type { Plan } from "@/agent/planner/schema";
 import { supabase } from "@/integrations/supabase/client";
-
 const TypingAnimation = () => {
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
   const [currentText, setCurrentText] = useState("");
   const [isTyping, setIsTyping] = useState(true);
-  
-  const texts = [
-    "What reports you want me to build?",
-    "What client you want me to register?",
-    "What connection you need to create?",
-    "What dashboard you want me to create?",
-    "What graph do you want?"
-  ];
-  
+  const texts = ["What reports you want me to build?", "What client you want me to register?", "What connection you need to create?", "What dashboard you want me to create?", "What graph do you want?"];
   useEffect(() => {
     const targetText = texts[currentTextIndex];
-    
     if (isTyping) {
       if (currentText.length < targetText.length) {
         const timer = setTimeout(() => {
@@ -50,29 +40,24 @@ const TypingAnimation = () => {
         }, 50);
         return () => clearTimeout(timer);
       } else {
-        setCurrentTextIndex((prev) => (prev + 1) % texts.length);
+        setCurrentTextIndex(prev => (prev + 1) % texts.length);
         setIsTyping(true);
       }
     }
   }, [currentText, isTyping, currentTextIndex]);
-  
-  return (
-    <h1 className="text-4xl font-bold text-white mb-8 h-16 flex items-center justify-center">
+  return <h1 className="text-4xl font-bold text-white mb-8 h-16 flex items-center justify-center">
       {currentText}<span className="animate-pulse">|</span>
-    </h1>
-  );
+    </h1>;
 };
-
 interface ChatWindowProps {
   onSend?: (text: string) => void;
   onToolInvoke?: (toolName: string, params: Record<string, any>) => void;
   isLoading?: boolean;
 }
-
-export const ChatWindow: React.FC<ChatWindowProps> = ({ 
-  onSend: externalOnSend, 
+export const ChatWindow: React.FC<ChatWindowProps> = ({
+  onSend: externalOnSend,
   onToolInvoke: externalOnToolInvoke,
-  isLoading: externalIsLoading 
+  isLoading: externalIsLoading
 }) => {
   const [searchParams] = useSearchParams();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -80,7 +65,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
   const [lastUserMessage, setLastUserMessage] = useState<string>("");
-  
   const {
     messages,
     isLoading: internalIsLoading,
@@ -94,19 +78,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     feedbackContext,
     setFeedbackContext
   } = useChatStore();
-  
   const executeToolMutation = useExecuteTool();
   const planMutation = usePlan();
-  
-  const { toast } = useToast();
-  
+  const {
+    toast
+  } = useToast();
+
   // Use external loading state if provided, otherwise use internal
   const isLoading = externalIsLoading !== undefined ? externalIsLoading : internalIsLoading;
 
   // Load conversation from URL parameter
   useEffect(() => {
     const convId = searchParams.get('conv');
-    
     if (convId) {
       load(convId);
     }
@@ -115,26 +98,26 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth"
+    });
   }, [messages]);
-
   const handleNewChat = () => {
     startNew();
     // Clear localStorage cache to ensure clean start
     localStorage.removeItem('taxops-chat-storage');
     toast({
       title: "New Chat Started",
-      description: "Previous conversation saved to history",
+      description: "Previous conversation saved to history"
     });
   };
-
   const handleSend = async (text: string) => {
     // Use external handler if provided, otherwise use internal logic
     if (externalOnSend) {
       externalOnSend(text);
       return;
     }
-    
+
     // Internal handling logic for when ChatWindow is standalone
     // Handle feedback input
     const trimmed = text.trim();
@@ -144,21 +127,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       // Send feedback to edge function
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: {
+            session
+          }
+        } = await supabase.auth.getSession();
         if (session) {
           await fetch('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/agent-feedback', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
+              'Authorization': `Bearer ${session.access_token}`
             },
             body: JSON.stringify({
               planId: feedbackContext.lastPlanId,
               stepId: feedbackContext.lastStepId,
               toolName: feedbackContext.toolName,
               feedback: positive,
-              comments: comment,
-            }),
+              comments: comment
+            })
           });
         }
       } catch (err) {
@@ -167,21 +154,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       // Clear feedback context
       setFeedbackContext({});
-      
       addMessage({
         id: crypto.randomUUID(),
         author: "user",
         content: text,
-        timestamp: Date.now(),
+        timestamp: Date.now()
       });
-
       addMessage({
         id: crypto.randomUUID(),
         author: "agent",
         content: "Thanks for your feedback! 🙏",
-        timestamp: Date.now(),
+        timestamp: Date.now()
       });
-
       return;
     }
 
@@ -189,33 +173,29 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     if (recovery.pendingStep && recovery.missingField) {
       // 1) Update the pending step's params
       recovery.pendingStep.params[recovery.missingField] = text.trim();
-      
+
       // Add user message
       addMessage({
         id: crypto.randomUUID(),
         author: "user",
         content: text,
-        timestamp: Date.now(),
+        timestamp: Date.now()
       });
-      
+
       // 2) Clear recovery state
       setRecovery({});
-      
+
       // 3) Resume execution with the current plan
       if (currentPlan) {
         executePlanSequentially(currentPlan);
       }
       return;
     }
-
     setLastUserMessage(text);
-    
+
     // Check if this looks like an actionable request that should generate a plan
     const actionableKeywords = ['add', 'create', 'register', 'setup', 'build', 'connect'];
-    const isActionable = actionableKeywords.some(keyword => 
-      text.toLowerCase().includes(keyword)
-    );
-    
+    const isActionable = actionableKeywords.some(keyword => text.toLowerCase().includes(keyword));
     if (isActionable) {
       // Automatically generate plan for actionable requests
       try {
@@ -229,7 +209,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           id: crypto.randomUUID(),
           author: "user",
           content: text,
-          timestamp: Date.now(),
+          timestamp: Date.now()
         });
 
         // Add thinking message with typing animation
@@ -239,34 +219,38 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           author: "agent",
           content: "Thinking",
           timestamp: Date.now(),
-          typing: true,
+          typing: true
         });
 
         // Generate plan automatically
-        planMutation.mutate(
-          { userPrompt: text, chatHistory },
-          {
-            onSuccess: (plan) => {
-              // Remove thinking message and show plan modal
-              const { removeTyping } = useChatStore.getState();
-              removeTyping();
-              setCurrentPlan(plan);
-              setIsPlanModalOpen(true);
-            },
-            onError: (error: any) => {
-              // Remove thinking message and show error
-              const { removeTyping } = useChatStore.getState();
-              removeTyping();
-              toast({
-                title: "Plan Generation Failed",
-                description: error.message,
-                variant: "destructive"
-              });
-              // Fallback to regular chat if plan generation fails
-              send(text);
-            }
+        planMutation.mutate({
+          userPrompt: text,
+          chatHistory
+        }, {
+          onSuccess: plan => {
+            // Remove thinking message and show plan modal
+            const {
+              removeTyping
+            } = useChatStore.getState();
+            removeTyping();
+            setCurrentPlan(plan);
+            setIsPlanModalOpen(true);
+          },
+          onError: (error: any) => {
+            // Remove thinking message and show error
+            const {
+              removeTyping
+            } = useChatStore.getState();
+            removeTyping();
+            toast({
+              title: "Plan Generation Failed",
+              description: error.message,
+              variant: "destructive"
+            });
+            // Fallback to regular chat if plan generation fails
+            send(text);
           }
-        );
+        });
       } catch (error) {
         toast({
           title: "Error",
@@ -287,7 +271,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       }
     }
   };
-
   const handleGeneratePlan = () => {
     if (!lastUserMessage) {
       toast({
@@ -303,207 +286,158 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       role: msg.author === "user" ? "user" : "assistant",
       content: typeof msg.content === 'string' ? msg.content : msg.content.text || ""
     }));
-
-    planMutation.mutate(
-      { userPrompt: lastUserMessage, chatHistory },
-      {
-        onSuccess: (plan) => {
-          setCurrentPlan(plan);
-          setIsPlanModalOpen(true);
-        },
-        onError: (error: any) => {
-          toast({
-            title: "Plan Generation Failed",
-            description: error.message,
-            variant: "destructive"
-          });
-        }
+    planMutation.mutate({
+      userPrompt: lastUserMessage,
+      chatHistory
+    }, {
+      onSuccess: plan => {
+        setCurrentPlan(plan);
+        setIsPlanModalOpen(true);
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Plan Generation Failed",
+          description: error.message,
+          variant: "destructive"
+        });
       }
-    );
+    });
   };
-
   const handleExecutePlan = async (plan: Plan) => {
     // Store the current plan for recovery purposes
     setCurrentPlan(plan);
-    
+
     // Use the centralized plan executor with recovery logic
     executePlanSequentially(plan);
   };
-
   const handleToolInvoke = (toolName: string, params: Record<string, any>) => {
     // Use external handler if provided, otherwise use internal logic
     if (externalOnToolInvoke) {
       externalOnToolInvoke(toolName, params);
       return;
     }
-    
+
     // Internal handling logic for when ChatWindow is standalone
     const invocationId = crypto.randomUUID();
-    
+
     // 1) Show optimistic "pending" message
     addMessage({
       id: invocationId,
       author: "agent",
       content: `Invoking ${toolName}...`,
       timestamp: Date.now(),
-      toolCall: { name: toolName, params },
+      toolCall: {
+        name: toolName,
+        params
+      }
     });
 
     // 2) Call server
-    executeToolMutation.mutate(
-      { toolName, params },
-      {
-        onSuccess: ({ result }) => {
-          // Add success message with result
-          addMessage({
-            id: crypto.randomUUID(),
-            author: "agent", 
-            content: `✅ ${toolName} completed successfully`,
-            timestamp: Date.now(),
-            toolCall: { name: toolName, params },
-          });
-          
-          toast({
-            title: "Tool Completed", 
-            description: `${toolName} executed successfully`,
-          });
-        },
-        onError: (error: any) => {
-          // Add error message
-          addMessage({
-            id: crypto.randomUUID(),
-            author: "agent",
-            content: `❌ ${toolName} failed: ${error.message}`,
-            timestamp: Date.now(),
-            toolCall: { name: toolName, params },
-          });
-          
-          toast({
-            title: "Tool Error",
-            description: error.message,
-            variant: "destructive"
-          });
-        },
+    executeToolMutation.mutate({
+      toolName,
+      params
+    }, {
+      onSuccess: ({
+        result
+      }) => {
+        // Add success message with result
+        addMessage({
+          id: crypto.randomUUID(),
+          author: "agent",
+          content: `✅ ${toolName} completed successfully`,
+          timestamp: Date.now(),
+          toolCall: {
+            name: toolName,
+            params
+          }
+        });
+        toast({
+          title: "Tool Completed",
+          description: `${toolName} executed successfully`
+        });
+      },
+      onError: (error: any) => {
+        // Add error message
+        addMessage({
+          id: crypto.randomUUID(),
+          author: "agent",
+          content: `❌ ${toolName} failed: ${error.message}`,
+          timestamp: Date.now(),
+          toolCall: {
+            name: toolName,
+            params
+          }
+        });
+        toast({
+          title: "Tool Error",
+          description: error.message,
+          variant: "destructive"
+        });
       }
-    );
+    });
   };
+  return <div className="h-full w-full flex flex-col overflow-hidden max-w-full">
+      {/* Header with New Chat Button - Fixed at top, properly positioned */}
+      {messages.length > 0}
 
-  return (
-    <div className="h-full w-full flex flex-col overflow-hidden">
-      {/* Header with New Chat Button - Fixed at top */}
-      {messages.length > 0 && (
-        <div className="flex-shrink-0 p-4 bg-background/80 backdrop-blur-sm border-b border-glass-border">
-          <div className="flex justify-end">
-            <Button 
-              onClick={handleNewChat}
-              className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 hover:border-primary/50"
-              variant="outline"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Chat
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {messages.length === 0 ? (
-        /* Empty state - full height available */
-        <div className="flex-1 flex flex-col items-center justify-center px-4">
-          <div className="text-center max-w-2xl w-full">
-            <TypingAnimation />
-            {/* Tool Launcher & Input centered below animation - only show when standalone */}
-            {!externalOnSend && (
-              <div className="mt-12 max-w-4xl w-full">
-                <ToolLauncher
-                  onInvoke={handleToolInvoke}
-                  availableTools={["register_client", "create_connection", "build_dashboard"]}
-                  disabled={isLoading}
-                />
-                
-                <MessageInput 
-                  onSend={handleSend}
-                  placeholder="Type your message..."
-                  isLoading={isLoading}
-                />
-                
-                <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
-                  <span>Use tools above or type naturally</span>
-                </div>
-                
-                <div className="text-xs text-taxops-gray-light/60 mt-2 text-center">
-                  AI can make mistakes. Always review your work.
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        /* Chat with messages - split layout */
-        <>
-          {/* Messages container - takes available space and scrolls */}
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <div className="h-full overflow-y-auto px-4 py-6">
+      {/* Chat Messages - Properly constrained scrollable area */}
+      <div className="flex-1 min-h-0 w-full overflow-hidden">
+        {messages.length === 0 ? <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px] w-full max-w-full overflow-hidden">
+            <div className="text-center max-w-2xl w-full overflow-hidden">
+              <TypingAnimation />
+              {/* Tool Launcher & Input centered below animation - only show when standalone */}
+              {!externalOnSend && <div className="mt-12 max-w-4xl w-full overflow-hidden">
+                  <ToolLauncher onInvoke={handleToolInvoke} availableTools={["register_client", "create_connection", "build_dashboard"]} disabled={isLoading} />
+                  
+                  <MessageInput onSend={handleSend} placeholder="Type your message..." isLoading={isLoading} />
+                  
+                  <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
+                    <span>Use tools above or type naturally</span>
+                  </div>
+                  
+                  <div className="text-xs text-taxops-gray-light/60 mt-2 text-center">
+                    AI can make mistakes. Always review your work.
+                  </div>
+                </div>}
+            </div>
+          </div> : <div className="h-full flex flex-col overflow-hidden">
+            {/* Messages container with proper scrolling */}
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-6">
               <div className="space-y-4">
                 <MessageList messages={messages} />
                 
                 {/* Data Collectors for messages that require data */}
-                {messages.map(message => (
-                  message.requiresData && !message.dataCollected && !dataCollectors.has(message.id) && (
-                    <div key={`collector-${message.id}`} className="mt-4">
-                      <TransactionDataCollector 
-                        messageId={message.id} 
-                        missingParams={message.missingParams} 
-                        onDataSubmitted={() => {
-                          setDataCollectors(prev => new Set(prev).add(message.id));
-                          markDataCollected(message.id);
-                        }} 
-                      />
-                    </div>
-                  )
-                ))}
+                {messages.map(message => message.requiresData && !message.dataCollected && !dataCollectors.has(message.id) && <div key={`collector-${message.id}`} className="mt-4">
+                      <TransactionDataCollector messageId={message.id} missingParams={message.missingParams} onDataSubmitted={() => {
+                setDataCollectors(prev => new Set(prev).add(message.id));
+                markDataCollected(message.id);
+              }} />
+                    </div>)}
                 
                 <div ref={messagesEndRef} />
               </div>
             </div>
-          </div>
+          </div>}
+      </div>
 
-          {/* Input section - Fixed at bottom when standalone */}
-          {!externalOnSend && (
-            <div className="flex-shrink-0 border-t border-glass-border bg-glass-bg/30">
-              <div className="p-4 space-y-4">
-                <ToolLauncher
-                  onInvoke={handleToolInvoke}
-                  availableTools={["register_client", "create_connection", "build_dashboard"]}
-                  disabled={isLoading}
-                />
-                
-                <MessageInput 
-                  onSend={handleSend}
-                  placeholder="Type your message..."
-                  isLoading={isLoading}
-                />
-                
-                <div className="flex justify-between text-xs text-taxops-gray-light">
-                  <span>Use tools above or type naturally</span>
-                </div>
-                
-                <div className="text-xs text-taxops-gray-light/60 text-center">
-                  AI can make mistakes. Always review your work.
-                </div>
-              </div>
+      {/* Input section for standalone mode when there are messages */}
+      {messages.length > 0 && !externalOnSend && <div className="flex-shrink-0 border-t border-glass-border bg-glass-bg/30 w-full max-w-full overflow-hidden">
+          <div className="p-4 space-y-4 w-full max-w-full overflow-hidden">
+            <ToolLauncher onInvoke={handleToolInvoke} availableTools={["register_client", "create_connection", "build_dashboard"]} disabled={isLoading} />
+            
+            <MessageInput onSend={handleSend} placeholder="Type your message..." isLoading={isLoading} />
+            
+            <div className="flex justify-between text-xs text-taxops-gray-light">
+              <span>Use tools above or type naturally</span>
             </div>
-          )}
-        </>
-      )}
+            
+            <div className="text-xs text-taxops-gray-light/60 text-center">
+              AI can make mistakes. Always review your work.
+            </div>
+          </div>
+        </div>}
       
       {/* Plan Modal */}
-      <PlanModal
-        isOpen={isPlanModalOpen}
-        onClose={() => setIsPlanModalOpen(false)}
-        plan={currentPlan}
-        onConfirm={handleExecutePlan}
-        isExecuting={executeToolMutation.isPending}
-      />
-    </div>
-  );
+      <PlanModal isOpen={isPlanModalOpen} onClose={() => setIsPlanModalOpen(false)} plan={currentPlan} onConfirm={handleExecutePlan} isExecuting={executeToolMutation.isPending} />
+    </div>;
 };
