@@ -365,8 +365,31 @@ export const ChatWindow: React.FC = () => {
       <div className="flex-1 overflow-y-auto min-h-0">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px]">
-            <div className="text-center max-w-2xl">
+            <div className="text-center max-w-2xl w-full">
               <TypingAnimation />
+              
+              {/* Tool Launcher & Input centered below animation */}
+              <div className="mt-12 max-w-4xl">
+                <ToolLauncher
+                  onInvoke={handleToolInvoke}
+                  availableTools={["register_client", "create_connection", "build_dashboard"]}
+                  disabled={isLoading}
+                />
+                
+                <MessageInput 
+                  onSend={handleSend}
+                  placeholder="Type your message..."
+                  isLoading={isLoading}
+                />
+                
+                <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
+                  <span>Use tools above or type naturally</span>
+                </div>
+                
+                <div className="text-xs text-taxops-gray-light/60 mt-2 text-center">
+                  AI can make mistakes. Always review your work.
+                </div>
+              </div>
             </div>
           </div>
         ) : (
@@ -394,9 +417,9 @@ export const ChatWindow: React.FC = () => {
         )}
       </div>
 
-      {/* Tool Launcher & Input - Fixed at bottom */}
-      <div className={`flex-shrink-0 p-6 ${messages.length === 0 ? 'pb-8' : 'border-t border-glass-border bg-glass-bg/30'}`}>
-        <div className={`${messages.length === 0 ? 'max-w-4xl mx-auto' : ''}`}>
+      {/* Tool Launcher & Input - Fixed at bottom for when there are messages */}
+      {messages.length > 0 && (
+        <div className="flex-shrink-0 p-6 border-t border-glass-border bg-glass-bg/30">
           <ToolLauncher
             onInvoke={handleToolInvoke}
             availableTools={["register_client", "create_connection", "build_dashboard"]}
@@ -417,7 +440,7 @@ export const ChatWindow: React.FC = () => {
             AI can make mistakes. Always review your work.
           </div>
         </div>
-      </div>
+      )}
       
       {/* Plan Modal */}
       <PlanModal
