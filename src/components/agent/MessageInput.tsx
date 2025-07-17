@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -8,13 +8,17 @@ interface MessageInputProps {
   placeholder?: string;
   isLoading?: boolean;
   disabled?: boolean;
+  onNewChat?: () => void;
+  showNewChatButton?: boolean;
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({ 
   onSend, 
   placeholder = "Type your message...", 
   isLoading = false,
-  disabled = false
+  disabled = false,
+  onNewChat,
+  showNewChatButton = false
 }) => {
   const [input, setInput] = useState("");
 
@@ -43,6 +47,16 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         disabled={isLoading || disabled} 
         maxLength={4000} 
       />
+      {showNewChatButton && (
+        <Button 
+          onClick={onNewChat} 
+          disabled={isLoading || disabled} 
+          className="bg-secondary hover:bg-secondary/80 h-16 px-4"
+          title="Start new chat"
+        >
+          <MessageSquare className="w-5 h-5" />
+        </Button>
+      )}
       <Button 
         onClick={handleSend} 
         disabled={!input.trim() || isLoading || disabled || input.length > 4000} 

@@ -389,7 +389,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               {!externalOnSend && <div className="mt-12 max-w-4xl w-full overflow-hidden">
                   <ToolLauncher onInvoke={handleToolInvoke} availableTools={["register_client", "create_connection", "build_dashboard"]} disabled={isLoading} />
                   
-                  <MessageInput onSend={handleSend} placeholder="Type your message..." isLoading={isLoading} />
+                  <MessageInput 
+                    onSend={handleSend} 
+                    placeholder="Type your message..." 
+                    isLoading={isLoading} 
+                    onNewChat={startNew}
+                    showNewChatButton={true}
+                  />
                   
                   <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
                     <span>Use tools above or type naturally</span>
@@ -425,7 +431,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           <div className="p-4 space-y-4 w-full max-w-full overflow-hidden">
             <ToolLauncher onInvoke={handleToolInvoke} availableTools={["register_client", "create_connection", "build_dashboard"]} disabled={isLoading} />
             
-            <MessageInput onSend={handleSend} placeholder="Type your message..." isLoading={isLoading} />
+            <MessageInput 
+              onSend={handleSend} 
+              placeholder="Type your message..." 
+              isLoading={isLoading} 
+              onNewChat={startNew}
+              showNewChatButton={true}
+            />
             
             <div className="flex justify-between text-xs text-taxops-gray-light">
               <span>Use tools above or type naturally</span>
