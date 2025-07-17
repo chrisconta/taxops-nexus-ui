@@ -120,6 +120,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     logSystemRoute,
     logProcess,
     logError,
+    logNotification,
+    logEdgeFunction,
     getCurrentSession
   } = useChatLogger();
 
@@ -200,6 +202,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         title: "New Chat Started",
         description: "Previous conversation saved to history"
       });
+      logNotification('success', 'New Chat Started', 'Previous conversation saved to history');
     } catch (error) {
       logError(error as Error, 'New Chat');
       console.error('Error starting new chat:', error);
@@ -208,6 +211,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         description: "Failed to start new chat",
         variant: "destructive"
       });
+      logNotification('error', 'Error', 'Failed to start new chat');
     }
   }, [startNew, toast, logProcess, logError, endSession, startSession]);
   const handleSend = async (text: string) => {

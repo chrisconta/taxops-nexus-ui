@@ -150,6 +150,17 @@ class ChatLogger {
     this.log('error', 'Error', details, { error: errorMessage, context, data }, 'error');
   }
 
+  logNotification(type: 'success' | 'error' | 'warning' | 'info', title: string, description?: string) {
+    const status = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+    this.log('system', `${type.toUpperCase()} Notification`, `${title}${description ? `: ${description}` : ''}`, { type, title, description }, status);
+  }
+
+  logEdgeFunction(functionName: string, status: 'started' | 'completed' | 'failed', params?: any, result?: any, error?: any) {
+    const logStatus = status === 'started' ? 'pending' : status === 'completed' ? 'success' : 'error';
+    const details = `Edge function ${functionName} ${status}${error ? `: ${error.message || error}` : ''}`;
+    this.log('process', `Edge Function: ${functionName}`, details, { functionName, params, result, error, status }, logStatus);
+  }
+
   getCurrentSession() {
     return this.currentSession;
   }
@@ -204,6 +215,14 @@ export const useChatLogger = () => {
     chatLogger.logError(error, context, data);
   }, []);
 
+  const logNotification = useCallback((type: 'success' | 'error' | 'warning' | 'info', title: string, description?: string) => {
+    chatLogger.logNotification(type, title, description);
+  }, []);
+
+  const logEdgeFunction = useCallback((functionName: string, status: 'started' | 'completed' | 'failed', params?: any, result?: any, error?: any) => {
+    chatLogger.logEdgeFunction(functionName, status, params, result, error);
+  }, []);
+
   const clearSessions = useCallback(() => {
     chatLogger.clearSessions();
   }, []);
@@ -224,6 +243,8 @@ export const useChatLogger = () => {
     logSystemRoute,
     logProcess,
     logError,
+    logNotification,
+    logEdgeFunction,
     clearSessions,
     getCurrentSession,
     getSessionById
