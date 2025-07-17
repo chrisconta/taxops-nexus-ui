@@ -346,7 +346,7 @@ export const ChatWindow: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">{/* Changed from h-full to ensure proper height constraint */}
+    <div className="h-full w-full flex flex-col overflow-hidden max-w-full">{/* Added width constraints and max-width */}
       {/* Header with New Chat Button - Fixed at top, properly positioned */}
       {messages.length > 0 && (
         <div className="flex-shrink-0 p-4 bg-background/80 backdrop-blur-sm border-b border-glass-border">
@@ -364,14 +364,14 @@ export const ChatWindow: React.FC = () => {
       )}
 
       {/* Chat Messages - Properly constrained scrollable area */}
-      <div className="flex-1 min-h-0 overflow-y-auto">{/* Removed unnecessary classes */}
+      <div className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden">{/* Added overflow-x-hidden and w-full */}
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px]">
-            <div className="text-center max-w-2xl w-full">
+          <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px] w-full max-w-full overflow-hidden">{/* Added width constraints */}
+            <div className="text-center max-w-2xl w-full overflow-hidden">
               <TypingAnimation />
               
               {/* Tool Launcher & Input centered below animation */}
-              <div className="mt-12 max-w-4xl">
+              <div className="mt-12 max-w-4xl w-full overflow-hidden">{/* Added overflow-hidden */}
                 <ToolLauncher
                   onInvoke={handleToolInvoke}
                   availableTools={["register_client", "create_connection", "build_dashboard"]}
@@ -395,7 +395,7 @@ export const ChatWindow: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="px-4 py-6">
+          <div className="px-4 py-6 w-full max-w-full overflow-hidden">{/* Added width constraints */}
             <MessageList messages={messages} />
             
             {/* Data Collectors for messages that require data */}
@@ -421,8 +421,8 @@ export const ChatWindow: React.FC = () => {
 
       {/* Tool Launcher & Input - Properly positioned at bottom with 2cm spacing from bottom */}
       {messages.length > 0 && (
-        <div className="flex-shrink-0 border-t border-glass-border bg-glass-bg/30 mb-20">
-          <div className="p-4 space-y-4">
+        <div className="flex-shrink-0 border-t border-glass-border bg-glass-bg/30 mb-20 w-full max-w-full overflow-hidden">{/* Added width constraints */}
+          <div className="p-4 space-y-4 w-full max-w-full overflow-hidden">{/* Added width constraints */}
             <ToolLauncher
               onInvoke={handleToolInvoke}
               availableTools={["register_client", "create_connection", "build_dashboard"]}
