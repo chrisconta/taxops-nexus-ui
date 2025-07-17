@@ -21,6 +21,7 @@ export interface CreateConnectionParams {
   clientId: string;
   connectionType: "bank" | "erp" | "manual";
   institution: string;               // e.g. "Mercury", "Brex", "JPMorgan"
+  syncMode: "automatic" | "historical" | "file_upload";
   credentials: Record<string, string>;
 }
 
@@ -30,6 +31,7 @@ export const createConnectionSchema = {
     clientId: { type: "string", pattern: "^[a-f0-9\\-]{36}$" },
     connectionType: { type: "string", enum: ["bank", "erp", "manual"] },
     institution: { type: "string", minLength: 1 },
+    syncMode: { type: "string", enum: ["automatic", "historical", "file_upload"] },
     credentials: {
       type: "object",
       patternProperties: {
@@ -38,7 +40,7 @@ export const createConnectionSchema = {
       additionalProperties: false,
     },
   },
-  required: ["clientId", "connectionType", "institution", "credentials"],
+  required: ["clientId", "connectionType", "institution", "syncMode", "credentials"],
   additionalProperties: false,
 } as const;
 

@@ -135,7 +135,7 @@ AVAILABLE TOOLS:
    - Required params: name (string), email (string), companyId (string - use as taxid)
 
 2. create_connection - Set up a data connection for a client  
-   - Required params: clientId (string), connectionType (string), institution (string - e.g. "Mercury", "Brex", "JPMorgan"), credentials (object with placeholder keys)
+   - Required params: clientId (string), connectionType (string), institution (string - e.g. "Mercury", "Brex", "JPMorgan"), syncMode (string - one of: "automatic", "historical", "file_upload"), credentials (object with placeholder keys like {"username":"", "password":""})
 
 3. build_dashboard - Create analytics dashboard for a client
    - Required params: clientId (string), metrics (array), timeframe (object with start/end dates)
