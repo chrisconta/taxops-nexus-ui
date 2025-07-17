@@ -45,14 +45,14 @@ export const PlanModal: React.FC<PlanModalProps> = ({
 
   // Initialize edited steps when plan changes
   React.useEffect(() => {
-    if (plan && Array.isArray(steps)) {
-      setEditedSteps(steps);
+    if (plan && plan.steps && Array.isArray(plan.steps)) {
+      setEditedSteps(plan.steps);
       setEditErrors({});
     } else {
       setEditedSteps([]);
       setEditErrors({});
     }
-  }, [plan, steps]);
+  }, [plan]);
 
   if (!plan) return null;
 
