@@ -32,6 +32,9 @@ interface ChatState {
   isLoading: boolean;
   recovery: RecoveryState;
   feedbackContext: FeedbackContext;
+  currentAction?: 'read'|'validate'|'edit'|'execute'|'error';
+  currentTarget?: string;
+  registrationModeActive: boolean;
   addMessage: (message: Message) => void;
   clearMessages: () => void;
   send: (text: string) => Promise<void>;
@@ -42,6 +45,9 @@ interface ChatState {
   markDataCollected: (messageId: string) => void;
   setRecovery: (recovery: RecoveryState) => void;
   setFeedbackContext: (ctx: FeedbackContext) => void;
+  setAction: (action?: ChatState['currentAction'], target?: string) => void;
+  clearAction: () => void;
+  shouldShowBanner: () => boolean;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -51,6 +57,9 @@ export const useChatStore = create<ChatState>()(
       isLoading: false,
       recovery: {},
       feedbackContext: {},
+      currentAction: undefined,
+      currentTarget: undefined,
+      registrationModeActive: false,
       
       addMessage: (message: Message) => {
         set(state => ({ messages: [...state.messages, message] }));
@@ -99,6 +108,19 @@ export const useChatStore = create<ChatState>()(
 
       setFeedbackContext: (feedbackContext: FeedbackContext) => {
         set({ feedbackContext });
+      },
+      
+      setAction: (action, target) => {
+        set({ currentAction: action, currentTarget: target });
+      },
+      
+      clearAction: () => {
+        set({ currentAction: undefined, currentTarget: undefined });
+      },
+      
+      shouldShowBanner: () => {
+        const state = get();
+        return !state.registrationModeActive && !state.isLoading;
       },
       
       

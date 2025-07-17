@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      action_logs: {
+        Row: {
+          action: string
+          created_at: string
+          detail: string | null
+          id: string
+          params: Json | null
+          target: string | null
+          tool: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          detail?: string | null
+          id?: string
+          params?: Json | null
+          target?: string | null
+          tool?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          detail?: string | null
+          id?: string
+          params?: Json | null
+          target?: string | null
+          tool?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agent_tool_logs: {
         Row: {
           error_message: string | null
