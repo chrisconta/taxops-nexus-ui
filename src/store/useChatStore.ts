@@ -167,16 +167,39 @@ export const useChatStore = create<ChatState>()(
         });
 
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) throw new Error('Not authenticated');
+          console.log('Getting user session for AI orchestrator call');
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError) {
+            console.error('Session error:', sessionError);
+            throw new Error(`Session error: ${sessionError.message}`);
+          }
+          
+          if (!session) {
+            console.error('No active session found');
+            throw new Error('Not authenticated - please log in');
+          }
 
+          console.log('Session found, calling ai-orchestrator function');
           const { data, error } = await supabase.functions.invoke('ai-orchestrator', {
             body: { message: text, conversation_id: convId },
-            headers: { Authorization: `Bearer ${session.access_token}` }
+            headers: { 
+              Authorization: `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json'
+            }
           });
 
-          if (error) throw new Error(error.message);
+          if (error) {
+            console.error('Function invocation error:', error);
+            throw new Error(`Function error: ${error.message}`);
+          }
+          
+          if (!data) {
+            console.error('No data returned from function');
+            throw new Error('No response from AI service');
+          }
 
+          console.log('AI orchestrator response:', data);
           const result = data as { intent: string; params: Record<string, any>; type: string; reply: string };
 
           get().removeTyping();
@@ -191,10 +214,23 @@ export const useChatStore = create<ChatState>()(
         } catch (error) {
           console.error('Chat error:', error);
           get().removeTyping();
+          
+          // Provide more specific error messages
+          let errorMessage = 'Sorry, I encountered an error. Please try again.';
+          if (error instanceof Error) {
+            if (error.message.includes('Not authenticated')) {
+              errorMessage = 'Please log in to continue the conversation.';
+            } else if (error.message.includes('DeepSeek API key')) {
+              errorMessage = 'AI service configuration error. Please check your settings.';
+            } else if (error.message.includes('Function error')) {
+              errorMessage = `Service error: ${error.message}`;
+            }
+          }
+          
           get().addMessage({
             id: crypto.randomUUID(),
             author: 'agent',
-            content: 'Sorry, I encountered an error. Please try again.',
+            content: errorMessage,
             timestamp: Date.now()
           });
           set({ isLoading: false });

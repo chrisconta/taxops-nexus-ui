@@ -43,30 +43,51 @@ export function extractJson<T = unknown>(text: string): T | null {
 }
 
 async function decryptDeepSeekKey(supabase: SupabaseClient, userId: string) {
+  console.log(`Attempting to fetch DeepSeek key for user: ${userId}`);
+  
   const { data, error } = await supabase
     .from('ai_credentials')
     .select('enc_key, iv, ciphertext')
     .eq('provider', 'deepseek')
     .eq('user_id', userId)
     .single();
-  if (error || !data) {
+  
+  if (error) {
+    console.error('Error fetching DeepSeek credentials:', error);
+    throw new Error(`DeepSeek API key fetch error: ${error.message}`);
+  }
+  
+  if (!data) {
+    console.error('No DeepSeek credentials found for user');
     throw new Error('DeepSeek API key not configured');
   }
-  const keyBytes = Uint8Array.from(atob(data.enc_key), c => c.charCodeAt(0));
-  const iv = Uint8Array.from(atob(data.iv), c => c.charCodeAt(0));
-  const ciphertext = Uint8Array.from(atob(data.ciphertext), c => c.charCodeAt(0));
-  const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['decrypt']);
-  const decryptedBytes = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, ciphertext);
-  return new TextDecoder().decode(decryptedBytes);
+
+  try {
+    const keyBytes = Uint8Array.from(atob(data.enc_key), c => c.charCodeAt(0));
+    const iv = Uint8Array.from(atob(data.iv), c => c.charCodeAt(0));
+    const ciphertext = Uint8Array.from(atob(data.ciphertext), c => c.charCodeAt(0));
+    
+    const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['decrypt']);
+    const decryptedBytes = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, ciphertext);
+    
+    console.log('Successfully decrypted DeepSeek API key');
+    return new TextDecoder().decode(decryptedBytes);
+  } catch (decryptError) {
+    console.error('Error decrypting DeepSeek key:', decryptError);
+    throw new Error('Failed to decrypt DeepSeek API key');
+  }
 }
 
 async function askDeepSeek(apiKey: string, messages: Array<{ role: string; content: string }>) {
+  console.log('Making request to DeepSeek API with', messages.length, 'messages');
+  
   const body = {
     model: 'deepseek-chat',
     temperature: 0,
     max_tokens: 256,
     messages,
   };
+  
   const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -75,11 +96,15 @@ async function askDeepSeek(apiKey: string, messages: Array<{ role: string; conte
     },
     body: JSON.stringify(body)
   });
+  
   if (!res.ok) {
     const text = await res.text();
+    console.error('DeepSeek API error:', res.status, text);
     throw new Error(`DeepSeek API error: ${res.status} ${text}`);
   }
+  
   const data = await res.json();
+  console.log('DeepSeek API response received successfully');
   return data.choices[0].message.content.trim();
 }
 
@@ -89,9 +114,29 @@ serve(async (req) => {
   }
 
   try {
+    console.log('AI Orchestrator function called');
+    
+    // Validate environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('Missing required environment variables:', { 
+        hasUrl: !!supabaseUrl, 
+        hasAnonKey: !!supabaseAnonKey 
+      });
+      throw new Error('Missing required environment variables');
+    }
+
     const { message, conversation_id } = await req.json();
+    console.log('Request payload:', { 
+      hasMessage: !!message, 
+      conversationId: conversation_id,
+      messageLength: message?.length 
+    });
 
     if (!conversation_id) {
+      console.error('Missing conversation_id in request');
       return new Response(JSON.stringify({ error: 'conversation_id required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -100,38 +145,74 @@ serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('Missing Authorization header');
       return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    console.log('Authorization header present, creating Supabase client');
     
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
+    // Create Supabase client with service role for admin operations
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError || !userData.user) {
-      return new Response(JSON.stringify({ error: 'Invalid authorization token' }), {
+    // Extract JWT token from Authorization header
+    const jwt = authHeader.replace('Bearer ', '');
+    console.log('Extracted JWT token, length:', jwt.length);
+
+    // Get user from JWT token
+    const { data: userData, error: userError } = await supabase.auth.getUser(jwt);
+    
+    if (userError) {
+      console.error('User authentication error:', userError);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid authorization token', 
+        details: userError.message 
+      }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    if (!userData.user) {
+      console.error('No user found in JWT token');
+      return new Response(JSON.stringify({ error: 'No user found in token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const userId = userData.user.id;
+    console.log('User authenticated successfully:', userId);
 
-    const apiKey = await decryptDeepSeekKey(supabase, userId);
+    // Get DeepSeek API key
+    let apiKey;
+    try {
+      apiKey = await decryptDeepSeekKey(supabase, userId);
+    } catch (keyError) {
+      console.error('Failed to get DeepSeek API key:', keyError);
+      return new Response(JSON.stringify({ 
+        error: 'DeepSeek API key not configured or invalid',
+        details: keyError.message 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
+    // Get or initialize conversation state
     const state = conversationStates.get(conversation_id) || { messages: [] };
     appendMessage(state, { role: 'user', content: message });
+    console.log('Conversation state updated, total messages:', state.messages.length);
 
     let reply = '';
     let intent = state.tool || '';
     let type: 'conversational' | 'actionable' = 'conversational';
 
     if (!state.tool) {
+      console.log('No tool selected, determining intent');
+      
       const instruction =
         'You are helping an AI orchestrator decide which tool to use based on the user\'s request. ' +
         'Available tools: register_client - Register a new client (needs name, email, ein); ' +
@@ -139,60 +220,82 @@ serve(async (req) => {
         'build_dashboard - Build a dashboard for a client (needs clientId, metrics, timeframe). ' +
         'Respond in JSON as {"tool": "<tool>", "reply": "<message>"}.';
 
-      const dsResponse = await askDeepSeek(apiKey, [
-        { role: 'system', content: instruction },
-        ...state.messages
-      ]);
+      try {
+        const dsResponse = await askDeepSeek(apiKey, [
+          { role: 'system', content: instruction },
+          ...state.messages
+        ]);
 
-      const parsed = extractJson<{ tool?: string; reply?: string }>(dsResponse);
-      if (parsed) {
-        state.tool = parsed.tool;
-        intent = state.tool || '';
-        reply = parsed.reply || '';
-        state.confirmed = false;
-        conversationStates.set(conversation_id, state);
-      } else {
-        reply = dsResponse;
-        conversationStates.set(conversation_id, state);
+        const parsed = extractJson<{ tool?: string; reply?: string }>(dsResponse);
+        if (parsed) {
+          state.tool = parsed.tool;
+          intent = state.tool || '';
+          reply = parsed.reply || '';
+          state.confirmed = false;
+          conversationStates.set(conversation_id, state);
+          console.log('Tool selected:', intent);
+        } else {
+          reply = dsResponse;
+          conversationStates.set(conversation_id, state);
+          console.log('No tool selected, providing conversational response');
+        }
+      } catch (deepseekError) {
+        console.error('DeepSeek API call failed:', deepseekError);
+        throw deepseekError;
       }
     } else if (!state.confirmed) {
+      console.log('Tool selected but not confirmed, checking confirmation');
+      
       const instruction =
         `You are helping an AI orchestrator with the tool "${state.tool}" already selected. ` +
         'Determine if the user\'s message confirms they want to proceed with this tool. ' +
         'Respond in JSON as {"confirmed": true|false, "reply": "<message>"}.';
 
-      const dsResponse = await askDeepSeek(apiKey, [
-        { role: 'system', content: instruction },
-        ...state.messages
-      ]);
+      try {
+        const dsResponse = await askDeepSeek(apiKey, [
+          { role: 'system', content: instruction },
+          ...state.messages
+        ]);
 
-      const parsed = extractJson<{ confirmed?: boolean; reply?: string }>(dsResponse);
-      if (parsed) {
-        reply = parsed.reply || '';
-        intent = state.tool || '';
-        if (parsed.confirmed === true) {
-          type = 'actionable';
-          state.confirmed = true;
-          conversationStates.delete(conversation_id);
+        const parsed = extractJson<{ confirmed?: boolean; reply?: string }>(dsResponse);
+        if (parsed) {
+          reply = parsed.reply || '';
+          intent = state.tool || '';
+          if (parsed.confirmed === true) {
+            type = 'actionable';
+            state.confirmed = true;
+            conversationStates.delete(conversation_id);
+            console.log('Tool confirmed, ready for action');
+          } else {
+            conversationStates.set(conversation_id, state);
+            console.log('Tool not confirmed, continuing conversation');
+          }
         } else {
+          reply = dsResponse;
+          intent = state.tool || '';
           conversationStates.set(conversation_id, state);
         }
-      } else {
-        reply = dsResponse;
-        intent = state.tool || '';
-        conversationStates.set(conversation_id, state);
+      } catch (deepseekError) {
+        console.error('DeepSeek API call failed:', deepseekError);
+        throw deepseekError;
       }
     }
 
+    const response = { intent, params: {}, type, reply };
+    console.log('Sending response:', { intent, type, replyLength: reply.length });
+
     return new Response(
-      JSON.stringify({ intent, params: {}, type, reply }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message || 'Invalid request' }), {
-      status: 400,
+    console.error('AI Orchestrator error:', err);
+    return new Response(JSON.stringify({ 
+      error: err.message || 'Invalid request',
+      stack: err.stack 
+    }), {
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
-
