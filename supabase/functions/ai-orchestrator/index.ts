@@ -195,4 +195,3 @@ serve(async (req) => {
   }
 });
 
-export {}
