@@ -3,7 +3,7 @@
 export interface RegisterClientParams {
   name: string;
   email: string;
-  companyId: string;
+  ein: string;
 }
 
 export const registerClientSchema = {
@@ -11,9 +11,9 @@ export const registerClientSchema = {
   properties: {
     name: { type: "string", minLength: 1 },
     email: { type: "string", format: "email" },
-    companyId: { type: "string", pattern: "^[a-f0-9\\-]{36}$" },
+    ein: { type: "string", pattern: "^\\d{2}-?\\d{7}$" },
   },
-  required: ["name", "email", "companyId"],
+  required: ["name", "email", "ein"],
   additionalProperties: false,
 } as const;
 

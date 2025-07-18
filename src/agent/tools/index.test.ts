@@ -10,7 +10,7 @@ describe("Tool Registry Validation", () => {
           { 
             name: "Alice", 
             email: "a@example.com", 
-            companyId: "123e4567-e89b-12d3-a456-426614174000" 
+            ein: "12-3456789"
           }
         )
       ).toBe(true);
@@ -21,8 +21,8 @@ describe("Tool Registry Validation", () => {
         validateToolParams("register_client", { 
           name: "Bob", 
           email: "b@ex.com", 
-          companyId: "123e4567-e89b-12d3-a456-426614174000", 
-          extra: 1 
+          ein: "12-3456789",
+          extra: 1
         })
       ).toBe(false);
     });
@@ -32,7 +32,7 @@ describe("Tool Registry Validation", () => {
         validateToolParams("register_client", { 
           name: "Charlie", 
           email: "invalid-email", 
-          companyId: "123e4567-e89b-12d3-a456-426614174000" 
+          ein: "12-3456789"
         })
       ).toBe(false);
     });
