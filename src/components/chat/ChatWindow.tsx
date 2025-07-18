@@ -176,6 +176,74 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       }
     }
   }, [registrationMode, registrationModeActive, setAction, setRegistrationModeActive, logSystemRoute]);
+
+  // Listen for orchestrator plan generation triggers
+  useEffect(() => {
+    const handlePlanGeneration = (event: CustomEvent) => {
+      const { userPrompt, chatHistory } = event.detail;
+      
+      logProcess('Plan Generation', 'started', `Orchestrator triggered plan generation for: ${userPrompt.substring(0, 50)}...`);
+      
+      // Add thinking message
+      const thinkingMessageId = crypto.randomUUID();
+      addMessage({
+        id: thinkingMessageId,
+        author: "agent",
+        content: "Generating plan...",
+        timestamp: Date.now(),
+        typing: true
+      });
+
+      // Generate the plan
+      planMutation.mutate({
+        userPrompt,
+        chatHistory
+      }, {
+        onSuccess: plan => {
+          // Remove thinking message and show plan modal
+          const { removeTyping } = useChatStore.getState();
+          removeTyping();
+          setCurrentPlan(plan);
+          setIsPlanModalOpen(true);
+          logProcess('Plan Generation', 'completed', `Plan generated successfully: ${plan.intent}`);
+        },
+        onError: (error: any) => {
+          // Remove thinking message and show error
+          const { removeTyping } = useChatStore.getState();
+          removeTyping();
+          
+          logError(error as Error, 'Plan Generation');
+          
+          // Handle validation errors specifically
+          if (error instanceof ValidationError) {
+            const msgId = crypto.randomUUID();
+            addMessage({
+              id: msgId,
+              author: "agent",
+              content: `I need some additional information to complete this request:`,
+              timestamp: Date.now(),
+              requiresData: true,
+              validationErrors: error.validationResponse
+            });
+            return;
+          }
+          
+          toast({
+            title: "Plan Generation Failed",
+            description: error.message,
+            variant: "destructive"
+          });
+          logNotification('error', 'Plan Generation Failed', error.message);
+        }
+      });
+    };
+
+    window.addEventListener('triggerPlanGeneration', handlePlanGeneration as EventListener);
+    
+    return () => {
+      window.removeEventListener('triggerPlanGeneration', handlePlanGeneration as EventListener);
+    };
+  }, [addMessage, planMutation, toast, logProcess, logError, logNotification]);
   const handleNewChat = useCallback(async () => {
     try {
       logProcess('New Chat', 'started', 'Starting new chat session');
@@ -301,100 +369,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
     setLastUserMessage(text);
 
-    // Check if this looks like an actionable request that should generate a plan
-    const actionableKeywords = ['add', 'create', 'register', 'setup', 'build', 'connect'];
-    const isActionable = actionableKeywords.some(keyword => text.toLowerCase().includes(keyword));
-    if (isActionable) {
-      // Automatically generate plan for actionable requests
-      try {
-        const chatHistory = messages.slice(-5).map(msg => ({
-          role: msg.author === "user" ? "user" : "assistant",
-          content: typeof msg.content === 'string' ? msg.content : msg.content.text || ""
-        }));
-
-        // Add user message first
-        addMessage({
-          id: crypto.randomUUID(),
-          author: "user",
-          content: text,
-          timestamp: Date.now()
-        });
-
-        // Add thinking message with typing animation
-        const thinkingMessageId = crypto.randomUUID();
-        addMessage({
-          id: thinkingMessageId,
-          author: "agent",
-          content: "Thinking",
-          timestamp: Date.now(),
-          typing: true
-        });
-
-        // Generate plan automatically
-        planMutation.mutate({
-          userPrompt: text,
-          chatHistory
-        }, {
-          onSuccess: plan => {
-            // Remove thinking message and show plan modal
-            const {
-              removeTyping
-            } = useChatStore.getState();
-            removeTyping();
-            setCurrentPlan(plan);
-            setIsPlanModalOpen(true);
-          },
-          onError: (error: any) => {
-            // Remove thinking message and show error
-            const {
-              removeTyping
-            } = useChatStore.getState();
-            removeTyping();
-            
-            // Handle validation errors specifically
-            if (error instanceof ValidationError) {
-              // Instead of showing toast, add message with data collector
-              const { removeTyping, addMessage } = useChatStore.getState();
-              removeTyping();
-              const msgId = crypto.randomUUID();
-              addMessage({
-                id: msgId,
-                author: "agent",
-                content: `I need some additional information to complete this request:`,
-                timestamp: Date.now(),
-                requiresData: true,
-                validationErrors: error.validationResponse
-              });
-              return;
-            }
-            
-            toast({
-              title: "Plan Generation Failed",
-              description: error.message,
-              variant: "destructive"
-            });
-            // Fallback to regular chat if plan generation fails
-            send(text);
-          }
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : 'Failed to process request',
-          variant: "destructive"
-        });
-      }
-    } else {
-      // For non-actionable messages, use regular chat
-      try {
-        await send(text);
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : 'Failed to send message',
-          variant: "destructive"
-        });
-      }
+    // Always route through orchestrator first - let it manage conversation flow
+    try {
+      await send(text);
+      logProcess('Message Send', 'completed', 'Message sent to orchestrator successfully');
+    } catch (error) {
+      logError(error as Error, 'Message Send');
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to send message',
+        variant: "destructive"
+      });
     }
   };
   const handleGeneratePlan = () => {

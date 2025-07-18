@@ -218,6 +218,20 @@ export const useChatStore = create<ChatState>()(
                       });
                       hasStarted = true;
                     }
+                  } else if (parsed.type === 'generate_plan') {
+                    // Orchestrator signals it's ready to generate a plan
+                    if (!hasStarted) {
+                      get().removeTyping();
+                      hasStarted = true;
+                    }
+                    
+                    // Trigger plan generation in the ChatWindow
+                    window.dispatchEvent(new CustomEvent('triggerPlanGeneration', {
+                      detail: {
+                        userPrompt: parsed.userPrompt || text,
+                        chatHistory: parsed.chatHistory || []
+                      }
+                    }));
                   } else if (parsed.type === 'assistant_message') {
                     // Handle structured message with download button
                     if (!hasStarted) {
