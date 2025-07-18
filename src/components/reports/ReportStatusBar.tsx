@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { exportReport, importReport } from '@/lib/reportExport';
+import { useToast } from '@/hooks/use-toast';
 
 interface ReportStatusBarProps {
   isRunning: boolean;
@@ -28,6 +30,7 @@ export const ReportStatusBar: React.FC<ReportStatusBarProps> = ({
   onImport,
   onRunReport,
 }) => {
+  const { toast } = useToast();
   const getStatusIcon = () => {
     switch (status) {
       case 'running':
@@ -133,7 +136,20 @@ export const ReportStatusBar: React.FC<ReportStatusBarProps> = ({
         <Button
           variant="ghost"
           size="sm"
-          onClick={onImport}
+          onClick={() => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+              const file = (e.target as HTMLInputElement).files?.[0];
+              if (file) {
+                importReport(file)
+                  .then(() => toast({ title: 'Report imported successfully' }))
+                  .catch(() => toast({ title: 'Import failed', variant: 'destructive' }));
+              }
+            };
+            input.click();
+          }}
           className="h-8 px-3 text-xs"
         >
           <Upload className="h-3 w-3 mr-1" />
@@ -143,7 +159,14 @@ export const ReportStatusBar: React.FC<ReportStatusBarProps> = ({
         <Button
           variant="ghost"
           size="sm"
-          onClick={onExport}
+          onClick={() => {
+            const canvasElement = document.querySelector('[data-report-canvas]') as HTMLElement;
+            if (canvasElement) {
+              exportReport(canvasElement, { componentsCount, lastSaved }, { format: 'pdf' })
+                .then(() => toast({ title: 'Report exported successfully' }))
+                .catch(() => toast({ title: 'Export failed', variant: 'destructive' }));
+            }
+          }}
           disabled={componentsCount === 0}
           className="h-8 px-3 text-xs"
         >

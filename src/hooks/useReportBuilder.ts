@@ -94,12 +94,21 @@ export const useReportBuilder = () => {
     }));
 
     try {
-      // Simulate report execution with progress
-      for (let i = 0; i <= 100; i += 10) {
-        await new Promise(resolve => setTimeout(resolve, 200));
+      // Simulate report execution with progress updates
+      const phases = [
+        { message: 'Initializing report...', progress: 10 },
+        { message: 'Loading data sources...', progress: 30 },
+        { message: 'Processing components...', progress: 50 },
+        { message: 'Rendering widgets...', progress: 70 },
+        { message: 'Applying transformations...', progress: 85 },
+        { message: 'Finalizing report...', progress: 100 }
+      ];
+      
+      for (const phase of phases) {
+        await new Promise(resolve => setTimeout(resolve, 500));
         setUndoRedoState(current => ({
           ...current,
-          present: { ...current.present, progress: i }
+          present: { ...current.present, progress: phase.progress }
         }));
       }
       
@@ -110,23 +119,23 @@ export const useReportBuilder = () => {
       }));
       
       console.log('Report executed successfully');
-    } catch (error) {
-      // Update status to error
-      setUndoRedoState(current => ({
-        ...current,
-        present: { ...current.present, status: 'error', progress: 0 }
-      }));
-      console.error('Error running report:', error);
-    } finally {
-      setIsRunning(false);
       
-      // Reset to ready after 3 seconds
+      // Auto-reset after a delay
       setTimeout(() => {
         setUndoRedoState(current => ({
           ...current,
           present: { ...current.present, status: 'ready', progress: 0 }
         }));
-      }, 3000);
+        setIsRunning(false);
+      }, 2000);
+      
+    } catch (error) {
+      setUndoRedoState(current => ({
+        ...current,
+        present: { ...current.present, status: 'error', progress: 0 }
+      }));
+      setIsRunning(false);
+      console.error('Error running report:', error);
     }
   }, []);
 

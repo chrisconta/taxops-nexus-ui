@@ -1,5 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
+import { ReportWidget } from './ReportWidget';
+import { Button } from '@/components/ui/button';
+import { X, Plus, Minus } from 'lucide-react';
 
 interface CanvasItem {
   id: string;
@@ -7,6 +10,16 @@ interface CanvasItem {
   position: { x: number; y: number };
   size: { width: number; height: number };
   data: any;
+  name?: string;
+  dataSource?: string;
+  columns?: string[];
+  chartConfig?: {
+    xAxis?: string;
+    yAxis?: string;
+    aggregation?: string;
+  };
+  transformations?: any[];
+  script?: string;
 }
 
 interface ReportCanvasProps {
@@ -148,41 +161,110 @@ export const ReportCanvas: React.FC<ReportCanvasProps> = ({
     </div>
   );
 
-  const renderCanvasItem = (item: CanvasItem) => (
-    <div
-      key={item.id}
-      className={cn(
-        "absolute border-2 border-dashed border-transparent rounded-lg p-4",
-        "bg-glass-bg/30 backdrop-blur-sm cursor-pointer transition-all duration-200",
-        selectedItem === item.id ? "border-primary bg-primary/10" : "hover:border-white/30",
-        "min-w-[120px] min-h-[80px]"
-      )}
-      style={{
-        left: item.position.x,
-        top: item.position.y,
-        width: item.size.width,
-        height: item.size.height,
-      }}
-      onClick={() => handleItemClick(item.id)}
-    >
-      <div className="text-white text-sm font-medium mb-2">
-        {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+  const renderCanvasItem = (item: CanvasItem) => {
+    const isSelected = selectedItem === item.id;
+    
+    return (
+      <div
+        key={item.id}
+        className={cn(
+          "absolute transition-all duration-200 cursor-pointer",
+          isSelected ? "z-10" : "z-0"
+        )}
+        style={{
+          left: item.position.x,
+          top: item.position.y,
+          width: item.size.width,
+          height: item.size.height,
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleItemClick(item.id);
+        }}
+      >
+        {isRunning ? (
+          <ReportWidget 
+            item={item}
+            isSelected={isSelected}
+            onUpdate={(updates) => onItemUpdate?.(item.id, updates)}
+            onDelete={() => onItemDelete?.(item.id)}
+          />
+        ) : (
+          <div className="h-full bg-card/50 border-2 border-dashed border-border/50 rounded-lg p-4 cursor-pointer hover:border-border transition-colors">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-foreground">
+                {item.name || item.data?.label || item.type}
+              </span>
+              {isSelected && (
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onItemUpdate?.(item.id, { 
+                        size: { 
+                          width: Math.max(200, item.size.width - 50), 
+                          height: Math.max(150, item.size.height - 50) 
+                        } 
+                      });
+                    }}
+                  >
+                    <Minus className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onItemUpdate?.(item.id, { 
+                        size: { 
+                          width: item.size.width + 50, 
+                          height: item.size.height + 50 
+                        } 
+                      });
+                    }}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onItemDelete?.(item.id);
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+            
+            <div className="text-center text-muted-foreground">
+              <div className="text-xs">{item.type}</div>
+              <div className="text-xs opacity-75">
+                {item.size.width} × {item.size.height}
+              </div>
+            </div>
+            
+            {isSelected && (
+              <>
+                {/* Selection handles */}
+                <div className="absolute -top-1 -left-1 w-3 h-3 bg-primary rounded-full border-2 border-background"></div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-background"></div>
+                <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary rounded-full border-2 border-background"></div>
+                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-background"></div>
+              </>
+            )}
+          </div>
+        )}
       </div>
-      <div className="text-taxops-gray-light text-xs">
-        {item.data?.label || 'New component'}
-      </div>
-      
-      {selectedItem === item.id && (
-        <>
-          {/* Selection handles */}
-          <div className="absolute -top-1 -left-1 w-3 h-3 bg-primary rounded-full border-2 border-white"></div>
-          <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-white"></div>
-          <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary rounded-full border-2 border-white"></div>
-          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-white"></div>
-        </>
-      )}
-    </div>
-  );
+    );
+  };
 
   const renderDragPreview = () => {
     if (!dragPosition || !isDragOver) return null;
@@ -207,6 +289,7 @@ export const ReportCanvas: React.FC<ReportCanvasProps> = ({
   return (
     <div
       ref={canvasRef}
+      data-report-canvas
       className={cn(
         "flex-1 relative overflow-hidden transition-colors",
         isDragOver ? "bg-primary/5" : "bg-transparent"
