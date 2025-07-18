@@ -13,7 +13,7 @@ interface ConversationState {
 
 const conversationStates = new Map<string, ConversationState>();
 
-function extractJson(text: string): any | null {
+export function extractJson(text: string): any | null {
   try {
     const cleaned = text
       .replace(/```json/gi, "```")
