@@ -3,7 +3,7 @@ import addFormats from "ajv-formats";
 import { toolRegistry } from "@/agent/tools/index";
 import { useChatStore } from "@/store/useChatStore";
 import { useUIStore } from "@/stores/uiStore";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import type { Plan } from "@/agent/planner/schema";
 
 const ajv = new Ajv({ allErrors: true, strict: true });
@@ -13,7 +13,7 @@ async function invokeTool(toolName: string, params: Record<string, any>) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
-  const response = await fetch('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/agent-tool-execute', {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/agent-tool-execute`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${session.access_token}`,

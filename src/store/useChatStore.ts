@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
 import type { PlanStep } from '@/agent/planner/schema';
 
 export interface Message {
@@ -165,7 +165,7 @@ export const useChatStore = create<ChatState>()(
           if (!session) throw new Error('Not authenticated');
 
           // Use the function invoke method to call the edge function
-          const response = await fetch('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/ai-orchestrator', {
+          const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-orchestrator`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${session.access_token}`,
