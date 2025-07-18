@@ -115,6 +115,8 @@ serve(async (req) => {
 
   try {
     console.log('AI Orchestrator function called');
+    console.log('Request method:', req.method);
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
     
     // Validate environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -128,16 +130,69 @@ serve(async (req) => {
       throw new Error('Missing required environment variables');
     }
 
-    const { message, conversation_id } = await req.json();
-    console.log('Request payload:', { 
-      hasMessage: !!message, 
-      conversationId: conversation_id,
-      messageLength: message?.length 
-    });
+    // Validate Content-Type header
+    const contentType = req.headers.get('Content-Type');
+    console.log('Content-Type:', contentType);
+    
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('Invalid or missing Content-Type header:', contentType);
+      return new Response(JSON.stringify({ 
+        error: 'Content-Type must be application/json',
+        received: contentType 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Get raw request body for debugging
+    const rawBody = await req.text();
+    console.log('Raw request body length:', rawBody.length);
+    console.log('Raw request body (first 200 chars):', rawBody.substring(0, 200));
+    
+    if (!rawBody || rawBody.trim() === '') {
+      console.error('Empty request body received');
+      return new Response(JSON.stringify({ error: 'Request body is empty' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Parse JSON with proper error handling
+    let requestData;
+    try {
+      requestData = JSON.parse(rawBody);
+      console.log('Successfully parsed JSON:', { 
+        hasMessage: !!requestData.message, 
+        hasConversationId: !!requestData.conversation_id,
+        messageLength: requestData.message?.length 
+      });
+    } catch (jsonError) {
+      console.error('JSON parse error:', jsonError);
+      console.error('Failed to parse body:', rawBody);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid JSON in request body',
+        details: jsonError.message,
+        receivedBody: rawBody.substring(0, 100) + '...'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { message, conversation_id } = requestData;
 
     if (!conversation_id) {
       console.error('Missing conversation_id in request');
       return new Response(JSON.stringify({ error: 'conversation_id required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!message) {
+      console.error('Missing message in request');
+      return new Response(JSON.stringify({ error: 'message required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -154,12 +209,12 @@ serve(async (req) => {
 
     console.log('Authorization header present, creating Supabase client');
     
-    // Create Supabase client with service role for admin operations
+    // Create Supabase client
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     // Extract JWT token from Authorization header
     const jwt = authHeader.replace('Bearer ', '');
-    console.log('Extracted JWT token, length:', jwt.length);
+    console.log('Extracted JWT token, verifying user authentication');
 
     // Get user from JWT token
     const { data: userData, error: userError } = await supabase.auth.getUser(jwt);
@@ -290,6 +345,7 @@ serve(async (req) => {
     );
   } catch (err: any) {
     console.error('AI Orchestrator error:', err);
+    console.error('Error stack:', err.stack);
     return new Response(JSON.stringify({ 
       error: err.message || 'Invalid request',
       stack: err.stack 

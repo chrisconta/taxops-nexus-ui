@@ -180,9 +180,23 @@ export const useChatStore = create<ChatState>()(
             throw new Error('Not authenticated - please log in');
           }
 
-          console.log('Session found, calling ai-orchestrator function');
+          console.log('Session found, preparing request for ai-orchestrator function');
+          
+          // Prepare request body
+          const requestBody = { 
+            message: text, 
+            conversation_id: convId 
+          };
+          
+          console.log('Request body prepared:', { 
+            hasMessage: !!requestBody.message, 
+            hasConversationId: !!requestBody.conversation_id,
+            messageLength: requestBody.message.length 
+          });
+
+          console.log('Calling ai-orchestrator function');
           const { data, error } = await supabase.functions.invoke('ai-orchestrator', {
-            body: { message: text, conversation_id: convId },
+            body: requestBody,
             headers: { 
               Authorization: `Bearer ${session.access_token}`,
               'Content-Type': 'application/json'
@@ -191,6 +205,11 @@ export const useChatStore = create<ChatState>()(
 
           if (error) {
             console.error('Function invocation error:', error);
+            console.error('Error details:', {
+              message: error.message,
+              context: error.context,
+              details: error.details
+            });
             throw new Error(`Function error: ${error.message}`);
           }
           
@@ -199,7 +218,7 @@ export const useChatStore = create<ChatState>()(
             throw new Error('No response from AI service');
           }
 
-          console.log('AI orchestrator response:', data);
+          console.log('AI orchestrator response received:', data);
           const result = data as { intent: string; params: Record<string, any>; type: string; reply: string };
 
           get().removeTyping();
@@ -224,6 +243,8 @@ export const useChatStore = create<ChatState>()(
               errorMessage = 'AI service configuration error. Please check your settings.';
             } else if (error.message.includes('Function error')) {
               errorMessage = `Service error: ${error.message}`;
+            } else if (error.message.includes('JSON')) {
+              errorMessage = 'Request formatting error. Please try again.';
             }
           }
           
