@@ -13,6 +13,18 @@ interface ConversationState {
 
 const conversationStates = new Map<string, ConversationState>();
 
+function extractJson(text: string): any | null {
+  try {
+    const cleaned = text
+      .replace(/```json/gi, "```")
+      .replace(/```/g, "");
+    const match = cleaned.match(/\{[\s\S]*?\}/);
+    return match ? JSON.parse(match[0]) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 async function decryptDeepSeekKey(supabase: any, userId: string) {
   const { data, error } = await supabase
     .from('ai_credentials')
@@ -113,14 +125,14 @@ serve(async (req) => {
         { role: 'user', content: message }
       ]);
 
-      try {
-        const parsed = JSON.parse(dsResponse);
+      const parsed = extractJson(dsResponse);
+      if (parsed) {
         state.tool = parsed.tool;
         intent = state.tool || '';
         reply = parsed.reply || '';
         state.confirmed = false;
         conversationStates.set(conversation_id, state);
-      } catch (_) {
+      } else {
         reply = dsResponse;
       }
     } else if (!state.confirmed) {
@@ -134,8 +146,8 @@ serve(async (req) => {
         { role: 'user', content: message }
       ]);
 
-      try {
-        const parsed = JSON.parse(dsResponse);
+      const parsed = extractJson(dsResponse);
+      if (parsed) {
         reply = parsed.reply || '';
         intent = state.tool || '';
         if (parsed.confirmed === true) {
@@ -145,7 +157,7 @@ serve(async (req) => {
         } else {
           conversationStates.set(conversation_id, state);
         }
-      } catch (_) {
+      } else {
         reply = dsResponse;
         intent = state.tool || '';
       }
