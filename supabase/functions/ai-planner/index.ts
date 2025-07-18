@@ -203,8 +203,8 @@ AVAILABLE TOOLS:
 1. register_client - Register a new client in the system
    - Required params: name (string), email (string), ein (string)
 
-2. create_connection - Set up a data connection for a client  
-   - Required params: clientId (string), connectionType (string), institution (string), syncMode (string), credentials (object)
+2. create_connection - Set up a data connection for a client
+   - Required params: clientId (string), connectionType (string), credentials (object)
 
 3. build_dashboard - Create analytics dashboard for a client
    - Required params: clientId (string), metrics (array), timeframe (object)
