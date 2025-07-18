@@ -18,7 +18,7 @@ import { usePlan, ValidationError } from "@/hooks/usePlan";
 import { PlanModal } from "@/components/agent/PlanModal";
 import { executePlanSequentially } from "@/utils/planExecutor";
 import type { Plan } from "@/agent/planner/schema";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import { withAction } from "@/lib/actionWrapper";
 import { ActionBanner } from "@/components/agent/ActionBanner";
 import { useChatLogger } from "@/hooks/useChatLogger";
@@ -309,7 +309,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           }
         } = await supabase.auth.getSession();
         if (session) {
-          await fetch('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/agent-feedback', {
+          await fetch(`${SUPABASE_URL}/functions/v1/agent-feedback`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

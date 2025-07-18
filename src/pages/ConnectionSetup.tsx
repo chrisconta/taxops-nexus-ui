@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import MercuryTokenSetup from "@/components/MercuryTokenSetup";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import FileUploadPanel, { UploadedFile } from "@/components/FileUploadPanel";
@@ -289,7 +289,7 @@ const ConnectionSetup = () => {
 
   const fetchSyncRequests = async () => {
     try {
-      const url = new URL('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/mercury-sync-manager');
+      const url = new URL(`${SUPABASE_URL}/functions/v1/mercury-sync-manager`);
       url.searchParams.set('action', 'list-syncs');
       
       const response = await fetch(url.toString(), {
@@ -354,7 +354,7 @@ const ConnectionSetup = () => {
         message: "Sending data to server..."
       });
       
-      const response = await fetch('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/file-import-processor', {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/file-import-processor`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
@@ -505,7 +505,7 @@ const ConnectionSetup = () => {
     setLoadingSync(true);
     
     try {
-      const url = new URL('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/mercury-sync-manager');
+      const url = new URL(`${SUPABASE_URL}/functions/v1/mercury-sync-manager`);
       url.searchParams.set('action', 'create-sync');
       
       const response = await fetch(url.toString(), {
@@ -551,7 +551,7 @@ const ConnectionSetup = () => {
 
   const handleCancelSync = async (syncId: string) => {
     try {
-      const url = new URL('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/mercury-sync-manager');
+      const url = new URL(`${SUPABASE_URL}/functions/v1/mercury-sync-manager`);
       url.searchParams.set('action', 'cancel-sync');
       url.searchParams.set('sync_id', syncId);
       
@@ -589,7 +589,7 @@ const ConnectionSetup = () => {
   const fetchSyncDetails = async (syncId: string) => {
     setSyncDetailsLoading(true);
     try {
-      const url = new URL('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/mercury-sync-manager');
+      const url = new URL(`${SUPABASE_URL}/functions/v1/mercury-sync-manager`);
       url.searchParams.set('action', 'get-sync-details');
       url.searchParams.set('sync_id', syncId);
       
@@ -632,7 +632,7 @@ const ConnectionSetup = () => {
     setTransactionsError(null);
     
     try {
-      const url = new URL('https://zitderdjvqtadtwgatmm.supabase.co/functions/v1/mercury-sync-manager');
+      const url = new URL(`${SUPABASE_URL}/functions/v1/mercury-sync-manager`);
       url.searchParams.set('action', 'transactions');
       url.searchParams.set('sync_id', syncId);
       
