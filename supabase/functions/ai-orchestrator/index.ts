@@ -9,6 +9,20 @@ const corsHeaders = {
 interface ConversationState {
   tool?: string;
   confirmed?: boolean;
+  messages: Array<{ role: string; content: string }>;
+}
+
+const MAX_HISTORY = 10;
+
+export function appendMessage(
+  state: ConversationState,
+  message: { role: string; content: string },
+  limit = MAX_HISTORY
+) {
+  state.messages.push(message);
+  if (state.messages.length > limit) {
+    state.messages = state.messages.slice(-limit);
+  }
 }
 
 const conversationStates = new Map<string, ConversationState>();
@@ -106,7 +120,8 @@ serve(async (req) => {
 
     const apiKey = await decryptDeepSeekKey(supabase, userId);
 
-    const state = conversationStates.get(conversation_id) || {};
+    const state = conversationStates.get(conversation_id) || { messages: [] };
+    appendMessage(state, { role: 'user', content: message });
 
     let reply = '';
     let intent = state.tool || '';
@@ -122,7 +137,7 @@ serve(async (req) => {
 
       const dsResponse = await askDeepSeek(apiKey, [
         { role: 'system', content: instruction },
-        { role: 'user', content: message }
+        ...state.messages
       ]);
 
       const parsed = extractJson<{ tool?: string; reply?: string }>(dsResponse);
@@ -134,6 +149,7 @@ serve(async (req) => {
         conversationStates.set(conversation_id, state);
       } else {
         reply = dsResponse;
+        conversationStates.set(conversation_id, state);
       }
     } else if (!state.confirmed) {
       const instruction =
@@ -143,7 +159,7 @@ serve(async (req) => {
 
       const dsResponse = await askDeepSeek(apiKey, [
         { role: 'system', content: instruction },
-        { role: 'user', content: message }
+        ...state.messages
       ]);
 
       const parsed = extractJson<{ confirmed?: boolean; reply?: string }>(dsResponse);
@@ -160,6 +176,7 @@ serve(async (req) => {
       } else {
         reply = dsResponse;
         intent = state.tool || '';
+        conversationStates.set(conversation_id, state);
       }
     }
 
