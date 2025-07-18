@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { ReportTopNav } from "@/components/reports/ReportTopNav";
 import { ReportCanvas } from "@/components/reports/ReportCanvas";
+import { ComponentPalette } from "@/components/reports/ComponentPalette";
 import { useReportBuilder } from "@/hooks/useReportBuilder";
 
 const ReportsBuilder = () => {
@@ -49,39 +50,11 @@ const ReportsBuilder = () => {
       {/* Main Content Area */}
       <div className="flex h-[calc(100%-4rem)]">
         {/* Left Sidebar - Component Palette */}
-        <div className="w-80 bg-glass-bg/50 backdrop-blur-xl border-r border-glass-border p-6">
-          <h2 className="text-lg font-semibold text-white mb-6">Components</h2>
-          
-          <div className="space-y-4">
-            <div className="p-4 bg-glass-bg/30 rounded-lg border border-glass-border">
-              <h3 className="font-medium text-white mb-2">📂 Data Tables</h3>
-              <div className="space-y-2 text-sm text-taxops-gray-light">
-                <div className="p-2 hover:bg-glass-bg/50 rounded cursor-pointer">Facturación</div>
-                <div className="p-2 hover:bg-glass-bg/50 rounded cursor-pointer">Pagos</div>
-                <div className="p-2 hover:bg-glass-bg/50 rounded cursor-pointer">Nómina</div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-glass-bg/30 rounded-lg border border-glass-border">
-              <h3 className="font-medium text-white mb-2">📊 KPIs / Metrics</h3>
-              <div className="space-y-2 text-sm text-taxops-gray-light">
-                <div className="p-2 hover:bg-glass-bg/50 rounded cursor-pointer">Total IVA</div>
-                <div className="p-2 hover:bg-glass-bg/50 rounded cursor-pointer">Nómina Net</div>
-                <div className="p-2 hover:bg-glass-bg/50 rounded cursor-pointer">Retenciones</div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-glass-bg/30 rounded-lg border border-glass-border">
-              <h3 className="font-medium text-white mb-2">🔢 Formulas</h3>
-              <div className="space-y-2 text-sm text-taxops-gray-light">
-                <div className="p-2 hover:bg-glass-bg/50 rounded cursor-pointer">SUM</div>
-                <div className="p-2 hover:bg-glass-bg/50 rounded cursor-pointer">AVG</div>
-                <div className="p-2 hover:bg-glass-bg/50 rounded cursor-pointer">IF</div>
-                <div className="p-2 hover:bg-glass-bg/50 rounded cursor-pointer">Custom Formula</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ComponentPalette 
+          onItemDragStart={(item, e) => {
+            console.log('Dragging item:', item.name);
+          }}
+        />
 
         {/* Main Canvas */}
         <ReportCanvas 
