@@ -13,6 +13,7 @@ export interface ReportState {
   title: string;
   activeView: 'table' | 'chart';
   components: CanvasItem[];
+  selectedComponent: CanvasItem | null;
   filters: any[];
   lastSaved: Date | null;
 }
@@ -28,6 +29,7 @@ export const useReportBuilder = () => {
     title: 'New Report',
     activeView: 'table',
     components: [],
+    selectedComponent: null,
     filters: [],
     lastSaved: null,
   };

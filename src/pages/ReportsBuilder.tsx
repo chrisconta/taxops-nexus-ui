@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { ReportTopNav } from "@/components/reports/ReportTopNav";
 import { ReportCanvas } from "@/components/reports/ReportCanvas";
 import { ComponentPalette } from "@/components/reports/ComponentPalette";
+import { ConfigurationPanel } from "@/components/reports/ConfigurationPanel";
 import { useReportBuilder } from "@/hooks/useReportBuilder";
 
 const ReportsBuilder = () => {
@@ -74,23 +75,11 @@ const ReportsBuilder = () => {
         />
 
         {/* Right Sidebar - Configuration Panel */}
-        <div className={`w-80 bg-glass-bg/50 backdrop-blur-xl border-l border-glass-border p-6 transition-all duration-300 ${showFilters ? 'block' : 'hidden'}`}>
-          <h2 className="text-lg font-semibold text-white mb-6">Filters & Configuration</h2>
-          <div className="space-y-4">
-            <div className="p-4 bg-glass-bg/30 rounded-lg border border-glass-border">
-              <h3 className="font-medium text-white mb-2">📅 Date Range</h3>
-              <p className="text-sm text-taxops-gray-light">
-                Configure date filters for your report data.
-              </p>
-            </div>
-            <div className="p-4 bg-glass-bg/30 rounded-lg border border-glass-border">
-              <h3 className="font-medium text-white mb-2">🏢 Client Filter</h3>
-              <p className="text-sm text-taxops-gray-light">
-                Select specific clients to include in the report.
-              </p>
-            </div>
-          </div>
-        </div>
+        <ConfigurationPanel
+          isVisible={showFilters}
+          onClose={() => setShowFilters(false)}
+          selectedComponent={reportState.selectedComponent}
+        />
       </div>
 
       {/* Bottom Status Bar */}
