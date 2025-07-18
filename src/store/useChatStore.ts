@@ -17,6 +17,7 @@ export interface Message {
     missing: Array<{ field: string; reason: string; hint: string }>;
     invalid: Array<{ field: string; reason: string; hint: string }>;
   };
+  actionType?: string;
 }
 
 interface RecoveryState {
@@ -214,7 +215,8 @@ export const useChatStore = create<ChatState>()(
                         content: parsed.message,
                         timestamp: Date.now(),
                         requiresData: true,
-                        missingParams: parsed.missingParams || ['clientId', 'startDate', 'endDate']
+                        missingParams: parsed.missingParams || ['clientId', 'startDate', 'endDate'],
+                        actionType: parsed.actionType
                       });
                       hasStarted = true;
                     }
@@ -229,7 +231,8 @@ export const useChatStore = create<ChatState>()(
                     window.dispatchEvent(new CustomEvent('triggerPlanGeneration', {
                       detail: {
                         userPrompt: parsed.userPrompt || text,
-                        chatHistory: parsed.chatHistory || []
+                        chatHistory: parsed.chatHistory || [],
+                        actionType: parsed.actionType
                       }
                     }));
                   } else if (parsed.type === 'assistant_message') {

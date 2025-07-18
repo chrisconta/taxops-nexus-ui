@@ -72,6 +72,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [dataCollectors, setDataCollectors] = useState<Set<string>>(new Set());
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
+  const [pendingActionType, setPendingActionType] = useState<string | undefined>(undefined);
   const [lastUserMessage, setLastUserMessage] = useState<string>("");
   
   // Registration store
@@ -180,7 +181,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   // Listen for orchestrator plan generation triggers
   useEffect(() => {
     const handlePlanGeneration = (event: CustomEvent) => {
-      const { userPrompt, chatHistory } = event.detail;
+      const { userPrompt, chatHistory, actionType } = event.detail;
+      setPendingActionType(actionType);
       
       logProcess('Plan Generation', 'started', `Orchestrator triggered plan generation for: ${userPrompt.substring(0, 50)}...`);
       
@@ -203,6 +205,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           // Remove thinking message and show plan modal
           const { removeTyping } = useChatStore.getState();
           removeTyping();
+          setPendingActionType(undefined);
           setCurrentPlan(plan);
           setIsPlanModalOpen(true);
           logProcess('Plan Generation', 'completed', `Plan generated successfully: ${plan.intent}`);
@@ -223,7 +226,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               content: `I need some additional information to complete this request:`,
               timestamp: Date.now(),
               requiresData: true,
-              validationErrors: error.validationResponse
+              validationErrors: error.validationResponse,
+              actionType: pendingActionType
             });
             return;
           }
@@ -584,10 +588,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   message.requiresData && !message.dataCollected && (
                     <div key={`collector-${message.id}`} className="mt-4">
                       {message.validationErrors ? (
-                        <ValidationErrorCollector 
+                        <ValidationErrorCollector
                           errors={message.validationErrors}
-                          toolName={message.content.toString().includes("register") ? "register_client" : 
-                                  message.content.toString().includes("connection") ? "create_connection" : 
+                          toolName={message.actionType === "register_client" ? "register_client" :
+                                  message.actionType === "create_connection" ? "create_connection" :
                                   "build_dashboard"}
                           onComplete={(collectedData) => {
                             // Generate a new plan with the collected data

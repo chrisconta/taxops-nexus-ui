@@ -33,6 +33,25 @@ const AVAILABLE_REPORTS = [
   { key: 'form-1120',      name: 'IRS Form 1120 (C Corp)'     }
 ];
 
+// Basic classifier to determine the type of user message
+type ActionType =
+  | 'register_client'
+  | 'create_connection'
+  | 'build_dashboard'
+  | 'generate_report'
+  | 'conversation';
+
+function classifyMessage(message: string): ActionType {
+  const lower = message.toLowerCase();
+
+  if (isReportIntent(message)) return 'generate_report';
+  if (lower.includes('register')) return 'register_client';
+  if (lower.includes('connection')) return 'create_connection';
+  if (lower.includes('dashboard')) return 'build_dashboard';
+
+  return 'conversation';
+}
+
 // Check if message is a report intent - be more specific about report requests
 function isReportIntent(message: string): boolean {
   const lowerMessage = message.toLowerCase();
@@ -188,6 +207,8 @@ serve(async (req) => {
       throw new Error('Invalid message: must be between 1-4000 characters');
     }
 
+    const actionType = classifyMessage(message);
+
     // ===== REPORTS-ONLY ENFORCEMENT =====
     // Check if this is a structured transaction request (bypass intent check)
     let isTransactionRequest = false;
@@ -203,10 +224,11 @@ serve(async (req) => {
       // Not a JSON message, continue with intent check
     }
 
-    // If not a transaction request and not a report intent, allow general conversation
-    if (!isTransactionRequest && !isReportIntent(message)) {
+    const isActionable = actionType !== 'conversation';
+
+    // If the message is purely conversational, proceed with chat response
+    if (!isActionable) {
       // Let the message proceed to the AI for general conversation
-      // The AI will handle the response appropriately
     }
 
     // Get DeepSeek API key
@@ -287,7 +309,7 @@ serve(async (req) => {
 
     // ===== PARAMETER VALIDATION =====
     // ONLY proceed with report parameter validation if this is actually a report intent
-    if (!isTransactionRequest && isReportIntent(message)) {
+    if (!isTransactionRequest && actionType === 'generate_report') {
       // Extract parameters from natural language message
       const extractedParams = extractParamsFromMessage(message);
       
@@ -313,10 +335,11 @@ ${missingParams.includes('endDate') ? '• End date (YYYY-MM-DD format)' : ''}
 
 Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
 
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
-                type: 'missing_data', 
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                type: 'missing_data',
                 message: content,
-                missingParams 
+                missingParams,
+                actionType
               })}\n\n`));
               controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
               controller.close();
@@ -357,11 +380,41 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
     // Store user message
     await supabaseClient
       .from('ai_messages')
-      .insert({ 
-        conversation_id: convId, 
-        role: 'user', 
-        content: message 
+      .insert({
+        conversation_id: convId,
+        role: 'user',
+        content: message
       });
+
+    const chatHistory = (recentMessages || []).map(m => ({
+      role: m.role,
+      content: m.content
+    }));
+
+    if (isActionable) {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+            type: 'generate_plan',
+            userPrompt: confirmationMessage || message,
+            chatHistory,
+            actionType
+          })}\n\n`));
+          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+          controller.close();
+        }
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
 
     // Construct messages for DeepSeek
     let messages;
@@ -501,9 +554,10 @@ Example: "For ACME Corp from 2024-01-01 to 2024-03-31"`;
 
           if (hasMissingDataRequest && !isTransactionRequest) {
             // Send missing data event
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
-              type: 'missing_data', 
-              message: assistantReply 
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              type: 'missing_data',
+              message: assistantReply,
+              actionType
             })}\n\n`));
           }
 
