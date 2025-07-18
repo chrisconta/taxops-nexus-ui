@@ -2,6 +2,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,7 +42,7 @@ export function extractJson<T = unknown>(text: string): T | null {
   }
 }
 
-async function decryptDeepSeekKey(supabase: any, userId: string) {
+async function decryptDeepSeekKey(supabase: SupabaseClient, userId: string) {
   const { data, error } = await supabase
     .from('ai_credentials')
     .select('enc_key, iv, ciphertext')
