@@ -14,6 +14,8 @@ export interface ReportState {
   activeView: 'table' | 'chart';
   components: CanvasItem[];
   selectedComponent: CanvasItem | null;
+  status: 'ready' | 'running' | 'error' | 'success';
+  progress: number;
   filters: any[];
   lastSaved: Date | null;
 }
@@ -30,6 +32,8 @@ export const useReportBuilder = () => {
     activeView: 'table',
     components: [],
     selectedComponent: null,
+    status: 'ready',
+    progress: 0,
     filters: [],
     lastSaved: null,
   };
@@ -82,14 +86,47 @@ export const useReportBuilder = () => {
 
   const runReport = useCallback(async () => {
     setIsRunning(true);
+    
+    // Update status to running
+    setUndoRedoState(current => ({
+      ...current,
+      present: { ...current.present, status: 'running', progress: 0 }
+    }));
+
     try {
-      // Simulate report execution
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Simulate report execution with progress
+      for (let i = 0; i <= 100; i += 10) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        setUndoRedoState(current => ({
+          ...current,
+          present: { ...current.present, progress: i }
+        }));
+      }
+      
+      // Update status to success
+      setUndoRedoState(current => ({
+        ...current,
+        present: { ...current.present, status: 'success', progress: 100 }
+      }));
+      
       console.log('Report executed successfully');
     } catch (error) {
+      // Update status to error
+      setUndoRedoState(current => ({
+        ...current,
+        present: { ...current.present, status: 'error', progress: 0 }
+      }));
       console.error('Error running report:', error);
     } finally {
       setIsRunning(false);
+      
+      // Reset to ready after 3 seconds
+      setTimeout(() => {
+        setUndoRedoState(current => ({
+          ...current,
+          present: { ...current.present, status: 'ready', progress: 0 }
+        }));
+      }, 3000);
     }
   }, []);
 
@@ -105,5 +142,7 @@ export const useReportBuilder = () => {
     canRedo,
     runReport,
     isRunning,
+    status: undoRedoState.present.status,
+    progress: undoRedoState.present.progress,
   };
 };

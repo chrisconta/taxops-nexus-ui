@@ -4,6 +4,7 @@ import { ReportTopNav } from "@/components/reports/ReportTopNav";
 import { ReportCanvas } from "@/components/reports/ReportCanvas";
 import { ComponentPalette } from "@/components/reports/ComponentPalette";
 import { ConfigurationPanel } from "@/components/reports/ConfigurationPanel";
+import { ReportStatusBar } from "@/components/reports/ReportStatusBar";
 import { useReportBuilder } from "@/hooks/useReportBuilder";
 
 const ReportsBuilder = () => {
@@ -16,6 +17,8 @@ const ReportsBuilder = () => {
     canRedo,
     runReport,
     isRunning,
+    status,
+    progress,
   } = useReportBuilder();
 
   const [showFilters, setShowFilters] = useState(false);
@@ -83,14 +86,24 @@ const ReportsBuilder = () => {
       </div>
 
       {/* Bottom Status Bar */}
-      <div className="h-12 bg-glass-bg/95 backdrop-blur-xl border-t border-glass-border flex items-center justify-between px-6">
-        <div className="text-sm text-taxops-gray-light">
-          {isRunning ? 'Executing report...' : 'Ready to build your report'}
-        </div>
-        <div className="text-sm text-taxops-gray-light">
-          Last saved: {reportState.lastSaved ? reportState.lastSaved.toLocaleString() : 'Never'}
-        </div>
-      </div>
+      <ReportStatusBar
+        isRunning={isRunning}
+        progress={progress}
+        status={status}
+        lastSaved={reportState.lastSaved}
+        componentsCount={reportState.components.length}
+        onSave={() => {
+          updateState({ lastSaved: new Date() });
+          console.log('Report saved');
+        }}
+        onExport={() => {
+          console.log('Exporting report...');
+        }}
+        onImport={() => {
+          console.log('Importing report...');
+        }}
+        onRunReport={runReport}
+      />
     </div>
   );
 };
