@@ -33,9 +33,9 @@ export function extractJson<T = unknown>(text: string): T | null {
     const cleaned = text
       .replace(/```json/gi, "```")
       .replace(/```/g, "");
-      const match = cleaned.match(/\{[\s\S]*?\}/);
-      return match ? (JSON.parse(match[0]) as T) : null;
-  } catch (_) {
+    const match = cleaned.match(/\{[\s\S]*?\}/);
+    return match ? (JSON.parse(match[0]) as T) : null;
+  } catch {
     return null;
   }
 }
