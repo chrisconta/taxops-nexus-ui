@@ -134,7 +134,15 @@ export const useChatStore = create<ChatState>()(
       
       
       async send(text: string) {
-        const currentMessages = get().messages;
+        const state = get();
+        const currentMessages = state.messages;
+
+        // Ensure we have a conversation id for orchestrator state tracking
+        let convId = state.currentConvId;
+        if (!convId) {
+          convId = crypto.randomUUID();
+          set({ currentConvId: convId });
+        }
 
         const userMsgId = crypto.randomUUID();
         const userMessage: Message = {
@@ -163,7 +171,7 @@ export const useChatStore = create<ChatState>()(
           if (!session) throw new Error('Not authenticated');
 
           const { data, error } = await supabase.functions.invoke('ai-orchestrator', {
-            body: { message: text },
+            body: { message: text, conversation_id: convId },
             headers: { Authorization: `Bearer ${session.access_token}` }
           });
 

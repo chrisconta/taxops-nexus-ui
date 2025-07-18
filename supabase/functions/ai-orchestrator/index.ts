@@ -33,25 +33,47 @@ function validEin(ein?: string) {
   return !!ein && /^\d{2}-?\d{7}$/.test(ein);
 }
 
+const conversationStates = new Map<string, { name?: string; email?: string; ein?: string }>();
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { message } = await req.json();
-    const params = parseParams(message);
+    const { message, conversation_id } = await req.json();
 
-    const allValid = params.name && validEmail(params.email) && validEin(params.ein);
+    if (!conversation_id) {
+      return new Response(JSON.stringify({ error: "conversation_id required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const reply = allValid
-      ? `Great, I'll proceed with registering ${params.name}.`
-      : "Please provide the client name, email, and EIN.";
+    const existing = conversationStates.get(conversation_id) || {};
+    const newParams = parseParams(message);
+    const params = { ...existing, ...Object.fromEntries(Object.entries(newParams).filter(([_, v]) => !!v)) };
+    conversationStates.set(conversation_id, params);
+
+    let reply = "";
+    let type: "conversational" | "actionable" = "conversational";
+
+    if (!params.name) {
+      reply = "I can help you register a client. What's the client's name?";
+    } else if (!params.email) {
+      reply = "Great! Now I need their email address.";
+    } else if (!params.ein) {
+      reply = "Perfect! Finally, I need their EIN number.";
+    } else {
+      reply = `I have all the information I need. I'll proceed with registering ${params.name}.`;
+      type = "actionable";
+      conversationStates.delete(conversation_id);
+    }
 
     const result = {
       intent: "register_client",
       params,
-      type: allValid ? "actionable" : "conversational",
+      type,
       reply,
     };
 
