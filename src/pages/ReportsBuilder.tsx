@@ -1,31 +1,49 @@
-import React from "react";
+
+import React, { useState } from "react";
+import { ReportTopNav } from "@/components/reports/ReportTopNav";
+import { useReportBuilder } from "@/hooks/useReportBuilder";
 
 const ReportsBuilder = () => {
+  const {
+    reportState,
+    updateState,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    runReport,
+    isRunning,
+  } = useReportBuilder();
+
+  const [showFilters, setShowFilters] = useState(false);
+
+  const handleTitleChange = (title: string) => {
+    updateState({ title });
+  };
+
+  const handleViewChange = (activeView: 'table' | 'chart') => {
+    updateState({ activeView });
+  };
+
+  const handleShowFilters = () => {
+    setShowFilters(!showFilters);
+  };
+
   return (
     <div className="h-[calc(100vh-120px)] overflow-hidden">
       {/* Top Navigation Bar */}
-      <div className="h-16 bg-glass-bg/95 backdrop-blur-xl border-b border-glass-border flex items-center justify-between px-6">
-        <div className="flex items-center gap-4">
-          <button className="text-sm text-taxops-gray-light hover:text-white transition-colors">
-            ← Back
-          </button>
-          <h1 className="text-lg font-semibold text-white">
-            New Report
-          </h1>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <button className="px-4 py-2 text-sm bg-primary/20 text-primary border border-primary/30 rounded-lg hover:bg-primary/30 transition-colors">
-            Table View
-          </button>
-          <button className="px-4 py-2 text-sm text-taxops-gray-light border border-glass-border rounded-lg hover:bg-glass-bg/50 transition-colors">
-            Chart View
-          </button>
-          <button className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-            Run Report
-          </button>
-        </div>
-      </div>
+      <ReportTopNav
+        reportTitle={reportState.title}
+        onTitleChange={handleTitleChange}
+        activeView={reportState.activeView}
+        onViewChange={handleViewChange}
+        onRunReport={runReport}
+        onUndo={undo}
+        onRedo={redo}
+        onShowFilters={handleShowFilters}
+        canUndo={canUndo}
+        canRedo={canRedo}
+      />
 
       {/* Main Content Area */}
       <div className="flex h-[calc(100%-4rem)]">
@@ -71,30 +89,51 @@ const ReportsBuilder = () => {
               <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">📊</span>
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">Start Building</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                {isRunning ? 'Running Report...' : 'Start Building'}
+              </h2>
               <p className="text-taxops-gray-light max-w-md">
-                Add components from the panel on the left to start creating your report.
+                {isRunning 
+                  ? 'Please wait while we execute your report.'
+                  : 'Add components from the panel on the left to start creating your report.'
+                }
               </p>
+              {isRunning && (
+                <div className="mt-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Right Sidebar - Configuration Panel (Hidden by default) */}
-        <div className="w-80 bg-glass-bg/50 backdrop-blur-xl border-l border-glass-border p-6 hidden">
-          <h2 className="text-lg font-semibold text-white mb-6">Configuration</h2>
-          <p className="text-sm text-taxops-gray-light">
-            Select a component to configure its properties.
-          </p>
+        {/* Right Sidebar - Configuration Panel */}
+        <div className={`w-80 bg-glass-bg/50 backdrop-blur-xl border-l border-glass-border p-6 transition-all duration-300 ${showFilters ? 'block' : 'hidden'}`}>
+          <h2 className="text-lg font-semibold text-white mb-6">Filters & Configuration</h2>
+          <div className="space-y-4">
+            <div className="p-4 bg-glass-bg/30 rounded-lg border border-glass-border">
+              <h3 className="font-medium text-white mb-2">📅 Date Range</h3>
+              <p className="text-sm text-taxops-gray-light">
+                Configure date filters for your report data.
+              </p>
+            </div>
+            <div className="p-4 bg-glass-bg/30 rounded-lg border border-glass-border">
+              <h3 className="font-medium text-white mb-2">🏢 Client Filter</h3>
+              <p className="text-sm text-taxops-gray-light">
+                Select specific clients to include in the report.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Bottom Status Bar */}
       <div className="h-12 bg-glass-bg/95 backdrop-blur-xl border-t border-glass-border flex items-center justify-between px-6">
         <div className="text-sm text-taxops-gray-light">
-          Ready to build your report
+          {isRunning ? 'Executing report...' : 'Ready to build your report'}
         </div>
         <div className="text-sm text-taxops-gray-light">
-          Last saved: Never
+          Last saved: {reportState.lastSaved ? reportState.lastSaved.toLocaleString() : 'Never'}
         </div>
       </div>
     </div>
