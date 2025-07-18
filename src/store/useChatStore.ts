@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
-import type { PlanStep } from '@/agent/planner/schema';
 
 export interface Message {
   id: string;
@@ -21,7 +20,7 @@ export interface Message {
 }
 
 interface RecoveryState {
-  pendingStep?: PlanStep;
+  pendingStep?: any;
   missingField?: string;
 }
 
@@ -42,7 +41,7 @@ interface ChatState {
   registrationModeActive: boolean;
   addMessage: (message: Message) => void;
   clearMessages: () => void;
-  send: (text: string) => Promise<void>;
+  send: (text: string) => Promise<{ intent: string; params: Record<string, any>; type: string; reply: string } | null>;
   load: (convId: string) => Promise<void>;
   startNew: () => void;
   updateLastMessage: (content: string) => void;
@@ -136,152 +135,51 @@ export const useChatStore = create<ChatState>()(
       
       async send(text: string) {
         const currentMessages = get().messages;
-        
-        // Add user message immediately
+
         const userMsgId = crypto.randomUUID();
-        const userMessage: Message = { 
-          id: userMsgId, 
-          author: 'user', 
+        const userMessage: Message = {
+          id: userMsgId,
+          author: 'user',
           content: text,
           timestamp: Date.now()
         };
-        
-        // Add typing indicator
+
         const typingId = crypto.randomUUID();
-        const typingMessage: Message = { 
-          id: typingId, 
-          author: 'agent', 
-          content: '', 
+        const typingMessage: Message = {
+          id: typingId,
+          author: 'agent',
+          content: '',
           timestamp: Date.now(),
-          typing: true 
+          typing: true
         };
-        
-        set({ 
+
+        set({
           messages: [...currentMessages, userMessage, typingMessage],
-          isLoading: true 
+          isLoading: true
         });
 
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (!session) throw new Error('Not authenticated');
 
-          // Use the function invoke method to call the edge function
-          const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-orchestrator`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              conversation_id: get().currentConvId,
-              message: text
-            })
+          const { data, error } = await supabase.functions.invoke('ai-orchestrator', {
+            body: { message: text },
+            headers: { Authorization: `Bearer ${session.access_token}` }
           });
 
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
+          if (error) throw new Error(error.message);
 
-          // Handle streaming response
-          const reader = response.body?.getReader();
-          if (!reader) throw new Error('No response body');
+          const result = data as { intent: string; params: Record<string, any>; type: string; reply: string };
 
-          let hasStarted = false;
-          let pendingPlan: { userPrompt: string; chatHistory: any; actionType?: string } | null = null;
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = new TextDecoder().decode(value);
-            const lines = chunk.split('\n').filter(line => line.trim() !== '');
-
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6);
-                if (data === '[DONE]') {
-                  set({ isLoading: false });
-                  if (pendingPlan) {
-                    window.dispatchEvent(
-                      new CustomEvent('triggerPlanGeneration', { detail: pendingPlan })
-                    );
-                    pendingPlan = null;
-                  }
-                  return;
-                }
-
-                try {
-                  const parsed = JSON.parse(data);
-                  if (parsed.type === 'missing_data') {
-                    // Handle missing data request
-                    if (!hasStarted) {
-                      get().removeTyping();
-                      get().addMessage({
-                        id: crypto.randomUUID(),
-                        author: 'agent',
-                        content: parsed.message,
-                        timestamp: Date.now(),
-                        requiresData: true,
-                        missingParams: parsed.missingParams || ['clientId', 'startDate', 'endDate'],
-                        actionType: parsed.actionType
-                      });
-                      hasStarted = true;
-                    }
-                  } else if (parsed.type === 'generate_plan') {
-                    // Orchestrator signals it's ready to generate a plan
-                    if (!hasStarted) {
-                      get().removeTyping();
-                      hasStarted = true;
-                    }
-
-                    // Store plan request to dispatch after stream ends
-                    pendingPlan = {
-                      userPrompt: parsed.userPrompt || text,
-                      chatHistory: parsed.chatHistory || [],
-                      actionType: parsed.actionType,
-                    };
-                  } else if (parsed.type === 'assistant_message') {
-                    // Handle structured message with download button
-                    if (!hasStarted) {
-                      get().removeTyping();
-                      get().addMessage({
-                        id: crypto.randomUUID(),
-                        author: 'agent',
-                        content: parsed.content,
-                        timestamp: Date.now()
-                      });
-                      hasStarted = true;
-                    } else {
-                      // For structured messages, replace the current message
-                      const messages = get().messages;
-                      const lastMsg = messages[messages.length - 1];
-                      if (lastMsg && lastMsg.author === 'agent') {
-                        lastMsg.content = parsed.content;
-                      }
-                    }
-                  } else if (parsed.content) {
-                    if (!hasStarted) {
-                      // Remove typing indicator and add real assistant message
-                      get().removeTyping();
-                      get().addMessage({
-                        id: crypto.randomUUID(),
-                        author: 'agent',
-                        content: parsed.content,
-                        timestamp: Date.now()
-                      });
-                      hasStarted = true;
-                    } else {
-                      // Update existing message
-                      get().updateLastMessage(parsed.content);
-                    }
-                  }
-                } catch (e) {
-                  console.error('Failed to parse SSE data:', e);
-                }
-              }
-            }
-          }
-
+          get().removeTyping();
+          get().addMessage({
+            id: crypto.randomUUID(),
+            author: 'agent',
+            content: result.reply,
+            timestamp: Date.now()
+          });
+          set({ isLoading: false });
+          return result;
         } catch (error) {
           console.error('Chat error:', error);
           get().removeTyping();

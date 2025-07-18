@@ -15,8 +15,7 @@ import { TransactionDataCollector } from "./TransactionDataCollector";
 import { ValidationErrorCollector } from "./ValidationErrorCollector";
 import { useExecuteTool } from "@/hooks/useExecuteTool";
 import { usePlan, ValidationError } from "@/hooks/usePlan";
-import { PlanModal } from "@/components/agent/PlanModal";
-import { executePlanSequentially } from "@/utils/planExecutor";
+import { executePlan } from "@/utils/planExecutor";
 import type { Plan } from "@/agent/planner/schema";
 import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import { withAction } from "@/lib/actionWrapper";
@@ -70,9 +69,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [searchParams] = useSearchParams();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [dataCollectors, setDataCollectors] = useState<Set<string>>(new Set());
-  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
-  const [pendingActionType, setPendingActionType] = useState<string | undefined>(undefined);
   const [lastUserMessage, setLastUserMessage] = useState<string>("");
   
   // Registration store
@@ -178,76 +175,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   }, [registrationMode, registrationModeActive, setAction, setRegistrationModeActive, logSystemRoute]);
 
-  // Listen for orchestrator plan generation triggers
-  useEffect(() => {
-    const handlePlanGeneration = (event: CustomEvent) => {
-      const { userPrompt, chatHistory, actionType } = event.detail;
-      setPendingActionType(actionType);
-      
-      logProcess('Plan Generation', 'started', `Orchestrator triggered plan generation for: ${userPrompt.substring(0, 50)}...`);
-      
-      // Add thinking message
-      const thinkingMessageId = crypto.randomUUID();
-      addMessage({
-        id: thinkingMessageId,
-        author: "agent",
-        content: "Generating plan...",
-        timestamp: Date.now(),
-        typing: true
-      });
-
-      // Generate the plan
-      planMutation.mutate({
-        userPrompt,
-        chatHistory
-      }, {
-        onSuccess: plan => {
-          // Remove thinking message and show plan modal
-          const { removeTyping } = useChatStore.getState();
-          removeTyping();
-          setPendingActionType(undefined);
-          setCurrentPlan(plan);
-          setIsPlanModalOpen(true);
-          logProcess('Plan Generation', 'completed', `Plan generated successfully: ${plan.intent}`);
-        },
-        onError: (error: any) => {
-          // Remove thinking message and show error
-          const { removeTyping } = useChatStore.getState();
-          removeTyping();
-          
-          logError(error as Error, 'Plan Generation');
-          
-          // Handle validation errors specifically
-          if (error instanceof ValidationError) {
-            const msgId = crypto.randomUUID();
-            addMessage({
-              id: msgId,
-              author: "agent",
-              content: `I need some additional information to complete this request:`,
-              timestamp: Date.now(),
-              requiresData: true,
-              validationErrors: error.validationResponse,
-              actionType: pendingActionType
-            });
-            return;
-          }
-          
-          toast({
-            title: "Plan Generation Failed",
-            description: error.message,
-            variant: "destructive"
-          });
-          logNotification('error', 'Plan Generation Failed', error.message);
-        }
-      });
-    };
-
-    window.addEventListener('triggerPlanGeneration', handlePlanGeneration as EventListener);
-    
-    return () => {
-      window.removeEventListener('triggerPlanGeneration', handlePlanGeneration as EventListener);
-    };
-  }, [addMessage, planMutation, toast, logProcess, logError, logNotification]);
   const handleNewChat = useCallback(async () => {
     try {
       logProcess('New Chat', 'started', 'Starting new chat session');
@@ -367,7 +294,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       // 3) Resume execution with the current plan
       if (currentPlan) {
-        executePlanSequentially(currentPlan);
+        executePlan(currentPlan);
       }
       return;
     }
@@ -375,8 +302,35 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
     // Always route through orchestrator first - let it manage conversation flow
     try {
-      await send(text);
+      const result = await send(text);
       logProcess('Message Send', 'completed', 'Message sent to orchestrator successfully');
+
+      if (result && result.type === 'actionable') {
+        try {
+          const plan = await planMutation.mutateAsync({ intent: result.intent, params: result.params });
+          addMessage({
+            id: crypto.randomUUID(),
+            author: 'agent',
+            content: `Plan:\n\`\`\`json\n${JSON.stringify(plan, null, 2)}\n\`\`\``,
+            timestamp: Date.now()
+          });
+          await handleExecutePlan(plan);
+        } catch (error: any) {
+          if (error instanceof ValidationError) {
+            const msgId = crypto.randomUUID();
+            addMessage({
+              id: msgId,
+              author: 'agent',
+              content: `I need some additional information to complete this request:`,
+              timestamp: Date.now(),
+              requiresData: true,
+              validationErrors: error.validationResponse
+            });
+          } else {
+            toast({ title: 'Plan Generation Failed', description: error.message, variant: 'destructive' });
+          }
+        }
+      }
     } catch (error) {
       logError(error as Error, 'Message Send');
       toast({
@@ -386,71 +340,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       });
     }
   };
-  const handleGeneratePlan = () => {
-    if (!lastUserMessage) {
-      toast({
-        title: "No Recent Message",
-        description: "Send a message first to generate a plan",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    withAction('validate', 'plan generation', async () => {
-      // Convert messages to chat history format
-      const chatHistory = messages.slice(-5).map(msg => ({
-        role: msg.author === "user" ? "user" : "assistant",
-        content: typeof msg.content === 'string' ? msg.content : msg.content.text || ""
-      }));
-      
-      return new Promise((resolve, reject) => {
-        planMutation.mutate({
-          userPrompt: lastUserMessage,
-          chatHistory
-        }, {
-          onSuccess: plan => {
-            setCurrentPlan(plan);
-            setIsPlanModalOpen(true);
-            resolve(plan);
-          },
-          onError: (error: any) => {
-            // Handle validation errors specifically
-            if (error instanceof ValidationError) {
-              // Instead of showing toast, add message with data collector
-              const { removeTyping, addMessage } = useChatStore.getState();
-              const msgId = crypto.randomUUID();
-              addMessage({
-                id: msgId,
-                author: "agent",
-                content: `I need some additional information to complete this request:`,
-                timestamp: Date.now(),
-                requiresData: true,
-                validationErrors: error.validationResponse
-              });
-              reject(error);
-              return;
-            }
-            
-            toast({
-              title: "Plan Generation Failed",
-              description: error.message,
-              variant: "destructive"
-            });
-            reject(error);
-          }
-        });
-      });
-    }, 'planner', { userPrompt: lastUserMessage });
-  };
   const handleExecutePlan = async (plan: Plan) => {
-    // Store the current plan for recovery purposes
     setCurrentPlan(plan);
-
-    // Use the centralized plan executor with recovery logic
-    withAction('execute', 'plan execution', async () => {
-      executePlanSequentially(plan);
-      return plan;
-    }, 'plan-executor', { intent: plan.intent });
+    await executePlan(plan);
   };
   const handleToolInvoke = (toolName: string, params: Record<string, any>) => {
     // Use external handler if provided, otherwise use internal logic
@@ -644,7 +536,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
         </div>}
       
-      {/* Plan Modal */}
-      <PlanModal isOpen={isPlanModalOpen} onClose={() => setIsPlanModalOpen(false)} plan={currentPlan} onConfirm={handleExecutePlan} isExecuting={executeToolMutation.isPending} />
+      {/* Plan display handled in chat messages */}
     </div>;
 };
