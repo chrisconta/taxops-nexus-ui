@@ -55,7 +55,7 @@ export const ToolLauncher: React.FC<ToolLauncherProps> = ({
         return {
           name: 'Demo Client',
           email: 'demo@example.com',
-          companyId: crypto.randomUUID()
+          ein: '12-3456789'
         };
       case 'create_connection':
         return {

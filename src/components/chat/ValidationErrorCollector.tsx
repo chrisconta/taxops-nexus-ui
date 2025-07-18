@@ -36,8 +36,8 @@ export const ValidationErrorCollector: React.FC<ValidationErrorCollectorProps> =
   
   // Load clients for clientId field if needed
   useEffect(() => {
-    const needsClientId = errors.missing.some(error => 
-      error.field === "clientId" || error.field === "client_id" || error.field === "companyId"
+    const needsClientId = errors.missing.some(error =>
+      error.field === "clientId" || error.field === "client_id"
     );
     
     if (needsClientId) {
@@ -85,7 +85,7 @@ export const ValidationErrorCollector: React.FC<ValidationErrorCollectorProps> =
   // Get field rendering configuration based on field name
   const getFieldConfig = (field: string) => {
     // Common field configurations
-    if (field === 'clientId' || field === 'client_id' || field === 'companyId') {
+    if (field === 'clientId' || field === 'client_id') {
       return {
         label: 'Client',
         type: 'select',
