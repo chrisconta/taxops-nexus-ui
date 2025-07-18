@@ -117,21 +117,6 @@ export const ValidationErrorCollector: React.FC<ValidationErrorCollectorProps> =
       };
     }
     
-    if (field === 'institution') {
-      return { label: 'Institution', type: 'text', placeholder: 'Enter institution name' };
-    }
-    
-    if (field === 'syncMode') {
-      return { 
-        label: 'Sync Mode', 
-        type: 'select', 
-        options: [
-          { value: 'automatic', label: 'Automatic' },
-          { value: 'historical', label: 'Historical' },
-          { value: 'file_upload', label: 'File Upload' }
-        ]
-      };
-    }
     
     if (field === 'metrics') {
       return { 
