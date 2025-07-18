@@ -13,13 +13,13 @@ interface ConversationState {
 
 const conversationStates = new Map<string, ConversationState>();
 
-export function extractJson(text: string): any | null {
+export function extractJson<T = unknown>(text: string): T | null {
   try {
     const cleaned = text
       .replace(/```json/gi, "```")
       .replace(/```/g, "");
-    const match = cleaned.match(/\{[\s\S]*?\}/);
-    return match ? JSON.parse(match[0]) : null;
+      const match = cleaned.match(/\{[\s\S]*?\}/);
+      return match ? (JSON.parse(match[0]) as T) : null;
   } catch (_) {
     return null;
   }
@@ -125,7 +125,7 @@ serve(async (req) => {
         { role: 'user', content: message }
       ]);
 
-      const parsed = extractJson(dsResponse);
+      const parsed = extractJson<{ tool?: string; reply?: string }>(dsResponse);
       if (parsed) {
         state.tool = parsed.tool;
         intent = state.tool || '';
@@ -146,7 +146,7 @@ serve(async (req) => {
         { role: 'user', content: message }
       ]);
 
-      const parsed = extractJson(dsResponse);
+      const parsed = extractJson<{ confirmed?: boolean; reply?: string }>(dsResponse);
       if (parsed) {
         reply = parsed.reply || '';
         intent = state.tool || '';
