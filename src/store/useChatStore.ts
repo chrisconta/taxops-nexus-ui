@@ -187,6 +187,7 @@ export const useChatStore = create<ChatState>()(
           if (!reader) throw new Error('No response body');
 
           let hasStarted = false;
+          let pendingPlan: { userPrompt: string; chatHistory: any; actionType?: string } | null = null;
 
           while (true) {
             const { done, value } = await reader.read();
@@ -200,6 +201,12 @@ export const useChatStore = create<ChatState>()(
                 const data = line.slice(6);
                 if (data === '[DONE]') {
                   set({ isLoading: false });
+                  if (pendingPlan) {
+                    window.dispatchEvent(
+                      new CustomEvent('triggerPlanGeneration', { detail: pendingPlan })
+                    );
+                    pendingPlan = null;
+                  }
                   return;
                 }
 
@@ -226,15 +233,13 @@ export const useChatStore = create<ChatState>()(
                       get().removeTyping();
                       hasStarted = true;
                     }
-                    
-                    // Trigger plan generation in the ChatWindow
-                    window.dispatchEvent(new CustomEvent('triggerPlanGeneration', {
-                      detail: {
-                        userPrompt: parsed.userPrompt || text,
-                        chatHistory: parsed.chatHistory || [],
-                        actionType: parsed.actionType
-                      }
-                    }));
+
+                    // Store plan request to dispatch after stream ends
+                    pendingPlan = {
+                      userPrompt: parsed.userPrompt || text,
+                      chatHistory: parsed.chatHistory || [],
+                      actionType: parsed.actionType,
+                    };
                   } else if (parsed.type === 'assistant_message') {
                     // Handle structured message with download button
                     if (!hasStarted) {
