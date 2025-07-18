@@ -172,17 +172,13 @@ export const ComponentPalette: React.FC<ComponentPaletteProps> = ({
   };
 
   const handleDragStart = (item: PaletteItem) => (e: React.DragEvent) => {
-    // Set drag data
-    e.dataTransfer.setData('application/json', JSON.stringify({
-      id: crypto.randomUUID(),
-      type: item.type,
-      position: { x: 0, y: 0 },
-      size: { width: 200, height: 120 },
-      data: { 
-        label: item.name,
-        ...item.data 
-      }
-    }));
+    // Set drag data that the canvas expects
+    e.dataTransfer.setData('component-type', item.type);
+    e.dataTransfer.setData('component-name', item.name);
+    e.dataTransfer.effectAllowed = 'copy';
+    
+    // Add visual feedback
+    e.dataTransfer.setDragImage(e.currentTarget as HTMLElement, 50, 25);
     
     // Call callback if provided
     onItemDragStart?.(item, e);

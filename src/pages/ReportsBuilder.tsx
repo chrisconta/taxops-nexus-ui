@@ -65,7 +65,8 @@ const ReportsBuilder = () => {
           isRunning={isRunning}
           items={reportState.components}
           onItemAdd={(item) => updateState({ 
-            components: [...reportState.components, item] 
+            components: [...reportState.components, item],
+            selectedComponent: item
           })}
           onItemUpdate={(id, updates) => updateState({
             components: reportState.components.map(item => 
@@ -73,7 +74,11 @@ const ReportsBuilder = () => {
             )
           })}
           onItemDelete={(id) => updateState({
-            components: reportState.components.filter(item => item.id !== id)
+            components: reportState.components.filter(item => item.id !== id),
+            selectedComponent: reportState.selectedComponent?.id === id ? null : reportState.selectedComponent
+          })}
+          onItemSelect={(item) => updateState({
+            selectedComponent: item
           })}
         />
 
