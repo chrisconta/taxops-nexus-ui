@@ -193,3 +193,5 @@ serve(async (req) => {
     });
   }
 });
+
+export {}
