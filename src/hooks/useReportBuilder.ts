@@ -1,10 +1,18 @@
 
 import { useState, useCallback } from 'react';
 
+interface CanvasItem {
+  id: string;
+  type: 'table' | 'metric' | 'chart' | 'formula';
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  data: any;
+}
+
 export interface ReportState {
   title: string;
   activeView: 'table' | 'chart';
-  components: any[];
+  components: CanvasItem[];
   filters: any[];
   lastSaved: Date | null;
 }

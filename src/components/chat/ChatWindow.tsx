@@ -324,7 +324,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               content: `I need some additional information to complete this request:`,
               timestamp: Date.now(),
               requiresData: true,
-              validationErrors: error.errors || error.response || {
+              validationErrors: {
                 missing: [],
                 invalid: []
               }

@@ -1,6 +1,7 @@
 
 import React, { useState } from "react";
 import { ReportTopNav } from "@/components/reports/ReportTopNav";
+import { ReportCanvas } from "@/components/reports/ReportCanvas";
 import { useReportBuilder } from "@/hooks/useReportBuilder";
 
 const ReportsBuilder = () => {
@@ -83,29 +84,21 @@ const ReportsBuilder = () => {
         </div>
 
         {/* Main Canvas */}
-        <div className="flex-1 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.02)_1px,_transparent_1px)] bg-[size:24px_24px] relative">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">📊</span>
-              </div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                {isRunning ? 'Running Report...' : 'Start Building'}
-              </h2>
-              <p className="text-taxops-gray-light max-w-md">
-                {isRunning 
-                  ? 'Please wait while we execute your report.'
-                  : 'Add components from the panel on the left to start creating your report.'
-                }
-              </p>
-              {isRunning && (
-                <div className="mt-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <ReportCanvas 
+          isRunning={isRunning}
+          items={reportState.components}
+          onItemAdd={(item) => updateState({ 
+            components: [...reportState.components, item] 
+          })}
+          onItemUpdate={(id, updates) => updateState({
+            components: reportState.components.map(item => 
+              item.id === id ? { ...item, ...updates } : item
+            )
+          })}
+          onItemDelete={(id) => updateState({
+            components: reportState.components.filter(item => item.id !== id)
+          })}
+        />
 
         {/* Right Sidebar - Configuration Panel */}
         <div className={`w-80 bg-glass-bg/50 backdrop-blur-xl border-l border-glass-border p-6 transition-all duration-300 ${showFilters ? 'block' : 'hidden'}`}>
