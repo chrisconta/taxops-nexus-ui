@@ -46,7 +46,7 @@ const toolConfirmationMessages = {
   'ai-chat': "I'm here to help with general questions and conversations. What would you like to discuss?"
 };
 
-// Enhanced confirmation check with improved logging and pattern matching
+// BULLETPROOF CONFIRMATION CHECK - uses dedicated confirmation prompt
 async function checkConfirmationWithDeepSeek(
   apiKey: string, 
   conversationHistory: Array<{ role: string; content: string }>, 
@@ -58,32 +58,16 @@ async function checkConfirmationWithDeepSeek(
   
   // Enhanced fallback detection with better patterns
   const strongConfirmationWords = ['yes', 'yeah', 'yep', 'sure', 'okay', 'ok', 'proceed', 'go ahead', 'do it', 'confirm', 'let\'s do it', 'sounds good'];
-  const messageWords = latestMessage.toLowerCase().split(/\s+/);
   const normalizedMessage = latestMessage.toLowerCase().trim();
   
   const hasStrongConfirmation = strongConfirmationWords.some(word => 
     normalizedMessage.includes(word)
   );
   
-  console.log(`[🧠 CONFIRMATION CHECK] Strong confirmation detected: ${hasStrongConfirmation}`);
+  console.log(`[🧠 CONFIRMATION CHECK] Strong confirmation detected via fallback: ${hasStrongConfirmation}`);
   
-  // Tool-specific context keywords
-  const toolKeywords = {
-    'register_client': ['client', 'register', 'business', 'company'],
-    'create_connection': ['connection', 'connect', 'link', 'service'],
-    'build_dashboard': ['dashboard', 'report', 'chart', 'analytics', 'visualization', 'build'],
-    'ai-chat': ['chat', 'talk', 'discuss', 'question']
-  };
-  
-  const relevantKeywords = toolKeywords[toolName as keyof typeof toolKeywords] || [];
-  const hasRelevantContext = relevantKeywords.some(keyword => 
-    normalizedMessage.includes(keyword)
-  );
-  
-  console.log(`[🧠 CONFIRMATION CHECK] Relevant context detected: ${hasRelevantContext}`);
-  
-  // Strong confirmation if user says yes and mentions tool context
-  if (hasStrongConfirmation && hasRelevantContext) {
+  // Strong confirmation fallback - if user says yes, proceed
+  if (hasStrongConfirmation) {
     console.log('[🧠 CONFIRMATION CHECK] Strong confirmation via fallback logic');
     return { 
       isConfirmed: true, 
@@ -91,25 +75,25 @@ async function checkConfirmationWithDeepSeek(
     };
   }
   
-  // Enhanced confirmation prompt with clearer structure
-  const confirmationInstruction = `The user previously selected the tool "${toolName}".
+  // DEDICATED CONFIRMATION PROMPT (not tool selection!)
+  const confirmationInstruction = `You are the confirmation handler for an AI system. 
 
-Based on the last few messages, is the user confirming they want to proceed with this tool?
+The user previously selected the tool "${toolName}".
+
+Based on the conversation history, is the user confirming they want to proceed with this specific tool?
+
+Look for confirmation words like: yes, okay, sure, go ahead, proceed, do it.
 
 Conversation History:
 ${conversationHistory.slice(-5).map(m => `${m.role}: ${m.content}`).join('\n')}
 
 User's latest message: "${latestMessage}"
 
-The user has already been asked about ${toolName}. Are they confirming they want to proceed?
-
-Respond with ONLY:
-- "YES" if they want to proceed with ${toolName}
-- "NO" if they don't want to proceed or are unclear
+Respond with ONLY "YES" if they want to proceed with ${toolName}, or "NO" if they don't want to proceed.
 
 Do not provide explanations, just YES or NO.`;
 
-  console.log(`[🧠 DEEPSEEK CONFIRMATION PROMPT]\n${confirmationInstruction}`);
+  console.log(`[🧠 CONFIRMATION PROMPT SENT TO DEEPSEEK]\n${confirmationInstruction}`);
 
   try {
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -161,6 +145,7 @@ Do not provide explanations, just YES or NO.`;
   }
 }
 
+// TOOL EXTRACTION - only for tool selection phase
 export function extractToolFromResponse(text: string): { tool?: string; reply?: string } {
   console.log('[🧠 TOOL EXTRACTION] Extracting tool from DeepSeek response:', text);
   
@@ -226,23 +211,6 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
         reply: reply
       };
     }
-  }
-  
-  // Try to extract any structured response if present
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*?\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (parsed.tool) {
-        console.log(`[🧠 TOOL EXTRACTION] Found tool via JSON: ${parsed.tool}`);
-        const reply = parsed.reply && parsed.reply.length > 10 
-          ? parsed.reply 
-          : toolMessages[parsed.tool as keyof typeof toolMessages] || text;
-        return { tool: parsed.tool, reply };
-      }
-    }
-  } catch (e) {
-    // JSON parsing failed, continue with pattern matching
   }
   
   // Look for tool names directly mentioned in text (fallback)
@@ -593,7 +561,7 @@ serve(async (req) => {
       state.messages = mergedMessages.slice(-MAX_HISTORY);
     }
     
-    // IMPROVED: Smart tool switching logic - only reset if actually switching to different tool
+    // FIXED: Smart tool switching logic - only reset if actually switching to different tool
     if (source_tool && source_tool !== state.tool) {
       console.log(`[🔁 TOOL SWITCH] from ${state.tool} → ${source_tool}`);
       state.tool = source_tool;
@@ -609,11 +577,11 @@ serve(async (req) => {
     // Add current message to state
     appendMessage(state, { role: 'user', content: message });
     
-    // ENHANCED DEBUG LOGGING FOR STATE
+    // ENHANCED DEBUG LOGGING FOR STATE - BEFORE CONDITIONAL LOGIC
     console.log(`[🧠 DEBUG STATE] conversation_id: ${conversation_id}`);
     console.log(`[🧠 STATE] tool: ${state.tool}`);
     console.log(`[🧠 STATE] confirmed: ${state.confirmed}`);
-    console.log(`[🧠 STATE] confirmationAttempts: ${state.confirmationAttempts}`);
+    console.log(`[🧠 STATE] confirmationAttempts: ${state.confirmationAttempts || 0}`);
     console.log(`[🧠 STATE] messages count: ${state.messages.length}`);
     console.log(`[🧠 STATE] toolChain: ${JSON.stringify(state.toolChain)}`);
     console.log(`[🧠 STATE] sourceTools: ${JSON.stringify(state.sourceTools)}`);
@@ -728,7 +696,7 @@ serve(async (req) => {
       state.confirmationAttempts++;
       console.log(`[🧠 ORCHESTRATOR] Confirmation attempt ${state.confirmationAttempts} for tool: ${state.tool}`);
       
-      // Auto-confirm after MAX_CONFIRMATION_ATTEMPTS
+      // BULLETPROOF: Auto-confirm after MAX_CONFIRMATION_ATTEMPTS
       if (state.confirmationAttempts >= MAX_CONFIRMATION_ATTEMPTS) {
         console.log('[🧠 ORCHESTRATOR] Max confirmation attempts reached - auto-proceeding');
         type = 'actionable';
@@ -824,7 +792,6 @@ serve(async (req) => {
           }
           
           // Clear the conversation state since we're launching the tool
-          // Note: Keep minimal state recovery mechanism by reloading from database if needed
           conversationStates.delete(conversation_id);
           console.log('[🧠 ORCHESTRATOR] Tool confirmed and launching, cleared conversation state');
         } else {
