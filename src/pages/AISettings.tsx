@@ -1,777 +1,390 @@
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Key, FileText, Activity, Download, Code, Calendar, Clock, CheckCircle, XCircle, AlertCircle, MessageSquare, User, Bot, Cog, AlertTriangle, Info, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { ReportRulesEditor } from "@/components/settings/ReportRulesEditor";
-import { useChatLogger } from "@/hooks/useChatLogger";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useChatLogger } from '@/hooks/useChatLogger';
+import { RefreshCw, Trash2 } from "lucide-react";
 
 const AISettings = () => {
-  const [apiKey, setApiKey] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [deepseekKey, setDeepseekKey] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [apiLogs, setApiLogs] = useState<any[]>([]);
-  const [logsLoading, setLogsLoading] = useState(false);
-  const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<any[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const { toast } = useToast();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
   const { sessions, clearSessions } = useChatLogger();
 
-  useEffect(() => {
-    checkExistingKey();
-    loadApiLogs();
-    loadChatHistory();
-  }, []);
-
-  const checkExistingKey = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('ai_credentials')
-        .select('id')
-        .eq('provider', 'deepseek')
-        .eq('user_id', user.id)
-        .single();
-
-      if (data) {
-        setApiKey('••••••••••••••••••••••••••••••••');
-      }
-    } catch (error) {
-      console.log('No existing key');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveApiKey = async () => {
-    if (!apiKey || apiKey.startsWith('••••')) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid API key",
-        variant: "destructive",
-      });
+  const saveDeepSeekKey = async () => {
+    if (!deepseekKey.trim()) {
+      toast.error("Please enter a DeepSeek API key");
       return;
     }
 
-    setSaving(true);
+    setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('save-ai-key', {
-        body: { deepseek_api_key: apiKey }
+      const { error } = await supabase.functions.invoke('save-ai-key', {
+        body: { 
+          provider: 'deepseek', 
+          apiKey: deepseekKey.trim() 
+        }
       });
 
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "DeepSeek API key saved successfully",
-      });
-
-      setApiKey('••••••••••••••••••••••••••••••••');
-    } catch (error) {
-      console.error('Failed to save API key:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to save API key',
-        variant: "destructive",
-      });
+      
+      toast.success("DeepSeek API key saved successfully");
+      setDeepseekKey("");
+    } catch (error: any) {
+      console.error('Error saving DeepSeek key:', error);
+      toast.error(`Failed to save API key: ${error.message}`);
     } finally {
-      setSaving(false);
+      setIsLoading(false);
     }
   };
 
-  const loadApiLogs = async () => {
-    setLogsLoading(true);
+  const fetchApiLogs = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data, error } = await supabase
         .from('ai_messages')
-        .select(`
-          id, 
-          content, 
-          role, 
-          created_at, 
-          api_logs,
-          conversation_id,
-          ai_conversations(title)
-        `)
-        .eq('role', 'assistant')
-        .not('api_logs', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-
-      setApiLogs(data || []);
-    } catch (error) {
-      console.error('Failed to load API logs:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load API logs",
-        variant: "destructive",
-      });
-    } finally {
-      setLogsLoading(false);
-    }
-  };
-
-  const downloadLogs = () => {
-    const csvData = apiLogs.map(log => ({
-      timestamp: log.created_at,
-      conversation: log.ai_conversations?.title || 'Unknown',
-      request_url: log.api_logs?.request?.url || '',
-      request_method: log.api_logs?.request?.method || '',
-      response_status: log.api_logs?.response?.status || '',
-      content_preview: log.content.substring(0, 100) + '...',
-      model: log.api_logs?.request?.body?.model || '',
-      temperature: log.api_logs?.request?.body?.temperature || '',
-      max_tokens: log.api_logs?.request?.body?.max_tokens || '',
-      request_json: log.api_logs?.request?.body ? JSON.stringify(log.api_logs.request.body, null, 2) : '',
-      response_json: log.api_logs?.response?.data ? JSON.stringify(log.api_logs.response.data, null, 2) : ''
-    }));
-
-    const headers = Object.keys(csvData[0] || {});
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => headers.map(header => `"${row[header as keyof typeof row]}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `deepseek-api-logs-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Success",
-      description: "API logs downloaded successfully",
-    });
-  };
-
-  const downloadChatLogs = () => {
-    const textContent = sessions.map(session => {
-      const sessionHeader = `=== SESSION ${session.id} ===\nTitle: ${session.title}\nStatus: ${session.status}\nStarted: ${new Date(session.startTime).toLocaleString()}\nEnded: ${session.endTime ? new Date(session.endTime).toLocaleString() : 'Ongoing'}\nEntries: ${session.entries.length}\n\n`;
-      
-      const logsText = session.entries.map(entry => {
-        const timestamp = new Date(entry.timestamp).toLocaleString();
-        const header = `[${timestamp}] ${entry.type.toUpperCase()} - ${entry.action} (${entry.status})`;
-        const details = entry.details ? `\nDetails: ${entry.details}` : '';
-        const data = entry.data ? `\nData: ${JSON.stringify(entry.data, null, 2)}` : '';
-        return `${header}${details}${data}\n`;
-      }).join('\n');
-      
-      return `${sessionHeader}${logsText}\n${'='.repeat(70)}\n\n`;
-    }).join('');
-    
-    const blob = new Blob([textContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `chat-logs-${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Success",
-      description: "Chat logs downloaded successfully",
-    });
-  };
-
-  const loadChatHistory = async () => {
-    setHistoryLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('ai_conversations')
-        .select(`
-          id,
-          title,
-          created_at,
-          updated_at,
-          ai_messages(id, role, content, created_at)
-        `)
-        .eq('user_id', user.id)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (error) throw error;
+      setApiLogs(data || []);
+    } catch (error) {
+      console.error('Error fetching API logs:', error);
+      toast.error('Failed to fetch API logs');
+    }
+  };
 
+  const fetchChatHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ai_conversations')
+        .select(`
+          *,
+          ai_messages (
+            id,
+            role,
+            content,
+            created_at
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
       setChatHistory(data || []);
     } catch (error) {
-      console.error('Failed to load chat history:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load chat history",
-        variant: "destructive",
-      });
+      console.error('Error fetching chat history:', error);
+      toast.error('Failed to fetch chat history');
+    }
+  };
+
+  const refreshData = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([fetchApiLogs(), fetchChatHistory()]);
+      toast.success('Data refreshed successfully');
+    } catch (error) {
+      toast.error('Failed to refresh data');
     } finally {
-      setHistoryLoading(false);
+      setIsRefreshing(false);
     }
   };
 
-  const getLogTypeIcon = (type: string) => {
-    switch (type) {
-      case 'message': return <MessageSquare className="w-4 h-4" />;
-      case 'system': return <Cog className="w-4 h-4" />;
-      case 'process': return <Activity className="w-4 h-4" />;
-      case 'error': return <XCircle className="w-4 h-4" />;
-      default: return <Info className="w-4 h-4" />;
-    }
-  };
-
-  const getLogTypeColor = (type: string) => {
-    switch (type) {
-      case 'message': return 'bg-blue-500/20 text-blue-300';
-      case 'system': return 'bg-gray-500/20 text-gray-300';
-      case 'process': return 'bg-purple-500/20 text-purple-300';
-      case 'error': return 'bg-red-500/20 text-red-300';
-      default: return 'bg-gray-500/20 text-gray-300';
-    }
-  };
-
-  const getStatusIcon = (status: any) => {
-    if (typeof status === 'number') {
-      if (status >= 200 && status < 300) return <CheckCircle className="w-4 h-4 text-green-400" />;
-      if (status >= 400 && status < 500) return <AlertCircle className="w-4 h-4 text-yellow-400" />;
-      if (status >= 500) return <XCircle className="w-4 h-4 text-red-400" />;
-      return <Clock className="w-4 h-4 text-gray-400" />;
-    }
+  // Auto-refresh data every 30 seconds
+  useEffect(() => {
+    fetchApiLogs();
+    fetchChatHistory();
     
-    switch (status) {
-      case 'success': return <CheckCircle className="w-4 h-4 text-green-400" />;
-      case 'error': return <XCircle className="w-4 h-4 text-red-400" />;
-      case 'pending': return <Clock className="w-4 h-4 text-yellow-400" />;
-      default: return <Info className="w-4 h-4 text-gray-400" />;
-    }
+    const interval = setInterval(() => {
+      fetchApiLogs();
+      fetchChatHistory();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatTimestamp = (timestamp: string) => {
+    return new Date(timestamp).toLocaleString();
   };
 
-  const currentApiDesign = {
-    endpoint: "https://api.deepseek.com/v1/chat/completions",
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer [API_KEY]",
-      "Content-Type": "application/json"
-    },
-    body: {
-      model: "deepseek-chat",
-      temperature: 0.7,
-      max_tokens: 512,
-      messages: [
-        { role: "system", content: "You are a helpful AI assistant." },
-        { role: "user", content: "[USER_MESSAGE]" }
-      ]
-    }
+  const getStatusBadge = (status: string) => {
+    const colors = {
+      success: "bg-green-100 text-green-800",
+      error: "bg-red-100 text-red-800",
+      pending: "bg-yellow-100 text-yellow-800",
+      info: "bg-blue-100 text-blue-800"
+    };
+    return colors[status as keyof typeof colors] || colors.info;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-taxops-dark via-taxops-dark-lighter to-taxops-dark p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center space-x-4 mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => window.history.back()}
-            className="text-white hover:bg-glass-bg/50"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-3xl font-bold text-white">AI Settings</h1>
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">AI Settings</h1>
+          <p className="text-muted-foreground">Configure your AI service settings and monitor activity</p>
         </div>
+        <Button onClick={refreshData} disabled={isRefreshing} className="flex items-center gap-2">
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh Data
+        </Button>
+      </div>
 
-        <Tabs defaultValue="api-keys" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 bg-glass-bg/50 border border-glass-border">
-            <TabsTrigger value="api-keys" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
-              <Key className="w-4 h-4 mr-2" />
-              API Keys
-            </TabsTrigger>
-            <TabsTrigger value="api-logs" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
-              <Activity className="w-4 h-4 mr-2" />
-              API Logs
-            </TabsTrigger>
-            <TabsTrigger value="chat-logs" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Chat Logs
-            </TabsTrigger>
-            <TabsTrigger value="chat-history" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
-              <User className="w-4 h-4 mr-2" />
-              Chat History
-            </TabsTrigger>
-            <TabsTrigger value="report-rules" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
-              <FileText className="w-4 h-4 mr-2" />
-              Report Rules
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="config" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="config">Configuration</TabsTrigger>
+          <TabsTrigger value="api-logs">API Logs</TabsTrigger>
+          <TabsTrigger value="chat-logs">Chat Logs</TabsTrigger>
+          <TabsTrigger value="chat-history">Chat History</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="api-keys" className="mt-6">
-            <Card className="bg-glass-bg/30 border-glass-border">
-              <CardHeader>
-                <CardTitle className="text-white">DeepSeek API Key</CardTitle>
-                <CardDescription className="text-taxops-gray-light">
-                  Configure your DeepSeek API key to enable AI-powered features.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-white">API Key</label>
+        <TabsContent value="config">
+          <Card>
+            <CardHeader>
+              <CardTitle>API Configuration</CardTitle>
+              <CardDescription>
+                Configure your AI service API keys. Keys are encrypted and stored securely.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="deepseek-key" className="text-sm font-medium">
+                  DeepSeek API Key
+                </label>
+                <div className="flex gap-2">
                   <Input
+                    id="deepseek-key"
                     type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
                     placeholder="Enter your DeepSeek API key"
-                    className="bg-glass-bg/20 border-glass-border text-white placeholder:text-taxops-gray-light"
+                    value={deepseekKey}
+                    onChange={(e) => setDeepseekKey(e.target.value)}
                   />
-                </div>
-
-                <Button 
-                  onClick={saveApiKey}
-                  disabled={saving || loading}
-                  className="bg-primary hover:bg-primary/80"
-                >
-                  {saving ? "Saving..." : "Save API Key"}
-                </Button>
-
-                <div className="mt-4 p-4 bg-glass-bg/20 border border-glass-border rounded-lg">
-                  <p className="text-sm text-taxops-gray-light">
-                    Get your API key from{" "}
-                    <a 
-                      href="https://platform.deepseek.com/api_keys" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-primary hover:text-primary/80 underline"
-                    >
-                      DeepSeek Platform
-                    </a>
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="api-logs" className="mt-6 space-y-6">
-            {/* Current API Design */}
-            <Card className="bg-glass-bg/30 border-glass-border">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Code className="w-5 h-5" />
-                  Current DeepSeek API Design
-                </CardTitle>
-                <CardDescription className="text-taxops-gray-light">
-                  Current configuration for DeepSeek API calls
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-white">Endpoint</label>
-                      <div className="mt-1 p-2 bg-glass-bg/20 border border-glass-border rounded text-sm text-taxops-gray-light font-mono">
-                        {currentApiDesign.endpoint}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-white">Method</label>
-                      <div className="mt-1 p-2 bg-glass-bg/20 border border-glass-border rounded text-sm text-taxops-gray-light font-mono">
-                        {currentApiDesign.method}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium text-white">Request Body Structure</label>
-                    <ScrollArea className="mt-1 h-40 p-3 bg-glass-bg/20 border border-glass-border rounded">
-                      <pre className="text-sm text-taxops-gray-light font-mono">
-                        {JSON.stringify(currentApiDesign.body, null, 2)}
-                      </pre>
-                    </ScrollArea>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* API Logs Table */}
-            <Card className="bg-glass-bg/30 border-glass-border">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-white flex items-center gap-2">
-                      <Activity className="w-5 h-5" />
-                      API Request Logs
-                    </CardTitle>
-                    <CardDescription className="text-taxops-gray-light">
-                      Recent DeepSeek API requests and responses
-                    </CardDescription>
-                  </div>
-                  <Button
-                    onClick={downloadLogs}
-                    variant="outline"
-                    className="bg-glass-bg/20 border-glass-border text-white hover:bg-glass-bg/30"
-                    disabled={apiLogs.length === 0}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download CSV
+                  <Button onClick={saveDeepSeekKey} disabled={isLoading}>
+                    {isLoading ? "Saving..." : "Save"}
                   </Button>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {logsLoading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <div className="text-taxops-gray-light">Loading logs...</div>
-                  </div>
-                ) : apiLogs.length === 0 ? (
-                  <div className="flex items-center justify-center h-32">
-                    <div className="text-taxops-gray-light">No API logs found</div>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-96 border border-glass-border rounded">
-                    <div className="min-w-[1200px]">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="border-glass-border">
-                            <TableHead className="text-white min-w-[180px]">Timestamp</TableHead>
-                            <TableHead className="text-white min-w-[140px]">Conversation</TableHead>
-                            <TableHead className="text-white min-w-[80px]">Status</TableHead>
-                            <TableHead className="text-white min-w-[100px]">Model</TableHead>
-                            <TableHead className="text-white min-w-[80px]">Tokens</TableHead>
-                            <TableHead className="text-white min-w-[200px]">Request JSON</TableHead>
-                            <TableHead className="text-white min-w-[200px]">Response JSON</TableHead>
-                            <TableHead className="text-white min-w-[200px]">Content Preview</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {apiLogs.map((log) => (
-                            <TableRow key={log.id} className="border-glass-border">
-                              <TableCell className="text-taxops-gray-light">
+                <p className="text-xs text-muted-foreground">
+                  Your API key will be encrypted and stored securely in the database.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="api-logs">
+          <Card>
+            <CardHeader>
+              <CardTitle>API Request Logs</CardTitle>
+              <CardDescription>
+                Recent API requests and responses ({apiLogs.length} entries)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[600px]">
+                <div className="space-y-4">
+                  {apiLogs.map((log) => (
+                    <div key={log.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{log.role}</Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {formatTimestamp(log.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div>
+                          <h4 className="text-sm font-medium">Content:</h4>
+                          <p className="text-sm bg-muted p-2 rounded text-wrap break-words">
+                            {typeof log.content === 'string' ? log.content : JSON.stringify(log.content, null, 2)}
+                          </p>
+                        </div>
+                        
+                        {log.api_logs && Object.keys(log.api_logs).length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium">API Logs:</h4>
+                            <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
+                              {JSON.stringify(log.api_logs, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <Separator className="my-2" />
+                    </div>
+                  ))}
+                  
+                  {apiLogs.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No API logs found. Start a conversation to see logs here.
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="chat-logs">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Chat Activity Logs</CardTitle>
+                  <CardDescription>
+                    Local chat logger activity ({sessions.length} sessions)
+                  </CardDescription>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={clearSessions}
+                  className="flex items-center gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Clear Logs
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[600px]">
+                <div className="space-y-4">
+                  {sessions.map((session) => (
+                    <div key={session.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-medium">{session.title}</h3>
+                        <div className="flex items-center gap-2">
+                          <Badge className={getStatusBadge(session.status)}>
+                            {session.status}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {formatTimestamp(session.startTime)}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {session.entries.slice(0, 10).map((entry) => (
+                          <div key={entry.id} className="text-sm">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="outline" className={getStatusBadge(entry.status)}>
+                                {entry.type}
+                              </Badge>
+                              <span className="font-medium">{entry.action}</span>
+                              <span className="text-muted-foreground text-xs">
+                                {formatTimestamp(entry.timestamp)}
+                              </span>
+                            </div>
+                            <p className="text-muted-foreground ml-2">{entry.details}</p>
+                            {entry.data && (
+                              <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-x-auto">
+                                {JSON.stringify(entry.data, null, 2)}
+                              </pre>
+                            )}
+                          </div>
+                        ))}
+                        
+                        {session.entries.length > 10 && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            ... and {session.entries.length - 10} more entries
+                          </p>
+                        )}
+                      </div>
+                      
+                      <Separator className="my-2" />
+                    </div>
+                  ))}
+                  
+                  {sessions.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No chat sessions found. Start a conversation to see activity logs here.
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="chat-history">
+          <Card>
+            <CardHeader>
+              <CardTitle>Chat History</CardTitle>
+              <CardDescription>
+                Recent conversation history ({chatHistory.length} conversations)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[600px]">
+                <div className="space-y-4">
+                  {chatHistory.map((conversation) => (
+                    <div key={conversation.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-medium">{conversation.title}</h3>
+                        <span className="text-sm text-muted-foreground">
+                          {formatTimestamp(conversation.created_at)}
+                        </span>
+                      </div>
+                      
+                      {conversation.ai_messages && conversation.ai_messages.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">
+                            {conversation.ai_messages.length} messages
+                          </p>
+                          <div className="space-y-1">
+                            {conversation.ai_messages.slice(0, 3).map((message: any) => (
+                              <div key={message.id} className="text-sm">
                                 <div className="flex items-center gap-2">
-                                  <Calendar className="w-4 h-4" />
-                                  {new Date(log.created_at).toLocaleString()}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-taxops-gray-light">
-                                <Badge variant="secondary" className="bg-primary/20 text-primary">
-                                  {log.ai_conversations?.title || 'Unknown'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  {getStatusIcon(log.api_logs?.response?.status)}
-                                  <span className="text-taxops-gray-light">
-                                    {log.api_logs?.response?.status || 'Unknown'}
+                                  <Badge variant={message.role === 'user' ? 'default' : 'secondary'}>
+                                    {message.role}
+                                  </Badge>
+                                  <span className="text-muted-foreground text-xs">
+                                    {formatTimestamp(message.created_at)}
                                   </span>
                                 </div>
-                              </TableCell>
-                              <TableCell className="text-taxops-gray-light">
-                                {log.api_logs?.request?.body?.model || 'Unknown'}
-                              </TableCell>
-                              <TableCell className="text-taxops-gray-light">
-                                {log.api_logs?.request?.body?.max_tokens || 'Unknown'}
-                              </TableCell>
-                              <TableCell className="text-taxops-gray-light max-w-xs">
-                                {log.api_logs?.request?.body ? (
-                                  <ScrollArea className="h-20 w-full">
-                                    <pre className="text-xs font-mono whitespace-pre-wrap">
-                                      {JSON.stringify(log.api_logs.request.body, null, 2)}
-                                    </pre>
-                                  </ScrollArea>
-                                ) : (
-                                  <span className="text-taxops-gray-light/50">No request data</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-taxops-gray-light max-w-xs">
-                                {log.api_logs?.response?.data ? (
-                                  <ScrollArea className="h-20 w-full">
-                                    <pre className="text-xs font-mono whitespace-pre-wrap">
-                                      {JSON.stringify(log.api_logs.response.data, null, 2)}
-                                    </pre>
-                                  </ScrollArea>
-                                ) : (
-                                  <span className="text-taxops-gray-light/50">No response data</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-taxops-gray-light max-w-xs">
-                                <div className="truncate">
-                                  {log.content.substring(0, 100)}...
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                                <p className="text-muted-foreground ml-2 truncate">
+                                  {message.content.length > 100 
+                                    ? `${message.content.substring(0, 100)}...` 
+                                    : message.content}
+                                </p>
+                              </div>
+                            ))}
+                            
+                            {conversation.ai_messages.length > 3 && (
+                              <p className="text-xs text-muted-foreground ml-2">
+                                ... and {conversation.ai_messages.length - 3} more messages
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <Separator className="my-2" />
                     </div>
-                    <ScrollBar orientation="horizontal" className="bg-glass-bg/30 hover:bg-glass-bg/50" />
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="chat-logs" className="mt-6 space-y-6">
-            {/* Chat Logs Header */}
-            <Card className="bg-glass-bg/30 border-glass-border">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-white flex items-center gap-2">
-                      <MessageSquare className="w-5 h-5" />
-                      Chat Activity Logs
-                    </CardTitle>
-                    <CardDescription className="text-taxops-gray-light">
-                      Detailed logs of chat conversations, system routing, processes, and errors
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      onClick={downloadChatLogs}
-                      variant="outline"
-                      className="bg-glass-bg/20 border-glass-border text-white hover:bg-glass-bg/30"
-                      disabled={sessions.length === 0}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download TXT
-                    </Button>
-                    <Button
-                      onClick={clearSessions}
-                      variant="outline"
-                      className="bg-glass-bg/20 border-glass-border text-white hover:bg-glass-bg/30"
-                      disabled={sessions.length === 0}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Clear All Logs
-                    </Button>
-                  </div>
+                  ))}
+                  
+                  {chatHistory.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No chat history found. Start a conversation to see history here.
+                    </div>
+                  )}
                 </div>
-              </CardHeader>
-              <CardContent>
-                {sessions.length === 0 ? (
-                  <div className="flex items-center justify-center h-32">
-                    <div className="text-taxops-gray-light">No chat sessions found</div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {sessions.map((session) => (
-                      <Collapsible key={session.id}>
-                        <CollapsibleTrigger className="w-full">
-                          <Card className="bg-glass-bg/20 border-glass-border hover:bg-glass-bg/30 transition-colors">
-                            <CardHeader className="pb-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex items-center gap-2">
-                                    <Calendar className="w-4 h-4 text-taxops-gray-light" />
-                                    <span className="text-white font-medium">{session.title}</span>
-                                  </div>
-                                  <Badge 
-                                    variant="secondary"
-                                    className={`${session.status === 'active' ? 'bg-green-500/20 text-green-300' : 
-                                                session.status === 'failed' ? 'bg-red-500/20 text-red-300' : 
-                                                'bg-blue-500/20 text-blue-300'}`}
-                                  >
-                                    {session.status}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-4 text-sm text-taxops-gray-light">
-                                  <span>{session.entries.length} entries</span>
-                                  <span>{new Date(session.startTime).toLocaleString()}</span>
-                                </div>
-                              </div>
-                            </CardHeader>
-                          </Card>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <Card className="bg-glass-bg/10 border-glass-border/50 mt-2">
-                            <CardContent className="p-4">
-                              <ScrollArea className="h-96">
-                                <div className="space-y-2">
-                                  {session.entries.map((entry) => (
-                                    <div key={entry.id} className="flex items-start gap-3 p-3 bg-glass-bg/20 rounded border border-glass-border/30">
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <div className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${getLogTypeColor(entry.type)}`}>
-                                          {getLogTypeIcon(entry.type)}
-                                          <span className="uppercase font-medium">{entry.type}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                          {getStatusIcon(entry.status)}
-                                          <span className="text-xs text-taxops-gray-light">
-                                            {new Date(entry.timestamp).toLocaleTimeString()}
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium text-white mb-1">{entry.action}</div>
-                                        <div className="text-xs text-taxops-gray-light break-words">{entry.details}</div>
-                                        {entry.data && (
-                                          <Collapsible>
-                                            <CollapsibleTrigger className="text-xs text-primary hover:text-primary/80 mt-1">
-                                              View Data
-                                            </CollapsibleTrigger>
-                                            <CollapsibleContent>
-                                              <ScrollArea className="h-20 mt-2 p-2 bg-glass-bg/30 border border-glass-border/50 rounded">
-                                                <pre className="text-xs text-taxops-gray-light font-mono whitespace-pre-wrap">
-                                                  {JSON.stringify(entry.data, null, 2)}
-                                                </pre>
-                                              </ScrollArea>
-                                            </CollapsibleContent>
-                                          </Collapsible>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </ScrollArea>
-                            </CardContent>
-                          </Card>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="chat-history" className="mt-6">
-            <Card className="bg-glass-bg/30 border-glass-border">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-white flex items-center gap-2">
-                      <User className="w-5 h-5" />
-                      Chat History
-                    </CardTitle>
-                    <CardDescription className="text-taxops-gray-light">
-                      Your conversation history and messages
-                    </CardDescription>
-                  </div>
-                  <Button
-                    onClick={loadChatHistory}
-                    variant="outline"
-                    className="bg-glass-bg/20 border-glass-border text-white hover:bg-glass-bg/30"
-                    disabled={historyLoading}
-                  >
-                    <Activity className="w-4 h-4 mr-2" />
-                    {historyLoading ? "Loading..." : "Refresh"}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {historyLoading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <div className="text-taxops-gray-light">Loading chat history...</div>
-                  </div>
-                ) : chatHistory.length === 0 ? (
-                  <div className="flex items-center justify-center h-32">
-                    <div className="text-taxops-gray-light">No conversations found</div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {chatHistory.map((conversation) => (
-                      <Collapsible key={conversation.id}>
-                        <CollapsibleTrigger className="w-full">
-                          <Card className="bg-glass-bg/20 border-glass-border hover:bg-glass-bg/30 transition-colors">
-                            <CardHeader className="pb-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex items-center gap-2">
-                                    <MessageSquare className="w-4 h-4 text-taxops-gray-light" />
-                                    <span className="text-white font-medium">{conversation.title}</span>
-                                  </div>
-                                  <Badge variant="secondary" className="bg-primary/20 text-primary">
-                                    {conversation.ai_messages?.length || 0} messages
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-4 text-sm text-taxops-gray-light">
-                                  <span>Created: {new Date(conversation.created_at).toLocaleDateString()}</span>
-                                  <span>Updated: {new Date(conversation.updated_at).toLocaleDateString()}</span>
-                                </div>
-                              </div>
-                            </CardHeader>
-                          </Card>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <Card className="bg-glass-bg/10 border-glass-border/50 mt-2">
-                            <CardContent className="p-4">
-                              <ScrollArea className="h-96">
-                                <div className="space-y-3">
-                                  {conversation.ai_messages?.length > 0 ? (
-                                    conversation.ai_messages
-                                      .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                                      .map((message: any) => (
-                                        <div key={message.id} className="flex items-start gap-3 p-3 bg-glass-bg/20 rounded border border-glass-border/30">
-                                          <div className="flex items-center gap-2 min-w-0">
-                                            <div className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${
-                                              message.role === 'user' ? 'bg-blue-500/20 text-blue-300' : 
-                                              message.role === 'assistant' ? 'bg-green-500/20 text-green-300' : 
-                                              'bg-gray-500/20 text-gray-300'
-                                            }`}>
-                                              {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                                              <span className="uppercase font-medium">{message.role}</span>
-                                            </div>
-                                            <span className="text-xs text-taxops-gray-light">
-                                              {new Date(message.created_at).toLocaleString()}
-                                            </span>
-                                          </div>
-                                          <div className="flex-1 min-w-0">
-                                            <div className="text-sm text-white break-words whitespace-pre-wrap">
-                                              {message.content.length > 200 ? (
-                                                <Collapsible>
-                                                  <div>{message.content.substring(0, 200)}...</div>
-                                                  <CollapsibleTrigger className="text-xs text-primary hover:text-primary/80 mt-1">
-                                                    Show more
-                                                  </CollapsibleTrigger>
-                                                  <CollapsibleContent>
-                                                    <div className="mt-2 text-sm text-white break-words whitespace-pre-wrap">
-                                                      {message.content}
-                                                    </div>
-                                                  </CollapsibleContent>
-                                                </Collapsible>
-                                              ) : (
-                                                message.content
-                                              )}
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ))
-                                  ) : (
-                                    <div className="text-center text-taxops-gray-light py-8">
-                                      No messages in this conversation
-                                    </div>
-                                  )}
-                                </div>
-                              </ScrollArea>
-                            </CardContent>
-                          </Card>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="report-rules" className="mt-6">
-            <ReportRulesEditor />
-          </TabsContent>
-        </Tabs>
-      </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

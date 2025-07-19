@@ -1,7 +1,7 @@
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
+import chatLogger from '@/hooks/useChatLogger';
 
 export interface Message {
   id: string;
@@ -69,11 +69,22 @@ export const useChatStore = create<ChatState>()(
       
       addMessage: (message: Message) => {
         set(state => ({ messages: [...state.messages, message] }));
+        
+        // Log message with chat logger
+        chatLogger.logMessage(
+          message.author, 
+          typeof message.content === 'string' ? message.content : message.content.text,
+          message.id
+        );
       },
       
       clearMessages: () => set({ messages: [] }),
       
       startNew: () => {
+        const state = get();
+        if (state.currentConvId) {
+          chatLogger.endSession('completed');
+        }
         set({ currentConvId: undefined, messages: [] });
       },
       
@@ -118,9 +129,16 @@ export const useChatStore = create<ChatState>()(
       
       setAction: (action, target) => {
         set({ currentAction: action, currentTarget: target });
+        if (action) {
+          chatLogger.logProcess(action, 'started', `Action ${action} started on ${target || 'unknown target'}`);
+        }
       },
       
       clearAction: () => {
+        const state = get();
+        if (state.currentAction) {
+          chatLogger.logProcess(state.currentAction, 'completed', `Action ${state.currentAction} completed`);
+        }
         set({ currentAction: undefined, currentTarget: undefined });
       },
       
@@ -143,6 +161,9 @@ export const useChatStore = create<ChatState>()(
         if (!convId) {
           convId = crypto.randomUUID();
           set({ currentConvId: convId });
+          
+          // Start new chat logger session
+          chatLogger.startSession(convId, `Chat Session - ${new Date().toLocaleString()}`);
         }
 
         const userMsgId = crypto.randomUUID();
@@ -167,17 +188,22 @@ export const useChatStore = create<ChatState>()(
           isLoading: true
         });
 
+        // Log user message
+        chatLogger.logMessage('user', text, userMsgId);
+
         try {
           console.log('Getting user session for AI orchestrator call');
           const { data: { session }, error: sessionError } = await supabase.auth.getSession();
           
           if (sessionError) {
             console.error('Session error:', sessionError);
+            chatLogger.logError(new Error(`Session error: ${sessionError.message}`), 'Authentication');
             throw new Error(`Session error: ${sessionError.message}`);
           }
           
           if (!session) {
             console.error('No active session found');
+            chatLogger.logError(new Error('Not authenticated - please log in'), 'Authentication');
             throw new Error('Not authenticated - please log in');
           }
 
@@ -196,9 +222,10 @@ export const useChatStore = create<ChatState>()(
           });
 
           console.log('Calling ai-orchestrator function');
+          chatLogger.logEdgeFunction('ai-orchestrator', 'started', requestBody);
+          
           const { data, error } = await supabase.functions.invoke('ai-orchestrator', {
             body: requestBody
-            // Removed explicit Content-Type header - let Supabase client handle it
           });
 
           if (error) {
@@ -208,51 +235,66 @@ export const useChatStore = create<ChatState>()(
               context: error.context,
               details: error.details
             });
+            chatLogger.logEdgeFunction('ai-orchestrator', 'failed', requestBody, null, error);
             throw new Error(`Function error: ${error.message}`);
           }
           
           if (!data) {
             console.error('No data returned from function');
+            chatLogger.logEdgeFunction('ai-orchestrator', 'failed', requestBody, null, 'No response data');
             throw new Error('No response from AI service');
           }
 
           console.log('AI orchestrator response received:', data);
+          chatLogger.logEdgeFunction('ai-orchestrator', 'completed', requestBody, data);
           const result = data as { intent: string; params: Record<string, any>; type: string; reply: string };
 
           // Handle actionable general_chat by calling ai-chat function
           if (result.type === 'actionable' && result.intent === 'general_chat') {
             console.log('Handling general_chat action, calling ai-chat function');
+            chatLogger.logProcess('general_chat', 'started', 'Calling ai-chat function for general conversation');
             
             try {
+              const chatRequestBody = {
+                message: text,
+                conversation_id: convId
+              };
+              
+              chatLogger.logEdgeFunction('ai-chat', 'started', chatRequestBody);
+              
               const { data: chatData, error: chatError } = await supabase.functions.invoke('ai-chat', {
-                body: {
-                  message: text,
-                  conversation_id: convId
-                }
-                // Removed explicit Content-Type header here too
+                body: chatRequestBody
               });
 
               if (chatError) {
                 console.error('AI Chat function error:', chatError);
+                chatLogger.logEdgeFunction('ai-chat', 'failed', chatRequestBody, null, chatError);
                 throw new Error(`Chat error: ${chatError.message}`);
               }
 
               if (!chatData) {
+                chatLogger.logEdgeFunction('ai-chat', 'failed', chatRequestBody, null, 'No response data');
                 throw new Error('No response from chat service');
               }
 
               console.log('AI chat response received:', chatData);
+              chatLogger.logEdgeFunction('ai-chat', 'completed', chatRequestBody, chatData);
+              chatLogger.logProcess('general_chat', 'completed', 'General chat response received successfully');
               
               get().removeTyping();
-              get().addMessage({
+              const agentMessage = {
                 id: crypto.randomUUID(),
-                author: 'agent',
+                author: 'agent' as const,
                 content: chatData.assistant || 'No response received',
                 timestamp: Date.now()
-              });
+              };
+              get().addMessage(agentMessage);
               
             } catch (chatError) {
               console.error('Error calling ai-chat:', chatError);
+              chatLogger.logError(chatError instanceof Error ? chatError : new Error(String(chatError)), 'AI Chat Function');
+              chatLogger.logProcess('general_chat', 'failed', 'Failed to get chat response');
+              
               get().removeTyping();
               get().addMessage({
                 id: crypto.randomUUID(),
@@ -264,18 +306,21 @@ export const useChatStore = create<ChatState>()(
           } else {
             // Handle normal orchestrator responses
             get().removeTyping();
-            get().addMessage({
+            const agentMessage = {
               id: crypto.randomUUID(),
-              author: 'agent',
+              author: 'agent' as const,
               content: result.reply,
               timestamp: Date.now()
-            });
+            };
+            get().addMessage(agentMessage);
           }
           
           set({ isLoading: false });
           return result;
         } catch (error) {
           console.error('Chat error:', error);
+          chatLogger.logError(error instanceof Error ? error : new Error(String(error)), 'Chat Send Function');
+          
           get().removeTyping();
           
           // Provide more specific error messages
@@ -305,6 +350,7 @@ export const useChatStore = create<ChatState>()(
 
       async load(convId: string) {
         set({ isLoading: true });
+        chatLogger.logProcess('load_conversation', 'started', `Loading conversation: ${convId}`);
         
         try {
           const { data, error } = await supabase
@@ -313,7 +359,10 @@ export const useChatStore = create<ChatState>()(
             .eq('conversation_id', convId)
             .order('created_at');
 
-          if (error) throw error;
+          if (error) {
+            chatLogger.logError(error, 'Load Conversation');
+            throw error;
+          }
 
           const messages = data.map(m => ({
             id: m.id,
@@ -327,8 +376,13 @@ export const useChatStore = create<ChatState>()(
             messages,
             isLoading: false 
           });
+          
+          chatLogger.logProcess('load_conversation', 'completed', `Loaded ${messages.length} messages`);
+          chatLogger.startSession(convId, `Loaded Session - ${new Date().toLocaleString()}`);
         } catch (error) {
           console.error('Failed to load messages:', error);
+          chatLogger.logError(error instanceof Error ? error : new Error(String(error)), 'Load Conversation');
+          chatLogger.logProcess('load_conversation', 'failed', 'Failed to load conversation messages');
           set({ isLoading: false });
           throw error;
         }

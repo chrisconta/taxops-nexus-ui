@@ -1,5 +1,4 @@
 
-
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -107,6 +106,57 @@ async function askDeepSeek(apiKey: string, messages: Array<{ role: string; conte
   const data = await res.json();
   console.log('DeepSeek API response received successfully');
   return data.choices[0].message.content.trim();
+}
+
+async function ensureConversation(supabase: SupabaseClient, conversationId: string, userId: string) {
+  console.log('Ensuring conversation exists:', conversationId);
+  
+  // Check if conversation exists
+  const { data: existing } = await supabase
+    .from('ai_conversations')
+    .select('id')
+    .eq('id', conversationId)
+    .single();
+  
+  if (!existing) {
+    console.log('Creating new conversation:', conversationId);
+    const { error } = await supabase
+      .from('ai_conversations')
+      .insert({
+        id: conversationId,
+        user_id: userId,
+        title: 'AI Chat Session'
+      });
+    
+    if (error) {
+      console.error('Error creating conversation:', error);
+    }
+  }
+}
+
+async function saveMessage(
+  supabase: SupabaseClient, 
+  conversationId: string, 
+  role: string, 
+  content: string,
+  apiLogs?: any
+) {
+  console.log('Saving message to conversation:', conversationId);
+  
+  const { error } = await supabase
+    .from('ai_messages')
+    .insert({
+      conversation_id: conversationId,
+      role,
+      content,
+      api_logs: apiLogs || {}
+    });
+  
+  if (error) {
+    console.error('Error saving message:', error);
+  } else {
+    console.log('Message saved successfully');
+  }
 }
 
 serve(async (req) => {
@@ -228,6 +278,10 @@ serve(async (req) => {
     const userId = userData.user.id;
     console.log('User authenticated successfully:', userId);
 
+    // Ensure conversation exists and save user message
+    await ensureConversation(supabase, conversation_id, userId);
+    await saveMessage(supabase, conversation_id, 'user', message);
+
     // Get or initialize conversation state
     const state = conversationStates.get(conversation_id) || { messages: [] };
     appendMessage(state, { role: 'user', content: message });
@@ -237,6 +291,7 @@ serve(async (req) => {
     let intent = state.tool || '';
     let type: 'conversational' | 'actionable' = 'conversational';
     let params: Record<string, any> = {};
+    let apiLogs: any = {};
 
     if (!state.tool) {
       console.log('No tool selected, determining intent');
@@ -255,10 +310,37 @@ serve(async (req) => {
         const apiKey = await decryptDeepSeekKey(supabase, userId);
         console.log('Successfully retrieved DeepSeek API key');
         
+        const requestStart = Date.now();
+        const requestBody = {
+          model: 'deepseek-chat',
+          temperature: 0,
+          max_tokens: 256,
+          messages: [
+            { role: 'system', content: instruction },
+            ...state.messages
+          ]
+        };
+        
         const dsResponse = await askDeepSeek(apiKey, [
           { role: 'system', content: instruction },
           ...state.messages
         ]);
+        
+        const requestEnd = Date.now();
+        apiLogs = {
+          request: {
+            timestamp: new Date(requestStart).toISOString(),
+            model: 'deepseek-chat',
+            messages: requestBody.messages,
+            temperature: 0,
+            max_tokens: 256
+          },
+          response: {
+            timestamp: new Date(requestEnd).toISOString(),
+            content: dsResponse,
+            execution_time_ms: requestEnd - requestStart
+          }
+        };
 
         const parsed = extractJson<{ tool?: string; reply?: string }>(dsResponse);
         if (parsed) {
@@ -275,6 +357,13 @@ serve(async (req) => {
         }
       } catch (deepseekError) {
         console.error('DeepSeek API call failed:', deepseekError);
+        apiLogs = {
+          error: {
+            timestamp: new Date().toISOString(),
+            message: deepseekError.message,
+            type: 'deepseek_api_error'
+          }
+        };
         throw deepseekError;
       }
     } else if (!state.confirmed) {
@@ -289,10 +378,37 @@ serve(async (req) => {
         // Get DeepSeek API key for confirmation check with authenticated client
         const apiKey = await decryptDeepSeekKey(supabase, userId);
         
+        const requestStart = Date.now();
+        const requestBody = {
+          model: 'deepseek-chat',
+          temperature: 0,
+          max_tokens: 256,
+          messages: [
+            { role: 'system', content: instruction },
+            ...state.messages
+          ]
+        };
+        
         const dsResponse = await askDeepSeek(apiKey, [
           { role: 'system', content: instruction },
           ...state.messages
         ]);
+        
+        const requestEnd = Date.now();
+        apiLogs = {
+          request: {
+            timestamp: new Date(requestStart).toISOString(),
+            model: 'deepseek-chat',
+            messages: requestBody.messages,
+            temperature: 0,
+            max_tokens: 256
+          },
+          response: {
+            timestamp: new Date(requestEnd).toISOString(),
+            content: dsResponse,
+            execution_time_ms: requestEnd - requestStart
+          }
+        };
 
         const parsed = extractJson<{ confirmed?: boolean; reply?: string }>(dsResponse);
         if (parsed) {
@@ -323,9 +439,19 @@ serve(async (req) => {
         }
       } catch (deepseekError) {
         console.error('DeepSeek API call failed:', deepseekError);
+        apiLogs = {
+          error: {
+            timestamp: new Date().toISOString(),
+            message: deepseekError.message,
+            type: 'deepseek_api_error'
+          }
+        };
         throw deepseekError;
       }
     }
+
+    // Save assistant message with API logs
+    await saveMessage(supabase, conversation_id, 'assistant', reply, apiLogs);
 
     const response = { intent, params, type, reply };
     console.log('Sending response:', { intent, type, replyLength: reply.length, hasParams: Object.keys(params).length > 0 });
@@ -346,4 +472,3 @@ serve(async (req) => {
     });
   }
 });
-
