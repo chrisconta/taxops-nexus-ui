@@ -201,7 +201,7 @@ serve(async (req) => {
         // Call orchestrator for tool switching
         toolSwitchResponse = await callOrchestrator(message, convId, authHeader);
         
-        if (toolSwitchResponse && toolSwitchResponse.intent !== 'general_chat') {
+        if (toolSwitchResponse && toolSwitchResponse.intent !== 'ai-chat') {
           shouldSwitchTool = true;
           console.log('Tool switch successful, orchestrator response:', toolSwitchResponse);
         }
@@ -248,6 +248,12 @@ serve(async (req) => {
         tool_switch: {
           target_tool: toolSwitchResponse.intent,
           type: toolSwitchResponse.type
+        },
+        current_tool: 'ai-chat',
+        debug_info: {
+          function_called: 'ai-chat',
+          switched_to_tool: toolSwitchResponse.intent,
+          switch_type: 'automatic'
         }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -331,14 +337,27 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       conversation_id: convId, 
       assistant,
-      user: message
+      user: message,
+      current_tool: 'ai-chat',
+      debug_info: {
+        function_called: 'ai-chat',
+        intent_analysis_performed: !source_tool,
+        conversation_context: !!source_tool
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('Error in ai-chat function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      current_tool: 'ai-chat',
+      debug_info: {
+        function_called: 'ai-chat',
+        error_type: 'chat_error'
+      }
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

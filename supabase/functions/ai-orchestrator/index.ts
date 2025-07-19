@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -307,6 +308,7 @@ serve(async (req) => {
     let type: 'conversational' | 'actionable' = 'conversational';
     let params: Record<string, any> = {};
     let apiLogs: any = {};
+    let currentTool = 'ai-orchestrator'; // Track which function is handling this
 
     if (!state.tool) {
       console.log('No tool selected, determining intent');
@@ -318,7 +320,7 @@ serve(async (req) => {
         'Available tools: register_client - Register a new client (needs name, email, ein); ' +
         'create_connection - Create a connection for a client (needs clientId, connectionType, credentials); ' +
         'build_dashboard - Build a dashboard for a client (needs clientId, metrics, timeframe); ' +
-        'general_chat - Handle general conversations and questions that don\'t fit other tools. ' +
+        'ai-chat - Handle general conversations and questions that don\'t fit other tools. ' +
         toolContext +
         'Respond in JSON as {"tool": "<tool>", "reply": "<message>"}.';
 
@@ -350,7 +352,7 @@ serve(async (req) => {
             timestamp: new Date(requestStart).toISOString(),
             model: 'deepseek-chat',
             messages: requestBody.messages,
-            temperature: 0,
+            temperature: 0,  
             max_tokens: 256
           },
           response: {
@@ -443,8 +445,8 @@ serve(async (req) => {
             type = 'actionable';
             state.confirmed = true;
             
-            // For general_chat, prepare parameters with conversation context
-            if (state.tool === 'general_chat') {
+            // For ai-chat, prepare parameters with conversation context
+            if (state.tool === 'ai-chat') {
               params = {
                 message: message,
                 conversation_id: conversation_id,
@@ -486,9 +488,16 @@ serve(async (req) => {
       type, 
       reply, 
       tool_chain: state.toolChain || [],
-      source_tool: source_tool || null 
+      source_tool: source_tool || null,
+      current_tool: currentTool,
+      debug_info: {
+        function_called: 'ai-orchestrator',
+        tool_selected: intent || 'none',
+        tool_confirmed: state.confirmed || false,
+        conversation_state: !!conversationStates.get(conversation_id)
+      }
     };
-    console.log('Sending response:', { intent, type, replyLength: reply.length, hasParams: Object.keys(params).length > 0, toolChain: state.toolChain });
+    console.log('Sending response:', { intent, type, replyLength: reply.length, hasParams: Object.keys(params).length > 0, toolChain: state.toolChain, currentTool });
 
     return new Response(
       JSON.stringify(response),
@@ -499,7 +508,12 @@ serve(async (req) => {
     console.error('Error stack:', err.stack);
     return new Response(JSON.stringify({ 
       error: err.message || 'Invalid request',
-      stack: err.stack 
+      stack: err.stack,
+      current_tool: 'ai-orchestrator',
+      debug_info: {
+        function_called: 'ai-orchestrator',
+        error_type: 'orchestrator_error'
+      }
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
