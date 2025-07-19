@@ -12,16 +12,18 @@ interface ConversationState {
   tool?: string;
   confirmed?: boolean;
   messages: Array<{ role: string; content: string }>;
-  toolChain?: string[]; // Track tool switching history
-  sourceTools?: string[]; // Track which tools called this orchestrator
+  toolChain?: string[];
+  sourceTools?: string[];
   pendingToolSwitch?: {
     from: string;
     to: string;
     reason: string;
   };
+  confirmationAttempts?: number; // Track confirmation attempts to prevent infinite loops
 }
 
-const MAX_HISTORY = 15; // Increased to preserve more context
+const MAX_HISTORY = 15;
+const MAX_CONFIRMATION_ATTEMPTS = 3; // Safety mechanism
 
 export function appendMessage(
   state: ConversationState,
@@ -44,45 +46,64 @@ const toolConfirmationMessages = {
   'ai-chat': "I'm here to help with general questions and conversations. What would you like to discuss?"
 };
 
-// Standardized AI confirmation function
+// Simplified and more reliable AI confirmation function
 async function checkConfirmationWithAI(
   apiKey: string, 
   conversationHistory: Array<{ role: string; content: string }>, 
   toolName: string,
   latestMessage: string
 ): Promise<{ isConfirmed: boolean; reply: string }> {
-  console.log(`Checking confirmation with AI for tool: ${toolName}`);
+  console.log(`Checking confirmation with AI for tool: ${toolName}, message: "${latestMessage}"`);
   
-  const toolContext = toolConfirmationMessages[toolName as keyof typeof toolConfirmationMessages] || '';
+  // Enhanced fallback detection first - catch obvious confirmations before AI call
+  const strongConfirmationWords = ['yes', 'yeah', 'yep', 'sure', 'okay', 'ok', 'proceed', 'go ahead', 'do it', 'confirm'];
+  const messageWords = latestMessage.toLowerCase().split(/\s+/);
+  const hasStrongConfirmation = strongConfirmationWords.some(word => messageWords.includes(word));
   
-  const instruction = `You are helping determine if a user wants to proceed with the "${toolName}" tool. 
+  // If user says "yes" and mentions the tool or related concepts, it's a strong confirmation
+  const toolKeywords = {
+    'register_client': ['client', 'register', 'business', 'company'],
+    'create_connection': ['connection', 'connect', 'link', 'service'],
+    'build_dashboard': ['dashboard', 'report', 'chart', 'analytics', 'visualization'],
+    'ai-chat': ['chat', 'talk', 'discuss', 'question']
+  };
   
-The tool context: ${toolContext}
+  const relevantKeywords = toolKeywords[toolName as keyof typeof toolKeywords] || [];
+  const hasRelevantContext = relevantKeywords.some(keyword => 
+    latestMessage.toLowerCase().includes(keyword)
+  );
+  
+  // Strong confirmation if user says yes and either mentions tool context or asks follow-up questions
+  if (hasStrongConfirmation && (hasRelevantContext || latestMessage.includes('?') || latestMessage.includes('need') || latestMessage.includes('give'))) {
+    console.log('Strong confirmation detected via fallback logic');
+    return { 
+      isConfirmed: true, 
+      reply: `Great! I'll help you with ${toolName.replace('_', ' ')}. Let me get started.` 
+    };
+  }
+  
+  // Simplified AI confirmation prompt
+  const instruction = `You are checking if a user wants to proceed with a specific action.
 
-Review the conversation history and the user's latest message to determine:
-1. If they want to proceed with this tool (look for affirmative responses, specific details, or continued engagement)
-2. If they seem to want to switch to a different tool
-3. If they need more information
+Tool: ${toolName}
+User's latest message: "${latestMessage}"
 
-User confirmations can be:
-- Explicit: "yes", "proceed", "do it", "go ahead"
-- Implicit: providing specific information relevant to the tool
-- Contextual: continuing the conversation in a way that indicates they want to proceed
+Look at the conversation and determine if the user clearly wants to proceed.
 
-RESPONSE FORMAT:
-- If they want to proceed: Start with "CONFIRMED" then provide a helpful response
-- If they want to switch tools or do something else: Start with "NOT_CONFIRMED" then explain what you think they want
-- If unclear: Start with "NOT_CONFIRMED" then ask for clarification
+User confirmations include:
+- Direct: "yes", "okay", "sure", "go ahead", "proceed"  
+- Questions about next steps: "what do you need?", "how do we start?"
+- Providing relevant details or asking follow-up questions
 
-Be natural and conversational in your response after the CONFIRMED/NOT_CONFIRMED indicator.`;
+IMPORTANT: If the user says "yes" or asks "what do you need?" or similar follow-up questions, they ARE confirming.
+
+Respond with ONLY:
+- "CONFIRMED" if they want to proceed
+- "NOT_CONFIRMED" if they don't or if unclear
+
+Then add a brief helpful response.`;
 
   try {
-    const fullMessages = [
-      { role: 'system', content: instruction },
-      ...conversationHistory,
-      { role: 'user', content: `Latest message: "${latestMessage}"` }
-    ];
-
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -92,8 +113,11 @@ Be natural and conversational in your response after the CONFIRMED/NOT_CONFIRMED
       body: JSON.stringify({
         model: 'deepseek-chat',
         temperature: 0,
-        max_tokens: 256,
-        messages: fullMessages
+        max_tokens: 128, // Reduced for more focused responses
+        messages: [
+          { role: 'system', content: instruction },
+          { role: 'user', content: latestMessage }
+        ]
       })
     });
 
@@ -107,23 +131,27 @@ Be natural and conversational in your response after the CONFIRMED/NOT_CONFIRMED
     console.log('AI confirmation response:', aiResponse);
     
     const isConfirmed = aiResponse.toLowerCase().startsWith('confirmed');
-    const reply = aiResponse.replace(/^(CONFIRMED|NOT_CONFIRMED)\s*/i, '').trim();
+    const reply = aiResponse.replace(/^(CONFIRMED|NOT_CONFIRMED)\s*/i, '').trim() || 
+                  (isConfirmed ? 'Great! Let me help you with that.' : 'Could you please confirm if you want to proceed?');
     
+    console.log(`AI confirmation result: ${isConfirmed ? 'CONFIRMED' : 'NOT_CONFIRMED'}`);
     return { isConfirmed, reply };
   } catch (error) {
     console.error('Error in AI confirmation check:', error);
-    // Fallback to simple keyword detection
-    const simpleConfirmation = ['yes', 'proceed', 'do it', 'go ahead', 'confirm'].some(word => 
-      latestMessage.toLowerCase().includes(word)
-    );
+    
+    // Enhanced fallback logic
+    const fallbackConfirmation = hasStrongConfirmation || 
+      /^(yes|yeah|yep|sure|okay|ok)\b/i.test(latestMessage) ||
+      /what.*need|how.*start|tell me/i.test(latestMessage);
+    
+    console.log(`Fallback confirmation result: ${fallbackConfirmation}`);
     return { 
-      isConfirmed: simpleConfirmation, 
-      reply: simpleConfirmation ? 'I understand you want to proceed.' : 'Could you please confirm if you want to proceed?' 
+      isConfirmed: fallbackConfirmation, 
+      reply: fallbackConfirmation ? 'I understand you want to proceed.' : 'Could you please confirm if you want to proceed?' 
     };
   }
 }
 
-// Simplified tool extraction with proper user-friendly message generation
 export function extractToolFromResponse(text: string): { tool?: string; reply?: string } {
   console.log('Extracting tool from DeepSeek response:', text);
   
@@ -505,7 +533,12 @@ serve(async (req) => {
     const dbHistory = await loadConversationHistory(supabase, conversation_id);
     
     // Get or initialize conversation state and merge with database history
-    let state = conversationStates.get(conversation_id) || { messages: [], toolChain: [], sourceTools: [] };
+    let state = conversationStates.get(conversation_id) || { 
+      messages: [], 
+      toolChain: [], 
+      sourceTools: [],
+      confirmationAttempts: 0
+    };
     
     // If we have database history and it's longer than our in-memory state, use database history
     if (dbHistory.length > state.messages.length) {
@@ -533,6 +566,7 @@ serve(async (req) => {
       // Only reset tool selection if explicitly switching tools, not just providing data
       state.tool = undefined;
       state.confirmed = false;
+      state.confirmationAttempts = 0; // Reset confirmation attempts on tool switch
     }
     
     // Add current message to state
@@ -548,6 +582,56 @@ serve(async (req) => {
 
     // Check if user is providing information for current tool context
     if (state.tool && !state.confirmed) {
+      // Increment confirmation attempts
+      if (!state.confirmationAttempts) state.confirmationAttempts = 0;
+      state.confirmationAttempts++;
+      
+      console.log(`Tool selected but not confirmed: ${state.tool}, confirmation attempt: ${state.confirmationAttempts}`);
+      
+      // Safety mechanism: force confirmation after multiple clear attempts
+      if (state.confirmationAttempts >= MAX_CONFIRMATION_ATTEMPTS) {
+        const hasYesWord = /\b(yes|yeah|yep|sure|okay|ok)\b/i.test(message);
+        if (hasYesWord) {
+          console.log('Safety mechanism triggered: forcing confirmation after multiple attempts');
+          type = 'actionable';
+          state.confirmed = true;
+          params = { conversation_id: conversation_id };
+          reply = 'I understand you want to proceed. Let me help you with that.';
+          conversationStates.delete(conversation_id);
+          
+          // Save assistant message and return early
+          await saveMessage(supabase, conversation_id, 'assistant', reply, {
+            forced_confirmation: true,
+            confirmation_attempts: state.confirmationAttempts
+          });
+          
+          const response = { 
+            intent: state.tool, 
+            params, 
+            type, 
+            reply, 
+            tool_chain: state.toolChain || [],
+            source_tool: source_tool || null,
+            current_tool: currentTool,
+            debug_info: {
+              function_called: 'ai-orchestrator',
+              tool_selected: state.tool,
+              tool_confirmed: true,
+              conversation_state: false,
+              conversation_length: state.messages.length,
+              parameters_handled_by_tool: true,
+              forced_confirmation: true,
+              confirmation_attempts: state.confirmationAttempts
+            }
+          };
+          console.log('Sending response with forced confirmation:', { intent: state.tool, type, replyLength: reply.length });
+          return new Response(
+            JSON.stringify(response),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+      
       // User already has a tool selected, check if they're providing information or want to switch
       console.log('Tool already selected but not confirmed:', state.tool, '- checking if user is providing information');
       
@@ -566,6 +650,7 @@ serve(async (req) => {
         console.log('User appears to want to switch tools, clearing current selection');
         state.tool = undefined;
         state.confirmed = false;
+        state.confirmationAttempts = 0;
       }
     }
 
@@ -630,13 +715,14 @@ serve(async (req) => {
           }
         };
 
-        // Use the new simplified tool extraction
+        // Use the existing tool extraction
         const extracted = extractToolFromResponse(dsResponse);
         if (extracted.tool) {
           state.tool = extracted.tool;
           intent = state.tool;
           reply = extracted.reply || '';
           state.confirmed = false;
+          state.confirmationAttempts = 0; // Reset confirmation attempts for new tool
           
           // Track tool chain
           if (!state.toolChain) state.toolChain = [];
@@ -674,7 +760,7 @@ serve(async (req) => {
         
         const requestStart = Date.now();
         
-        // Use the new AI-powered confirmation function
+        // Use the improved AI-powered confirmation function
         const confirmationResult = await checkConfirmationWithAI(
           apiKey,
           state.messages,
@@ -689,7 +775,8 @@ serve(async (req) => {
             model: 'deepseek-chat',
             operation: 'confirmation_check',
             tool: state.tool,
-            message_length: message.length
+            message_length: message.length,
+            confirmation_attempts: state.confirmationAttempts
           },
           response: {
             timestamp: new Date(requestEnd).toISOString(),
@@ -737,10 +824,11 @@ serve(async (req) => {
           }
         };
         
-        // Fallback to simple confirmation logic
-        const simpleConfirmation = ['yes', 'proceed', 'do it', 'go ahead', 'confirm'].some(word => 
+        // Enhanced fallback to simple confirmation logic
+        const strongConfirmationWords = ['yes', 'yeah', 'yep', 'sure', 'okay', 'ok', 'proceed', 'go ahead'];
+        const simpleConfirmation = strongConfirmationWords.some(word => 
           message.toLowerCase().includes(word)
-        );
+        ) || /what.*need|how.*start|tell me/i.test(message);
         
         if (simpleConfirmation) {
           type = 'actionable';
@@ -748,9 +836,11 @@ serve(async (req) => {
           params = { conversation_id: conversation_id };
           reply = 'I understand you want to proceed. Let me help you with that.';
           conversationStates.delete(conversation_id);
+          console.log('Tool confirmed via fallback logic');
         } else {
           reply = 'Could you please confirm if you want to proceed with this action?';
           conversationStates.set(conversation_id, state);
+          console.log('Tool not confirmed, asking for clarification');
         }
       }
     }
@@ -773,7 +863,8 @@ serve(async (req) => {
         conversation_state: !!conversationStates.get(conversation_id),
         conversation_length: state.messages.length,
         parameters_handled_by_tool: type === 'actionable' && intent !== 'ai-chat',
-        ai_confirmation_used: !state.confirmed && state.tool ? true : false
+        ai_confirmation_used: !state.confirmed && state.tool ? true : false,
+        confirmation_attempts: state.confirmationAttempts || 0
       }
     };
     console.log('Sending response:', { intent, type, replyLength: reply.length, hasParams: Object.keys(params).length > 0, toolChain: state.toolChain, currentTool });
