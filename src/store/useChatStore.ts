@@ -18,6 +18,8 @@ export interface Message {
     invalid: Array<{ field: string; reason: string; hint: string }>;
   };
   actionType?: string;
+  toolChain?: string[]; // Track tool switching history
+  sourceTools?: string[]; // Track which tools were used
 }
 
 interface RecoveryState {
@@ -40,9 +42,10 @@ interface ChatState {
   currentAction?: 'read'|'validate'|'edit'|'execute'|'error';
   currentTarget?: string;
   registrationModeActive: boolean;
+  toolChain: string[]; // Track tool usage chain
   addMessage: (message: Message) => void;
   clearMessages: () => void;
-  send: (text: string) => Promise<{ intent: string; params: Record<string, any>; type: string; reply: string } | null>;
+  send: (text: string) => Promise<{ intent: string; params: Record<string, any>; type: string; reply: string; tool_chain?: string[]; source_tool?: string } | null>;
   load: (convId: string) => Promise<void>;
   startNew: () => void;
   updateLastMessage: (content: string) => void;
@@ -66,6 +69,7 @@ export const useChatStore = create<ChatState>()(
       currentAction: undefined,
       currentTarget: undefined,
       registrationModeActive: false,
+      toolChain: [],
       
       addMessage: (message: Message) => {
         set(state => ({ messages: [...state.messages, message] }));
@@ -78,14 +82,14 @@ export const useChatStore = create<ChatState>()(
         );
       },
       
-      clearMessages: () => set({ messages: [] }),
+      clearMessages: () => set({ messages: [], toolChain: [] }),
       
       startNew: () => {
         const state = get();
         if (state.currentConvId) {
           chatLogger.endSession('completed');
         }
-        set({ currentConvId: undefined, messages: [] });
+        set({ currentConvId: undefined, messages: [], toolChain: [] });
       },
       
       updateLastMessage: (content: string) => {
@@ -151,7 +155,6 @@ export const useChatStore = create<ChatState>()(
         set({ registrationModeActive: active });
       },
       
-      
       async send(text: string) {
         const state = get();
         const currentMessages = state.messages;
@@ -171,7 +174,8 @@ export const useChatStore = create<ChatState>()(
           id: userMsgId,
           author: 'user',
           content: text,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          toolChain: [...state.toolChain]
         };
 
         const typingId = crypto.randomUUID();
@@ -247,7 +251,19 @@ export const useChatStore = create<ChatState>()(
 
           console.log('AI orchestrator response received:', data);
           chatLogger.logEdgeFunction('ai-orchestrator', 'completed', requestBody, data);
-          const result = data as { intent: string; params: Record<string, any>; type: string; reply: string };
+          const result = data as { 
+            intent: string; 
+            params: Record<string, any>; 
+            type: string; 
+            reply: string; 
+            tool_chain?: string[]; 
+            source_tool?: string 
+          };
+
+          // Update tool chain if provided
+          if (result.tool_chain) {
+            set(state => ({ toolChain: result.tool_chain || [] }));
+          }
 
           // Handle actionable general_chat by calling ai-chat function
           if (result.type === 'actionable' && result.intent === 'general_chat') {
@@ -257,7 +273,9 @@ export const useChatStore = create<ChatState>()(
             try {
               const chatRequestBody = {
                 message: text,
-                conversation_id: convId
+                conversation_id: convId,
+                source_tool: result.source_tool || null,
+                tool_chain: result.tool_chain || []
               };
               
               chatLogger.logEdgeFunction('ai-chat', 'started', chatRequestBody);
@@ -286,9 +304,17 @@ export const useChatStore = create<ChatState>()(
                 id: crypto.randomUUID(),
                 author: 'agent' as const,
                 content: chatData.assistant || 'No response received',
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                toolChain: result.tool_chain || [],
+                sourceTools: result.source_tool ? [result.source_tool] : []
               };
               get().addMessage(agentMessage);
+              
+              // Check for tool switch suggestions in chat response
+              if (chatData.tool_switch) {
+                console.log('AI Chat suggested tool switch:', chatData.tool_switch);
+                // The orchestrator will handle the tool switch in the next interaction
+              }
               
             } catch (chatError) {
               console.error('Error calling ai-chat:', chatError);
@@ -310,7 +336,9 @@ export const useChatStore = create<ChatState>()(
               id: crypto.randomUUID(),
               author: 'agent' as const,
               content: result.reply,
-              timestamp: Date.now()
+              timestamp: Date.now(),
+              toolChain: result.tool_chain || [],
+              sourceTools: result.source_tool ? [result.source_tool] : []
             };
             get().addMessage(agentMessage);
           }
@@ -323,7 +351,6 @@ export const useChatStore = create<ChatState>()(
           
           get().removeTyping();
           
-          // Provide more specific error messages
           let errorMessage = 'Sorry, I encountered an error. Please try again.';
           if (error instanceof Error) {
             if (error.message.includes('Not authenticated')) {
@@ -390,7 +417,7 @@ export const useChatStore = create<ChatState>()(
     }),
     { 
       name: "taxops-chat-storage",
-      partialize: (state) => ({ messages: state.messages })
+      partialize: (state) => ({ messages: state.messages, toolChain: state.toolChain })
     }
   )
 );

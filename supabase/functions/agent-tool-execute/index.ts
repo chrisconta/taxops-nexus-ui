@@ -85,6 +85,90 @@ function normalizeEIN(ein: string): string {
   return ein;
 }
 
+// Context analysis function using DeepSeek
+async function analyzePostExecutionContext(toolName: string, result: any, apiKey: string) {
+  console.log('Analyzing post-execution context for potential follow-up actions');
+  
+  const instruction = 
+    `You just executed the ${toolName} tool with result: ${JSON.stringify(result)}. ` +
+    'Analyze if the user might want to do a follow-up action with another tool. ' +
+    'Available tools: register_client, create_connection, build_dashboard, general_chat. ' +
+    'Respond in JSON as {"suggest_followup": true|false, "suggested_tool": "<tool_name>", "followup_message": "<helpful message about next steps>"}. ' +
+    'Only suggest follow-up if it\'s a logical next step.';
+
+  try {
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        temperature: 0.1,
+        max_tokens: 256,
+        messages: [
+          { role: 'system', content: instruction }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      console.error('DeepSeek API error in post-execution analysis:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content.trim();
+    
+    try {
+      const cleaned = content.replace(/```json/gi, "```").replace(/```/g, "");
+      const match = cleaned.match(/\{[\s\S]*?\}/);
+      return match ? JSON.parse(match[0]) : null;
+    } catch {
+      return null;
+    }
+  } catch (error) {
+    console.error('Error in post-execution analysis:', error);
+    return null;
+  }
+}
+
+// Get DeepSeek API key
+async function getDeepSeekKey(supabase: any, userId: string): Promise<string> {
+  const { data: keyData, error: keyError } = await supabase
+    .from('ai_credentials')
+    .select('enc_key, iv, ciphertext')
+    .eq('provider', 'deepseek')
+    .eq('user_id', userId)
+    .single();
+
+  if (keyError || !keyData) {
+    throw new Error('DeepSeek API key not configured');
+  }
+
+  // Decrypt the API key
+  const keyBytes = Uint8Array.from(atob(keyData.enc_key), c => c.charCodeAt(0));
+  const iv = Uint8Array.from(atob(keyData.iv), c => c.charCodeAt(0));
+  const ciphertext = Uint8Array.from(atob(keyData.ciphertext), c => c.charCodeAt(0));
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt']
+  );
+
+  const decryptedBytes = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    cryptoKey,
+    ciphertext
+  );
+
+  return new TextDecoder().decode(decryptedBytes);
+}
+
 // Tool execution functions
 async function registerClient(params: any, supabase: any, userId: string) {
   console.log('Running register_client with params:', params);
@@ -330,8 +414,33 @@ Deno.serve(async (req) => {
       
       await logToolInvocation(supabase, userId, toolName, params, true, null, result, executionTime);
       
+      // Enhanced response with post-execution context analysis
+      let enhancedResult = { 
+        success: true, 
+        result,
+        tool_executed: toolName,
+        execution_time_ms: executionTime
+      };
+
+      // Perform post-execution context analysis
+      try {
+        const apiKey = await getDeepSeekKey(supabase, userId);
+        const contextAnalysis = await analyzePostExecutionContext(toolName, result, apiKey);
+        
+        if (contextAnalysis) {
+          enhancedResult = {
+            ...enhancedResult,
+            context_analysis: contextAnalysis
+          };
+          console.log('Post-execution context analysis:', contextAnalysis);
+        }
+      } catch (contextError) {
+        console.error('Error in post-execution context analysis:', contextError);
+        // Don't fail the main response for context analysis errors
+      }
+      
       return new Response(
-        JSON.stringify({ success: true, result }),
+        JSON.stringify(enhancedResult),
         { 
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }

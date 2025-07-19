@@ -1,4 +1,3 @@
-
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -13,6 +12,8 @@ interface ConversationState {
   tool?: string;
   confirmed?: boolean;
   messages: Array<{ role: string; content: string }>;
+  toolChain?: string[]; // Track tool switching history
+  sourceTools?: string[]; // Track which tools called this orchestrator
 }
 
 const MAX_HISTORY = 10;
@@ -189,6 +190,7 @@ serve(async (req) => {
         hasMessage: !!requestData?.message, 
         hasConversationId: !!requestData?.conversation_id,
         messageLength: requestData?.message?.length || 0,
+        hasSourceTool: !!requestData?.source_tool,
         fullBody: requestData
       });
     } catch (jsonError) {
@@ -211,7 +213,7 @@ serve(async (req) => {
       });
     }
 
-    const { message, conversation_id } = requestData;
+    const { message, conversation_id, source_tool } = requestData;
 
     if (!conversation_id) {
       console.error('Missing conversation_id in request');
@@ -283,7 +285,20 @@ serve(async (req) => {
     await saveMessage(supabase, conversation_id, 'user', message);
 
     // Get or initialize conversation state
-    const state = conversationStates.get(conversation_id) || { messages: [] };
+    const state = conversationStates.get(conversation_id) || { messages: [], toolChain: [], sourceTools: [] };
+    
+    // Track tool switching if this came from another tool
+    if (source_tool) {
+      console.log('Request from tool:', source_tool);
+      if (!state.sourceTools) state.sourceTools = [];
+      if (!state.sourceTools.includes(source_tool)) {
+        state.sourceTools.push(source_tool);
+      }
+      // Reset tool selection to allow fresh routing from tool-to-tool calls
+      state.tool = undefined;
+      state.confirmed = false;
+    }
+    
     appendMessage(state, { role: 'user', content: message });
     console.log('Conversation state updated, total messages:', state.messages.length);
 
@@ -296,12 +311,15 @@ serve(async (req) => {
     if (!state.tool) {
       console.log('No tool selected, determining intent');
       
+      // Enhanced instruction for tool-to-tool communication awareness
+      const toolContext = source_tool ? ` (Note: This request came from the ${source_tool} tool, so the user may be switching context)` : '';
       const instruction =
         'You are helping an AI orchestrator decide which tool to use based on the user\'s request. ' +
         'Available tools: register_client - Register a new client (needs name, email, ein); ' +
         'create_connection - Create a connection for a client (needs clientId, connectionType, credentials); ' +
         'build_dashboard - Build a dashboard for a client (needs clientId, metrics, timeframe); ' +
         'general_chat - Handle general conversations and questions that don\'t fit other tools. ' +
+        toolContext +
         'Respond in JSON as {"tool": "<tool>", "reply": "<message>"}.';
 
       try {
@@ -348,8 +366,15 @@ serve(async (req) => {
           intent = state.tool || '';
           reply = parsed.reply || '';
           state.confirmed = false;
+          
+          // Track tool chain
+          if (!state.toolChain) state.toolChain = [];
+          if (state.tool && !state.toolChain.includes(state.tool)) {
+            state.toolChain.push(state.tool);
+          }
+          
           conversationStates.set(conversation_id, state);
-          console.log('Tool selected:', intent);
+          console.log('Tool selected:', intent, '| Tool chain:', state.toolChain);
         } else {
           reply = dsResponse;
           conversationStates.set(conversation_id, state);
@@ -422,7 +447,9 @@ serve(async (req) => {
             if (state.tool === 'general_chat') {
               params = {
                 message: message,
-                conversation_id: conversation_id
+                conversation_id: conversation_id,
+                source_tool: source_tool || null,
+                tool_chain: state.toolChain || []
               };
             }
             
@@ -453,8 +480,15 @@ serve(async (req) => {
     // Save assistant message with API logs
     await saveMessage(supabase, conversation_id, 'assistant', reply, apiLogs);
 
-    const response = { intent, params, type, reply };
-    console.log('Sending response:', { intent, type, replyLength: reply.length, hasParams: Object.keys(params).length > 0 });
+    const response = { 
+      intent, 
+      params, 
+      type, 
+      reply, 
+      tool_chain: state.toolChain || [],
+      source_tool: source_tool || null 
+    };
+    console.log('Sending response:', { intent, type, replyLength: reply.length, hasParams: Object.keys(params).length > 0, toolChain: state.toolChain });
 
     return new Response(
       JSON.stringify(response),
