@@ -12,8 +12,8 @@ export async function withAction<T>(
 ): Promise<T> {
   const { setAction, clearAction, shouldShowBanner } = useChatStore.getState();
 
-  if (shouldShowBanner()) {
-    setAction(action, target);
+  if (shouldShowBanner?.()) {
+    setAction?.({ type: action, payload: { target } });
   }
 
   // Log to Supabase function
@@ -24,6 +24,6 @@ export async function withAction<T>(
   try {
     return await fn();
   } finally {
-    clearAction();
+    clearAction?.();
   }
 }

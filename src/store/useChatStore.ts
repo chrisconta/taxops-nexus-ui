@@ -3,7 +3,7 @@ import { create } from 'zustand';
 export interface Message {
   id: string;
   author: "user" | "agent";
-  content: string | { text: string; data?: any };
+  content: string | { text: string; data?: any; downloadButton?: { url: string; filename: string; label: string; } };
   timestamp: number;
   isError?: boolean;
   toolCall?: {
@@ -16,8 +16,8 @@ export interface Message {
   missingParams?: string[];
   actionType?: string;
   validationErrors?: {
-    missing: string[];
-    invalid: string[];
+    missing: Array<{ field: string; reason: string; hint: string; }>;
+    invalid: Array<{ field: string; reason: string; hint: string; }>;
   };
   toolIntroduction?: {
     toolType: 'system' | 'workflow';
@@ -30,6 +30,9 @@ export interface Message {
     }>;
     followUpQuestions: string[];
   };
+  currentTool?: any;
+  debugInfo?: any;
+  toolChain?: any;
 }
 
 interface RecoveryState {
@@ -55,6 +58,10 @@ interface ChatState {
     type: string;
     payload: any;
   };
+  currentAction?: string;
+  currentTarget?: string;
+  shouldShowBanner?: () => boolean;
+  clearAction?: () => void;
   send: (text: string) => Promise<any>;
   load: (conversationId: string) => Promise<void>;
   startNew: () => void;
@@ -75,6 +82,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   feedbackContext: {},
   registrationModeActive: false,
   action: undefined,
+  currentAction: undefined,
+  currentTarget: undefined,
+  shouldShowBanner: () => false,
+  clearAction: () => set({ currentAction: undefined, currentTarget: undefined }),
   send: async (text) => {
     set({ isLoading: true, error: null });
     try {

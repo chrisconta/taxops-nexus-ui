@@ -59,7 +59,11 @@ export const EnhancedToolLauncher: React.FC<EnhancedToolLauncherProps> = ({
             <ChevronDown className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-80 bg-background border-border">
+        <DropdownMenuContent 
+          className="w-full max-w-[600px] max-h-[400px] overflow-y-auto bg-background border-border z-50" 
+          align="start" 
+          sideOffset={4}
+        >
           {isLoading ? (
             <div className="p-4 text-center text-muted-foreground">
               Loading tools...
