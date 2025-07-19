@@ -36,19 +36,59 @@ export function appendMessage(
 
 const conversationStates = new Map<string, ConversationState>();
 
-export function extractJson<T = unknown>(text: string): T | null {
-  try {
-    const cleaned = text
-      .replace(/```json/gi, "```")
-      .replace(/```/g, "");
-    const match = cleaned.match(/\{[\s\S]*?\}/);
-    return match ? (JSON.parse(match[0]) as T) : null;
-  } catch {
-    return null;
+// Simplified tool extraction - no complex JSON parsing needed
+export function extractToolFromResponse(text: string): { tool?: string; reply?: string } {
+  console.log('Extracting tool from DeepSeek response:', text);
+  
+  // Look for tool keywords in the response
+  const toolPatterns = {
+    'register_client': /(?:register[_\s]client|client[_\s]registration|register.*client)/i,
+    'create_connection': /(?:create[_\s]connection|connection|connect|linking)/i,
+    'build_dashboard': /(?:build[_\s]dashboard|dashboard|report|analytics)/i,
+    'ai-chat': /(?:ai[_\s]chat|general|conversation|chat|question)/i
+  };
+  
+  // First try to find explicit tool mentions
+  for (const [toolName, pattern] of Object.entries(toolPatterns)) {
+    if (pattern.test(text)) {
+      console.log(`Found tool: ${toolName} via pattern matching`);
+      return { 
+        tool: toolName, 
+        reply: text.replace(/^.*?Tool:\s*/i, '').trim() || text.trim()
+      };
+    }
   }
+  
+  // Try to extract any structured response if present
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*?\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.tool) {
+        console.log(`Found tool via JSON: ${parsed.tool}`);
+        return { tool: parsed.tool, reply: parsed.reply || text };
+      }
+    }
+  } catch (e) {
+    // JSON parsing failed, continue with pattern matching
+  }
+  
+  // Look for tool names directly mentioned in text
+  const lowerText = text.toLowerCase();
+  if (lowerText.includes('register') && (lowerText.includes('client') || lowerText.includes('company'))) {
+    return { tool: 'register_client', reply: text };
+  }
+  if (lowerText.includes('connection') || lowerText.includes('connect')) {
+    return { tool: 'create_connection', reply: text };
+  }
+  if (lowerText.includes('dashboard') || lowerText.includes('report')) {
+    return { tool: 'build_dashboard', reply: text };
+  }
+  
+  console.log('No specific tool identified, defaulting to ai-chat');
+  return { tool: 'ai-chat', reply: text };
 }
 
-// Enhanced function to load conversation history from database
 async function loadConversationHistory(supabase: SupabaseClient, conversationId: string): Promise<Array<{ role: string; content: string }>> {
   console.log('Loading conversation history from database for:', conversationId);
   
@@ -367,7 +407,7 @@ serve(async (req) => {
     if (!state.tool) {
       console.log('No tool selected, determining intent with full conversation history');
       
-      // Enhanced instruction with conversation context awareness
+      // Enhanced instruction with conversation context awareness - SIMPLIFIED PROMPT
       const toolContext = source_tool ? ` (Note: This request came from the ${source_tool} tool, so the user may be switching context)` : '';
       const instruction =
         'You are helping an AI orchestrator decide which tool to use based on the user\'s conversation. ' +
@@ -379,13 +419,12 @@ serve(async (req) => {
         '- ai-chat: Handle general conversations and questions that don\'t fit other tools\n' +
         toolContext +
         'CRITICAL RULES:\n' +
-        '1. If user wants to "create a new client", "register a client", or provides client details (name, email, EIN), select "register_client"\n' +
-        '2. If user mentions connecting to external services, select "create_connection"\n' +
-        '3. If user wants to build reports or dashboards, select "build_dashboard"\n' +
-        '4. For general questions or unclear intent, select "ai-chat"\n' +
+        '1. If user wants to "create a new client", "register a client", or provides client details (name, email, EIN), use "register_client"\n' +
+        '2. If user mentions connecting to external services, use "create_connection"\n' +
+        '3. If user wants to build reports or dashboards, use "build_dashboard"\n' +
+        '4. For general questions or unclear intent, use "ai-chat"\n' +
         'IMPORTANT: Review the full conversation history to understand what the user wants. ' +
-        'If they mentioned client details (name, email, EIN) anywhere in the conversation, they likely want to register a client. ' +
-        'Respond in JSON as {"tool": "<tool>", "reply": "<message>", "extracted_info": <any_relevant_info_from_history>}.';
+        'Respond with just the tool name (e.g., "register_client") or provide a brief helpful message if you need to ask for clarification.';
 
       try {
         // Get DeepSeek API key for tool selection with authenticated client
@@ -426,11 +465,12 @@ serve(async (req) => {
           }
         };
 
-        const parsed = extractJson<{ tool?: string; reply?: string; extracted_info?: any }>(dsResponse);
-        if (parsed) {
-          state.tool = parsed.tool;
-          intent = state.tool || '';
-          reply = parsed.reply || '';
+        // Use the new simplified tool extraction
+        const extracted = extractToolFromResponse(dsResponse);
+        if (extracted.tool) {
+          state.tool = extracted.tool;
+          intent = state.tool;
+          reply = extracted.reply || '';
           state.confirmed = false;
           
           // Track tool chain
@@ -441,13 +481,13 @@ serve(async (req) => {
           
           conversationStates.set(conversation_id, state);
           console.log('Tool selected:', intent, '| Tool chain:', state.toolChain);
-          console.log('Extracted info from conversation:', parsed.extracted_info);
         } else {
-          // Try to extract reply from JSON response, fallback to full response
-          const replyMatch = dsResponse.match(/"reply":\s*"([^"]+)"/);
-          reply = replyMatch ? replyMatch[1] : dsResponse;
+          // Default to ai-chat if no tool was identified
+          state.tool = 'ai-chat';
+          intent = 'ai-chat';
+          reply = dsResponse;
           conversationStates.set(conversation_id, state);
-          console.log('No tool selected, providing conversational response');
+          console.log('No specific tool identified, defaulting to ai-chat');
         }
       } catch (deepseekError) {
         console.error('DeepSeek API call failed:', deepseekError);
@@ -471,7 +511,7 @@ serve(async (req) => {
         'OR if they are providing additional information for the tool. ' +
         'Look for confirmation phrases like "yes", "proceed", "register", "create", "do it", etc. ' +
         'If they\'re providing information (like name, email, EIN), consider it as confirmation to proceed. ' +
-        'Respond in JSON as {"confirmed": true|false, "reply": "<message>"}.';
+        'Respond with "CONFIRMED" if they want to proceed, or provide a helpful message asking for what you need.';
 
       try {
         // Get DeepSeek API key for confirmation check with authenticated client
@@ -510,42 +550,38 @@ serve(async (req) => {
           }
         };
 
-        const parsed = extractJson<{ confirmed?: boolean; reply?: string }>(dsResponse);
-        if (parsed) {
-          reply = parsed.reply || '';
-          intent = state.tool || '';
+        // Simple confirmation check
+        const isConfirmed = dsResponse.toLowerCase().includes('confirmed') || 
+                           dsResponse.toLowerCase().includes('yes') ||
+                           dsResponse.toLowerCase().includes('proceed');
+        
+        reply = dsResponse;
+        intent = state.tool || '';
+        
+        if (isConfirmed) {
+          type = 'actionable';
+          state.confirmed = true;
           
-          if (parsed.confirmed === true) {
-            type = 'actionable';
-            state.confirmed = true;
-            
-            // SIMPLIFIED: Just pass conversation_id to the tool, let tool extract parameters
+          // SIMPLIFIED: Just pass conversation_id to the tool, let tool extract parameters
+          params = {
+            conversation_id: conversation_id
+          };
+          
+          // For ai-chat, prepare parameters with conversation context
+          if (state.tool === 'ai-chat') {
             params = {
-              conversation_id: conversation_id
+              message: message,
+              conversation_id: conversation_id,
+              source_tool: source_tool || null,
+              tool_chain: state.toolChain || []
             };
-            
-            // For ai-chat, prepare parameters with conversation context
-            if (state.tool === 'ai-chat') {
-              params = {
-                message: message,
-                conversation_id: conversation_id,
-                source_tool: source_tool || null,
-                tool_chain: state.toolChain || []
-              };
-            }
-            
-            conversationStates.delete(conversation_id);
-            console.log('Tool confirmed, parameters will be extracted by the tool itself');
-          } else {
-            conversationStates.set(conversation_id, state);
-            console.log('Tool not confirmed, continuing conversation');
           }
+          
+          conversationStates.delete(conversation_id);
+          console.log('Tool confirmed, parameters will be extracted by the tool itself');
         } else {
-          // Try to extract reply from JSON response, fallback to full response
-          const replyMatch = dsResponse.match(/"reply":\s*"([^"]+)"/);
-          reply = replyMatch ? replyMatch[1] : dsResponse;
-          intent = state.tool || '';
           conversationStates.set(conversation_id, state);
+          console.log('Tool not confirmed, continuing conversation');
         }
       } catch (deepseekError) {
         console.error('DeepSeek API call failed:', deepseekError);
