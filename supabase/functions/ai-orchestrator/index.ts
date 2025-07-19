@@ -483,7 +483,9 @@ serve(async (req) => {
           console.log('Tool selected:', intent, '| Tool chain:', state.toolChain);
           console.log('Extracted info from conversation:', parsed.extracted_info);
         } else {
-          reply = dsResponse;
+          // Try to extract reply from JSON response, fallback to full response
+          const replyMatch = dsResponse.match(/"reply":\s*"([^"]+)"/);
+          reply = replyMatch ? replyMatch[1] : dsResponse;
           conversationStates.set(conversation_id, state);
           console.log('No tool selected, providing conversational response');
         }
@@ -584,7 +586,9 @@ serve(async (req) => {
             console.log('Tool not confirmed, continuing conversation');
           }
         } else {
-          reply = dsResponse;
+          // Try to extract reply from JSON response, fallback to full response
+          const replyMatch = dsResponse.match(/"reply":\s*"([^"]+)"/);
+          reply = replyMatch ? replyMatch[1] : dsResponse;
           intent = state.tool || '';
           conversationStates.set(conversation_id, state);
         }
