@@ -67,7 +67,7 @@ const AISettings = () => {
     setSaving(true);
     try {
       const { data, error } = await supabase.functions.invoke('save-ai-key', {
-        body: { provider: 'deepseek', apiKey }
+        body: { deepseek_api_key: apiKey }
       });
 
       if (error) throw error;
