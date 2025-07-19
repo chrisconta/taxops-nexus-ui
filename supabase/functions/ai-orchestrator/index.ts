@@ -1,4 +1,3 @@
-
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -15,9 +14,14 @@ interface ConversationState {
   messages: Array<{ role: string; content: string }>;
   toolChain?: string[]; // Track tool switching history
   sourceTools?: string[]; // Track which tools called this orchestrator
+  pendingToolSwitch?: {
+    from: string;
+    to: string;
+    reason: string;
+  };
 }
 
-const MAX_HISTORY = 10;
+const MAX_HISTORY = 15; // Increased to preserve more context
 
 export function appendMessage(
   state: ConversationState,
@@ -41,6 +45,73 @@ export function extractJson<T = unknown>(text: string): T | null {
     return match ? (JSON.parse(match[0]) as T) : null;
   } catch {
     return null;
+  }
+}
+
+// Helper function to extract information from conversation history
+function extractParametersFromHistory(messages: Array<{ role: string; content: string }>, tool: string) {
+  const userMessages = messages.filter(m => m.role === 'user').map(m => m.content).join(' ');
+  
+  console.log('Extracting parameters from conversation history for tool:', tool);
+  console.log('User messages:', userMessages);
+  
+  const params: Record<string, any> = {};
+  
+  if (tool === 'register_client') {
+    // Extract client information patterns
+    const nameMatch = userMessages.match(/name[:\s]+([^,.\n]+)/i) || 
+                     userMessages.match(/client['\s]*s?\s*name[:\s]+([^,.\n]+)/i) ||
+                     userMessages.match(/(?:called|named)\s+([^,.\n]+)/i);
+    if (nameMatch) params.name = nameMatch[1].trim();
+    
+    const emailMatch = userMessages.match(/email[:\s]+([^\s,.\n]+@[^\s,.\n]+)/i);
+    if (emailMatch) params.email = emailMatch[1].trim();
+    
+    const einMatch = userMessages.match(/ein[:\s]+([0-9]{2}-[0-9]+)/i) ||
+                    userMessages.match(/([0-9]{2}-[0-9]+)/);
+    if (einMatch) params.ein = einMatch[1].trim();
+  } else if (tool === 'create_connection') {
+    // Extract connection information
+    const clientMatch = userMessages.match(/client[:\s]+([^,.\n]+)/i) ||
+                       userMessages.match(/for\s+([^,.\n]+)/i);
+    if (clientMatch) params.clientName = clientMatch[1].trim();
+    
+    const connectionMatch = userMessages.match(/connect\s+to\s+([^,.\n]+)/i) ||
+                           userMessages.match(/connection[:\s]+([^,.\n]+)/i);
+    if (connectionMatch) params.connectionType = connectionMatch[1].trim().toLowerCase();
+  }
+  
+  console.log('Extracted parameters:', params);
+  return params;
+}
+
+// Enhanced function to load conversation history from database
+async function loadConversationHistory(supabase: SupabaseClient, conversationId: string): Promise<Array<{ role: string; content: string }>> {
+  console.log('Loading conversation history from database for:', conversationId);
+  
+  try {
+    const { data, error } = await supabase
+      .from('ai_messages')
+      .select('role, content, created_at')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true })
+      .limit(MAX_HISTORY);
+    
+    if (error) {
+      console.error('Error loading conversation history:', error);
+      return [];
+    }
+    
+    const history = (data || []).map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'assistant',
+      content: msg.content
+    }));
+    
+    console.log('Loaded conversation history:', history.length, 'messages');
+    return history;
+  } catch (error) {
+    console.error('Failed to load conversation history:', error);
+    return [];
   }
 }
 
@@ -285,8 +356,27 @@ serve(async (req) => {
     await ensureConversation(supabase, conversation_id, userId);
     await saveMessage(supabase, conversation_id, 'user', message);
 
-    // Get or initialize conversation state
-    const state = conversationStates.get(conversation_id) || { messages: [], toolChain: [], sourceTools: [] };
+    // Load conversation history from database
+    const dbHistory = await loadConversationHistory(supabase, conversation_id);
+    
+    // Get or initialize conversation state and merge with database history
+    let state = conversationStates.get(conversation_id) || { messages: [], toolChain: [], sourceTools: [] };
+    
+    // If we have database history and it's longer than our in-memory state, use database history
+    if (dbHistory.length > state.messages.length) {
+      console.log('Using database history as primary source');
+      state.messages = dbHistory;
+    } else if (dbHistory.length > 0) {
+      // Merge database history with in-memory state, avoiding duplicates
+      const mergedMessages = [...dbHistory];
+      // Add any new messages from state that aren't in database yet
+      state.messages.forEach(msg => {
+        if (!dbHistory.some(dbMsg => dbMsg.content === msg.content && dbMsg.role === msg.role)) {
+          mergedMessages.push(msg);
+        }
+      });
+      state.messages = mergedMessages.slice(-MAX_HISTORY);
+    }
     
     // Track tool switching if this came from another tool
     if (source_tool) {
@@ -300,6 +390,7 @@ serve(async (req) => {
       state.confirmed = false;
     }
     
+    // Add current message to state
     appendMessage(state, { role: 'user', content: message });
     console.log('Conversation state updated, total messages:', state.messages.length);
 
@@ -311,18 +402,21 @@ serve(async (req) => {
     let currentTool = 'ai-orchestrator'; // Track which function is handling this
 
     if (!state.tool) {
-      console.log('No tool selected, determining intent');
+      console.log('No tool selected, determining intent with full conversation history');
       
-      // Enhanced instruction for tool-to-tool communication awareness
+      // Enhanced instruction with conversation context awareness
       const toolContext = source_tool ? ` (Note: This request came from the ${source_tool} tool, so the user may be switching context)` : '';
       const instruction =
-        'You are helping an AI orchestrator decide which tool to use based on the user\'s request. ' +
+        'You are helping an AI orchestrator decide which tool to use based on the user\'s conversation. ' +
+        'Look at the ENTIRE conversation history to understand context and extract information. ' +
         'Available tools: register_client - Register a new client (needs name, email, ein); ' +
         'create_connection - Create a connection for a client (needs clientId, connectionType, credentials); ' +
         'build_dashboard - Build a dashboard for a client (needs clientId, metrics, timeframe); ' +
         'ai-chat - Handle general conversations and questions that don\'t fit other tools. ' +
         toolContext +
-        'Respond in JSON as {"tool": "<tool>", "reply": "<message>"}.';
+        'IMPORTANT: Review the full conversation history to understand what the user wants. ' +
+        'If they mentioned client details in previous messages, remember that information. ' +
+        'Respond in JSON as {"tool": "<tool>", "reply": "<message>", "extracted_info": <any_relevant_info_from_history>}.';
 
       try {
         // Get DeepSeek API key for tool selection with authenticated client
@@ -331,20 +425,21 @@ serve(async (req) => {
         console.log('Successfully retrieved DeepSeek API key');
         
         const requestStart = Date.now();
+        
+        // Include full conversation history in the API call
+        const fullMessages = [
+          { role: 'system', content: instruction },
+          ...state.messages
+        ];
+        
         const requestBody = {
           model: 'deepseek-chat',
           temperature: 0,
           max_tokens: 256,
-          messages: [
-            { role: 'system', content: instruction },
-            ...state.messages
-          ]
+          messages: fullMessages
         };
         
-        const dsResponse = await askDeepSeek(apiKey, [
-          { role: 'system', content: instruction },
-          ...state.messages
-        ]);
+        const dsResponse = await askDeepSeek(apiKey, fullMessages);
         
         const requestEnd = Date.now();
         apiLogs = {
@@ -362,12 +457,21 @@ serve(async (req) => {
           }
         };
 
-        const parsed = extractJson<{ tool?: string; reply?: string }>(dsResponse);
+        const parsed = extractJson<{ tool?: string; reply?: string; extracted_info?: any }>(dsResponse);
         if (parsed) {
           state.tool = parsed.tool;
           intent = state.tool || '';
           reply = parsed.reply || '';
           state.confirmed = false;
+          
+          // Extract parameters from conversation history if tool is selected
+          if (state.tool && state.tool !== 'ai-chat') {
+            const extractedParams = extractParametersFromHistory(state.messages, state.tool);
+            if (Object.keys(extractedParams).length > 0) {
+              params = extractedParams;
+              console.log('Extracted parameters from conversation history:', params);
+            }
+          }
           
           // Track tool chain
           if (!state.toolChain) state.toolChain = [];
@@ -377,6 +481,7 @@ serve(async (req) => {
           
           conversationStates.set(conversation_id, state);
           console.log('Tool selected:', intent, '| Tool chain:', state.toolChain);
+          console.log('Extracted info from conversation:', parsed.extracted_info);
         } else {
           reply = dsResponse;
           conversationStates.set(conversation_id, state);
@@ -394,32 +499,38 @@ serve(async (req) => {
         throw deepseekError;
       }
     } else if (!state.confirmed) {
-      console.log('Tool selected but not confirmed, checking confirmation');
+      console.log('Tool selected but not confirmed, checking confirmation with conversation context');
       
       const instruction =
         `You are helping an AI orchestrator with the tool "${state.tool}" already selected. ` +
-        'Determine if the user\'s message confirms they want to proceed with this tool. ' +
-        'Respond in JSON as {"confirmed": true|false, "reply": "<message>"}.';
+        'Review the ENTIRE conversation history to understand the context. ' +
+        'The user may have already provided the necessary information in previous messages. ' +
+        'Determine if the user\'s latest message confirms they want to proceed with this tool, ' +
+        'OR if they are providing additional information for the tool. ' +
+        'Look for confirmation phrases like "yes", "proceed", "register", "create", "do it", etc. ' +
+        'If they\'re providing information (like name, email, EIN), consider it as confirmation to proceed. ' +
+        'Respond in JSON as {"confirmed": true|false, "reply": "<message>", "extracted_params": <any_params_from_history>}.';
 
       try {
         // Get DeepSeek API key for confirmation check with authenticated client
         const apiKey = await decryptDeepSeekKey(supabase, userId);
         
         const requestStart = Date.now();
+        
+        // Include full conversation history in confirmation check
+        const fullMessages = [
+          { role: 'system', content: instruction },
+          ...state.messages
+        ];
+        
         const requestBody = {
           model: 'deepseek-chat',
           temperature: 0,
           max_tokens: 256,
-          messages: [
-            { role: 'system', content: instruction },
-            ...state.messages
-          ]
+          messages: fullMessages
         };
         
-        const dsResponse = await askDeepSeek(apiKey, [
-          { role: 'system', content: instruction },
-          ...state.messages
-        ]);
+        const dsResponse = await askDeepSeek(apiKey, fullMessages);
         
         const requestEnd = Date.now();
         apiLogs = {
@@ -437,13 +548,24 @@ serve(async (req) => {
           }
         };
 
-        const parsed = extractJson<{ confirmed?: boolean; reply?: string }>(dsResponse);
+        const parsed = extractJson<{ confirmed?: boolean; reply?: string; extracted_params?: any }>(dsResponse);
         if (parsed) {
           reply = parsed.reply || '';
           intent = state.tool || '';
+          
           if (parsed.confirmed === true) {
             type = 'actionable';
             state.confirmed = true;
+            
+            // Extract parameters from conversation history
+            const extractedParams = extractParametersFromHistory(state.messages, state.tool || '');
+            if (Object.keys(extractedParams).length > 0) {
+              params = { ...extractedParams, ...(parsed.extracted_params || {}) };
+            } else if (parsed.extracted_params) {
+              params = parsed.extracted_params;
+            }
+            
+            console.log('Tool confirmed with parameters:', params);
             
             // For ai-chat, prepare parameters with conversation context
             if (state.tool === 'ai-chat') {
@@ -494,7 +616,9 @@ serve(async (req) => {
         function_called: 'ai-orchestrator',
         tool_selected: intent || 'none',
         tool_confirmed: state.confirmed || false,
-        conversation_state: !!conversationStates.get(conversation_id)
+        conversation_state: !!conversationStates.get(conversation_id),
+        conversation_length: state.messages.length,
+        extracted_parameters: Object.keys(params).length > 0 ? params : null
       }
     };
     console.log('Sending response:', { intent, type, replyLength: reply.length, hasParams: Object.keys(params).length > 0, toolChain: state.toolChain, currentTool });
