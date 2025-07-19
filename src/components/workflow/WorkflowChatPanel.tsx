@@ -6,12 +6,25 @@ import { Send, Bot, User } from 'lucide-react';
 import { WorkflowLogger } from '@/lib/workflowLogger';
 import { supabase } from '@/integrations/supabase/client';
 import { WorkflowState } from '@/hooks/useWorkflowBuilder';
+import { ToolDebugInfo } from '@/components/chat/ToolDebugInfo';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  debugInfo?: {
+    currentTool?: string;
+    toolChain?: string[];
+    apiCall?: {
+      url: string;
+      method: string;
+      duration: number;
+      status: number;
+      response?: any;
+    };
+    processingTime?: number;
+  };
 }
 
 interface WorkflowChatPanelProps {
@@ -61,9 +74,9 @@ export const WorkflowChatPanel: React.FC<WorkflowChatPanelProps> = ({
     setInput('');
     setIsLoading(true);
 
+    let startTime = Date.now();
+    
     try {
-      const startTime = Date.now();
-      
       logger.info('api', 'Calling workflow planner function', {
         prompt: input.substring(0, 100) + '...',
         workflowNodeCount: workflowState.nodes.length
@@ -83,11 +96,26 @@ export const WorkflowChatPanel: React.FC<WorkflowChatPanelProps> = ({
 
       logger.logApiCall('api', '/workflow-planner', 'POST', startTime, data);
 
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+
       const assistantMessage: Message = {
         id: `msg-${Date.now()}`,
         role: 'assistant',
         content: data.response || 'I understand. Let me help you build that workflow.',
-        timestamp: new Date()
+        timestamp: new Date(),
+        debugInfo: {
+          currentTool: 'workflow-planner',
+          toolChain: ['workflow-planner'],
+          apiCall: {
+            url: '/functions/v1/workflow-planner',
+            method: 'POST',
+            duration: processingTime,
+            status: 200,
+            response: data
+          },
+          processingTime
+        }
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -103,6 +131,9 @@ export const WorkflowChatPanel: React.FC<WorkflowChatPanelProps> = ({
       }
 
     } catch (error) {
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+
       logger.error('api', 'Workflow planner function call failed', {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -111,7 +142,19 @@ export const WorkflowChatPanel: React.FC<WorkflowChatPanelProps> = ({
         id: `msg-${Date.now()}`,
         role: 'assistant',
         content: 'I apologize, but I encountered an error processing your request. Please try again.',
-        timestamp: new Date()
+        timestamp: new Date(),
+        debugInfo: {
+          currentTool: 'workflow-planner',
+          toolChain: ['workflow-planner'],
+          apiCall: {
+            url: '/functions/v1/workflow-planner',
+            method: 'POST',
+            duration: processingTime,
+            status: 500,
+            response: { error: error instanceof Error ? error.message : 'Unknown error' }
+          },
+          processingTime
+        }
       };
 
       setMessages(prev => [...prev, errorMessage]);
@@ -167,6 +210,15 @@ export const WorkflowChatPanel: React.FC<WorkflowChatPanelProps> = ({
                 <span className="text-xs opacity-70 mt-1 block">
                   {message.timestamp.toLocaleTimeString()}
                 </span>
+                
+                {/* Debug Info for assistant messages */}
+                {message.role === 'assistant' && message.debugInfo && (
+                  <ToolDebugInfo
+                    currentTool={message.debugInfo.currentTool}
+                    debugInfo={message.debugInfo}
+                    toolChain={message.debugInfo.toolChain}
+                  />
+                )}
               </div>
 
               {message.role === 'user' && (
