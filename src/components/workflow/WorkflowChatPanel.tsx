@@ -183,8 +183,10 @@ export const WorkflowChatPanel: React.FC<WorkflowChatPanelProps> = ({
         </p>
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+      {/* Chat Container */}
+      <div className="flex-1 p-4">
+        <div className="h-full bg-card rounded-lg border border-border shadow-sm">
+          <ScrollArea className="h-full p-4" ref={scrollRef}>
         <div className="space-y-4">
           {messages.map((message) => (
             <div
@@ -244,7 +246,9 @@ export const WorkflowChatPanel: React.FC<WorkflowChatPanelProps> = ({
             </div>
           )}
         </div>
-      </ScrollArea>
+          </ScrollArea>
+        </div>
+      </div>
 
       {/* Input */}
       <div className="p-4 border-t">
