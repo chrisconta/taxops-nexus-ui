@@ -184,7 +184,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
           size={1}
         />
         <Controls 
-          className="bg-background border border-border shadow-md"
+          className="bg-background border border-border shadow-md [&>button]:bg-blue-500 [&>button]:hover:bg-blue-600 [&>button]:text-white [&>button]:border-blue-500"
         />
         <MiniMap 
           className="bg-background border border-border shadow-md"
