@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -40,10 +41,15 @@ export function appendMessage(
 
 const conversationStates = new Map<string, ConversationState>();
 
-// PHASE 1: Add utility function for atomic state persistence
+// Enhanced state management utility
 function saveState(conversationId: string, state: ConversationState) {
   conversationStates.set(conversationId, state);
-  console.log(`[💾 STATE SAVED] Tool: ${state.tool}, Confirmed: ${state.confirmed}, Attempts: ${state.confirmationAttempts || 0}`);
+  console.log(`[💾 STATE SAVED] ConversationId: ${conversationId} | Tool: ${state.tool} | Confirmed: ${state.confirmed} | Attempts: ${state.confirmationAttempts || 0} | Messages: ${state.messages.length}`);
+}
+
+// Generate unique request IDs for correlation
+function generateRequestId(): string {
+  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
 // Tool-specific confirmation messages
@@ -59,7 +65,7 @@ const normalizeToolName = (tool: string | undefined | null): string => {
   return tool?.trim().toLowerCase() || '';
 };
 
-// PHASE 2: Enhanced confirmation with simple pattern matching before DeepSeek
+// Enhanced confirmation with simple pattern matching before DeepSeek
 function checkSimpleConfirmation(message: string): { isConfirmed: boolean; isRejection: boolean } {
   const normalizedMessage = message.toLowerCase().trim();
   
@@ -89,7 +95,7 @@ function checkSimpleConfirmation(message: string): { isConfirmed: boolean; isRej
   return { isConfirmed, isRejection };
 }
 
-// PHASE 2: Semantic loop detection
+// Enhanced semantic loop detection
 function detectRepeatedResponse(state: ConversationState, newResponse: string): boolean {
   if (!state.lastAssistantMessage) {
     return false;
@@ -100,7 +106,7 @@ function detectRepeatedResponse(state: ConversationState, newResponse: string): 
   
   if (isSimilar) {
     state.repeatedResponseCount = (state.repeatedResponseCount || 0) + 1;
-    console.log(`[🔁 LOOP DETECTION] Repeated response detected. Count: ${state.repeatedResponseCount}`);
+    console.log(`[🔁 LOOP DETECTION] Repeated response detected. Count: ${state.repeatedResponseCount} | Response: "${newResponse.substring(0, 100)}..."`);
     return state.repeatedResponseCount >= 2; // Trigger after 2 repetitions
   } else {
     state.repeatedResponseCount = 0;
@@ -109,20 +115,21 @@ function detectRepeatedResponse(state: ConversationState, newResponse: string): 
   return false;
 }
 
-// BULLETPROOF CONFIRMATION CHECK - uses dedicated confirmation prompt
+// ENHANCED CONFIRMATION CHECK with comprehensive logging
 async function checkConfirmationWithDeepSeek(
   apiKey: string, 
   conversationHistory: Array<{ role: string; content: string }>, 
   toolName: string,
   latestMessage: string
 ): Promise<{ isConfirmed: boolean; reply: string }> {
-  console.log(`[🧠 CONFIRMATION CHECK] Starting confirmation check for tool: ${toolName}`);
-  console.log(`[🧠 CONFIRMATION CHECK] Latest message: "${latestMessage}"`);
+  const requestId = generateRequestId();
+  console.log(`[🧠 DEEPSEEK-CONFIRMATION] Starting confirmation check | RequestId: ${requestId} | Tool: ${toolName}`);
+  console.log(`[🧠 DEEPSEEK-CONFIRMATION] Latest message: "${latestMessage}"`);
   
-  // PHASE 2: Try simple confirmation first
+  // Try simple confirmation first
   const simpleCheck = checkSimpleConfirmation(latestMessage);
   if (simpleCheck.isConfirmed) {
-    console.log('[🧠 CONFIRMATION CHECK] Strong confirmation via simple patterns');
+    console.log(`[🧠 DEEPSEEK-CONFIRMATION] ${requestId} | Strong confirmation via simple patterns - skipping AI call`);
     return { 
       isConfirmed: true, 
       reply: `Great! I'll help you with ${toolName.replace('_', ' ')}. Let me get started.` 
@@ -130,13 +137,13 @@ async function checkConfirmationWithDeepSeek(
   }
   
   if (simpleCheck.isRejection) {
-    console.log('[🧠 CONFIRMATION CHECK] Clear rejection via simple patterns');
+    console.log(`[🧠 DEEPSEEK-CONFIRMATION] ${requestId} | Clear rejection via simple patterns - skipping AI call`);
     return { 
       isConfirmed: false, 
       reply: 'Understood. Is there something else I can help you with?' 
     };
   }
-  
+
   // DEDICATED CONFIRMATION PROMPT (not tool selection!)
   const confirmationInstruction = `You are the confirmation handler for an AI system. 
 
@@ -155,51 +162,69 @@ Respond with ONLY "YES" if they want to proceed with ${toolName}, or "NO" if the
 
 Do not provide explanations, just YES or NO.`;
 
-  console.log(`[🧠 CONFIRMATION PROMPT SENT TO DEEPSEEK]\n${confirmationInstruction}`);
+  console.log(`[🧠 DEEPSEEK-REQ] ${requestId} | CONFIRMATION CHECK`);
+  console.log(`[🧠 DEEPSEEK-REQ] ${requestId} | Tool: ${toolName}`);
+  console.log(`[🧠 DEEPSEEK-REQ] ${requestId} | System Instruction:\n${confirmationInstruction}`);
+  console.log(`[🧠 DEEPSEEK-REQ] ${requestId} | User Message: "${latestMessage}"`);
+
+  const requestPayload = {
+    model: 'deepseek-chat',
+    temperature: 0,
+    max_tokens: 10,
+    messages: [
+      { role: 'system', content: confirmationInstruction },
+      { role: 'user', content: latestMessage }
+    ]
+  };
+
+  console.log(`[🧠 DEEPSEEK-REQ] ${requestId} | Full Request Payload:`, JSON.stringify(requestPayload, null, 2));
 
   try {
+    const requestStart = Date.now();
+    
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        temperature: 0,
-        max_tokens: 10,
-        messages: [
-          { role: 'system', content: confirmationInstruction },
-          { role: 'user', content: latestMessage }
-        ]
-      })
+      body: JSON.stringify(requestPayload)
     });
 
+    const requestDuration = Date.now() - requestStart;
+
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[🧠 DEEPSEEK-ERROR] ${requestId} | HTTP ${response.status} | Duration: ${requestDuration}ms | Error: ${errorText}`);
       throw new Error(`DeepSeek API error: ${response.status}`);
     }
 
     const data = await response.json();
     const aiResponse = data.choices[0].message.content.trim().toUpperCase();
     
-    console.log(`[🧠 DEEPSEEK CONFIRMATION RESPONSE] "${aiResponse}"`);
+    console.log(`[🧠 DEEPSEEK-RESP] ${requestId} | Duration: ${requestDuration}ms`);
+    console.log(`[🧠 DEEPSEEK-RESP] ${requestId} | Full Response:`, JSON.stringify(data, null, 2));
+    console.log(`[🧠 DEEPSEEK-RESP] ${requestId} | AI Decision: "${aiResponse}"`);
+    console.log(`[🧠 DEEPSEEK-RESP] ${requestId} | Token Usage:`, data.usage || 'Not provided');
     
     const isConfirmed = aiResponse.startsWith('YES') || aiResponse === 'YES';
     const reply = isConfirmed 
       ? `Perfect! I'll help you with ${toolName.replace('_', ' ')}. Let me get started.`
       : toolConfirmationMessages[toolName as keyof typeof toolConfirmationMessages] || 'Could you please confirm if you want to proceed?';
     
-    console.log(`[🧠 CONFIRMATION CHECK] AI confirmation result: ${isConfirmed ? 'CONFIRMED' : 'NOT_CONFIRMED'}`);
+    console.log(`[🧠 DEEPSEEK-EXTRACT] ${requestId} | Final confirmation result: ${isConfirmed ? 'CONFIRMED' : 'NOT_CONFIRMED'}`);
+    console.log(`[🧠 DEEPSEEK-EXTRACT] ${requestId} | Reply to user: "${reply}"`);
+    
     return { isConfirmed, reply };
   } catch (error) {
-    console.error('[🧠 CONFIRMATION CHECK] Error in AI confirmation check:', error);
+    console.error(`[🧠 DEEPSEEK-ERROR] ${requestId} | Exception:`, error);
     
     // Enhanced fallback logic with better pattern matching
     const fallbackConfirmation = simpleCheck.isConfirmed || 
       /^(yes|yeah|yep|sure|okay|ok)\b/i.test(latestMessage) ||
       /what.*need|how.*start|tell me|let's do|sounds good/i.test(latestMessage);
     
-    console.log(`[🧠 CONFIRMATION CHECK] Fallback confirmation result: ${fallbackConfirmation}`);
+    console.log(`[🧠 DEEPSEEK-FALLBACK] ${requestId} | Fallback confirmation result: ${fallbackConfirmation}`);
     return { 
       isConfirmed: fallbackConfirmation, 
       reply: fallbackConfirmation ? 'I understand you want to proceed.' : 'Could you please confirm if you want to proceed?' 
@@ -207,9 +232,11 @@ Do not provide explanations, just YES or NO.`;
   }
 }
 
-// TOOL EXTRACTION - only for tool selection phase
+// ENHANCED TOOL EXTRACTION with comprehensive logging
 export function extractToolFromResponse(text: string): { tool?: string; reply?: string } {
-  console.log('[🧠 TOOL EXTRACTION] Extracting tool from DeepSeek response:', text);
+  const requestId = generateRequestId();
+  console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Extracting tool from response`);
+  console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Input text: "${text}"`);
   
   const trimmedText = text.trim();
   
@@ -232,7 +259,8 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
   // First check for exact tool name matches
   for (const [toolName, pattern] of Object.entries(exactToolMatches)) {
     if (pattern.test(trimmedText)) {
-      console.log(`[🧠 TOOL EXTRACTION] Found tool: ${toolName} via exact match`);
+      console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Found tool: ${toolName} via exact match`);
+      console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Reply: "${toolMessages[toolName as keyof typeof toolMessages]}"`);
       return { 
         tool: toolName, 
         reply: toolMessages[toolName as keyof typeof toolMessages]
@@ -251,7 +279,7 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
   // Check for tool patterns and extract meaningful content
   for (const [toolName, pattern] of Object.entries(toolPatterns)) {
     if (pattern.test(text)) {
-      console.log(`[🧠 TOOL EXTRACTION] Found tool: ${toolName} via pattern matching`);
+      console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Found tool: ${toolName} via pattern matching`);
       
       // Try to extract meaningful content after tool mention
       let extractedReply = text.replace(pattern, '').trim();
@@ -268,6 +296,8 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
         ? extractedReply 
         : toolMessages[toolName as keyof typeof toolMessages];
       
+      console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Extracted reply: "${reply}"`);
+      
       return { 
         tool: toolName, 
         reply: reply
@@ -279,21 +309,25 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
   const lowerText = text.toLowerCase();
   if (lowerText.includes('register') && (lowerText.includes('client') || lowerText.includes('company'))) {
     const reply = text.length > 20 ? text : toolMessages.register_client;
+    console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Found register_client via fallback`);
     return { tool: 'register_client', reply };
   }
   if (lowerText.includes('connection') || lowerText.includes('connect')) {
     const reply = text.length > 20 ? text : toolMessages.create_connection;
+    console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Found create_connection via fallback`);
     return { tool: 'create_connection', reply };
   }
   if (lowerText.includes('dashboard') || lowerText.includes('report')) {
     const reply = text.length > 20 ? text : toolMessages.build_dashboard;
+    console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Found build_dashboard via fallback`);
     return { tool: 'build_dashboard', reply };
   }
   
-  console.log('[🧠 TOOL EXTRACTION] No specific tool identified, defaulting to ai-chat');
+  console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | No specific tool identified, defaulting to ai-chat`);
   const reply = trimmedText.toLowerCase() === 'ai-chat' 
     ? toolMessages['ai-chat'] 
     : text;
+  console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Default reply: "${reply}"`);
   return { tool: 'ai-chat', reply };
 }
 
@@ -375,34 +409,64 @@ async function decryptDeepSeekKey(supabase: SupabaseClient, userId: string) {
   }
 }
 
-async function askDeepSeek(apiKey: string, messages: Array<{ role: string; content: string }>) {
-  console.log('Making request to DeepSeek API with', messages.length, 'messages');
+// ENHANCED askDeepSeek with comprehensive logging
+async function askDeepSeek(apiKey: string, messages: Array<{ role: string; content: string }>, operation = 'general') {
+  const requestId = generateRequestId();
+  console.log(`[🧠 DEEPSEEK-REQ] ${requestId} | Starting ${operation.toUpperCase()} request`);
+  console.log(`[🧠 DEEPSEEK-REQ] ${requestId} | Message count: ${messages.length}`);
   
-  const body = {
+  // Log conversation context
+  console.log(`[🧠 DEEPSEEK-REQ] ${requestId} | Conversation Context:`);
+  messages.forEach((msg, index) => {
+    const preview = msg.content.length > 100 ? msg.content.substring(0, 100) + '...' : msg.content;
+    console.log(`[🧠 DEEPSEEK-REQ] ${requestId} | Message ${index + 1} (${msg.role}): "${preview}"`);
+  });
+  
+  const requestPayload = {
     model: 'deepseek-chat',
     temperature: 0,
     max_tokens: 256,
     messages,
   };
   
-  const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
+  console.log(`[🧠 DEEPSEEK-REQ] ${requestId} | Full Request Payload:`, JSON.stringify(requestPayload, null, 2));
   
-  if (!res.ok) {
-    const text = await res.text();
-    console.error('DeepSeek API error:', res.status, text);
-    throw new Error(`DeepSeek API error: ${res.status} ${text}`);
+  const requestStart = Date.now();
+  
+  try {
+    const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestPayload)
+    });
+    
+    const requestDuration = Date.now() - requestStart;
+    
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`[🧠 DEEPSEEK-ERROR] ${requestId} | HTTP ${res.status} | Duration: ${requestDuration}ms | Error: ${text}`);
+      throw new Error(`DeepSeek API error: ${res.status} ${text}`);
+    }
+    
+    const data = await res.json();
+    const responseContent = data.choices[0].message.content.trim();
+    
+    console.log(`[🧠 DEEPSEEK-RESP] ${requestId} | Duration: ${requestDuration}ms`);
+    console.log(`[🧠 DEEPSEEK-RESP] ${requestId} | Full Response:`, JSON.stringify(data, null, 2));
+    console.log(`[🧠 DEEPSEEK-RESP] ${requestId} | Response Content: "${responseContent}"`);
+    console.log(`[🧠 DEEPSEEK-RESP] ${requestId} | Token Usage:`, data.usage || 'Not provided');
+    console.log(`[🧠 DEEPSEEK-RESP] ${requestId} | Model: ${data.model || 'Not specified'}`);
+    
+    return responseContent;
+  } catch (error) {
+    const requestDuration = Date.now() - requestStart;
+    console.error(`[🧠 DEEPSEEK-ERROR] ${requestId} | Duration: ${requestDuration}ms | Exception:`, error);
+    console.error(`[🧠 DEEPSEEK-ERROR] ${requestId} | Failed request payload:`, JSON.stringify(requestPayload, null, 2));
+    throw error;
   }
-  
-  const data = await res.json();
-  console.log('DeepSeek API response received successfully');
-  return data.choices[0].message.content.trim();
 }
 
 async function ensureConversation(supabase: SupabaseClient, conversationId: string, userId: string) {
@@ -636,7 +700,7 @@ serve(async (req) => {
       state.messages = mergedMessages.slice(-MAX_HISTORY);
     }
     
-    // PHASE 1: FIXED tool switching logic with proper normalization and logging
+    // FIXED tool switching logic with proper normalization and logging
     console.log(`[🔧 TOOL SWITCH DEBUG] Raw source_tool: "${source_tool}"`);
     console.log(`[🔧 TOOL SWITCH DEBUG] Current state.tool: "${state.tool}"`);
     console.log(`[🔧 TOOL SWITCH DEBUG] Normalized source_tool: "${normalizeToolName(source_tool)}"`);
@@ -645,7 +709,7 @@ serve(async (req) => {
     const normalizedSourceTool = normalizeToolName(source_tool);
     const normalizedStateTool = normalizeToolName(state.tool);
     
-    // PHASE 1: CORE FIX - Only reset tool if different tool AND not confirmed
+    // CORE FIX - Only reset tool if different tool AND not confirmed
     if (normalizedSourceTool && normalizedSourceTool !== normalizedStateTool && !state.confirmed) {
       console.log(`[🔁 TOOL SWITCH] from ${state.tool} → ${source_tool} (normalized comparison passed, not confirmed)`);
       state.tool = source_tool; // Keep original casing for consistency
@@ -668,7 +732,7 @@ serve(async (req) => {
     // Add current message to state
     appendMessage(state, { role: 'user', content: message });
     
-    // PHASE 1: ENHANCED DEBUG LOGGING FOR STATE - BEFORE CONDITIONAL LOGIC
+    // ENHANCED DEBUG LOGGING FOR STATE - BEFORE CONDITIONAL LOGIC
     console.log(`[🧠 DEBUG STATE] conversation_id: ${conversation_id}`);
     console.log(`[🧠 STATE] tool: ${state.tool}`);
     console.log(`[🧠 STATE] confirmed: ${state.confirmed}`);
@@ -815,7 +879,7 @@ serve(async (req) => {
         ];
         
         console.log('[🧠 ORCHESTRATOR] Sending tool selection request to DeepSeek');
-        const dsResponse = await askDeepSeek(apiKey, fullMessages);
+        const dsResponse = await askDeepSeek(apiKey, fullMessages, 'tool_selection');
         
         const requestEnd = Date.now();
         apiLogs = {
@@ -860,7 +924,7 @@ serve(async (req) => {
           console.log('[🧠 ORCHESTRATOR] No specific tool identified, defaulting to ai-chat');
         }
         
-        // PHASE 1: Save state after tool selection
+        // Save state after tool selection
         saveState(conversation_id, state);
         console.log('[🧠 ORCHESTRATOR] State saved after tool selection');
         
@@ -880,7 +944,7 @@ serve(async (req) => {
       console.log('[🧠 ORCHESTRATOR] Entering PATH 2: Confirmation Phase');
       console.log(`[🧠 ORCHESTRATOR] Tool to confirm: ${state.tool}`);
       
-      // PHASE 2: Check for loop detection FIRST
+      // Check for loop detection FIRST
       const isLoopDetected = detectRepeatedResponse(state, toolConfirmationMessages[state.tool as keyof typeof toolConfirmationMessages] || '');
       
       // Increment confirmation attempts
@@ -888,7 +952,7 @@ serve(async (req) => {
       state.confirmationAttempts++;
       console.log(`[🧠 ORCHESTRATOR] Confirmation attempt ${state.confirmationAttempts} for tool: ${state.tool}`);
       
-      // PHASE 2: Auto-confirm if loop detected OR max attempts reached
+      // Auto-confirm if loop detected OR max attempts reached
       if (isLoopDetected || state.confirmationAttempts >= MAX_CONFIRMATION_ATTEMPTS) {
         console.log(`[🧠 ORCHESTRATOR] ${isLoopDetected ? 'Loop detected' : 'Max confirmation attempts reached'} - auto-proceeding`);
         type = 'actionable';
@@ -1007,7 +1071,7 @@ serve(async (req) => {
           }
         };
         
-        // PHASE 2: Enhanced fallback to simple confirmation logic
+        // Enhanced fallback to simple confirmation logic
         const simpleCheck = checkSimpleConfirmation(message);
         
         if (simpleCheck.isConfirmed) {
