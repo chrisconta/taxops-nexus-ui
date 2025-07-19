@@ -56,7 +56,7 @@ export const ToolCard = ({ tool, onSelect, onDelete, onRename }: ToolCardProps) 
 
   return (
     <Card 
-      className="cursor-pointer hover:border-primary/50 transition-all duration-300 group"
+      className="cursor-pointer hover:border-primary/50 transition-all duration-300 group overflow-hidden"
       onClick={() => onSelect(tool)}
     >
       <CardHeader className="pb-3">
@@ -127,16 +127,16 @@ export const ToolCard = ({ tool, onSelect, onDelete, onRename }: ToolCardProps) 
         </div>
         
         {/* Visual preview of nodes */}
-        <div className="mt-3 pt-3 border-t border-border/50">
+        <div className="mt-3 pt-3 border-t border-border/50 overflow-hidden">
           <div className="grid grid-cols-4 gap-1">
             {Array.from({ length: Math.min(8, nodeCount) }).map((_, i) => (
               <div 
                 key={i}
-                className="h-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded border border-primary/20"
+                className="h-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded border border-primary/20 shrink-0"
               />
             ))}
             {nodeCount > 8 && (
-              <div className="h-4 bg-muted rounded flex items-center justify-center">
+              <div className="h-4 bg-muted rounded flex items-center justify-center shrink-0">
                 <span className="text-xs text-muted-foreground">+{nodeCount - 8}</span>
               </div>
             )}

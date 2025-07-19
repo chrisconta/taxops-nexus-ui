@@ -41,7 +41,7 @@ export const SystemToolCard = ({ tool, onSelect }: SystemToolCardProps) => {
 
   return (
     <Card 
-      className="cursor-pointer hover:border-primary/50 transition-all duration-300 group relative"
+      className="cursor-pointer hover:border-primary/50 transition-all duration-300 group relative overflow-hidden"
       onClick={() => onSelect(tool)}
     >
       <CardHeader className="pb-3">
@@ -71,14 +71,14 @@ export const SystemToolCard = ({ tool, onSelect }: SystemToolCardProps) => {
           </p>
           
           {tool.capabilities && tool.capabilities.length > 0 && (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1 overflow-hidden">
               {tool.capabilities.slice(0, 3).map((capability, index) => (
-                <Badge key={index} variant="outline" className="text-xs px-1 py-0">
+                <Badge key={index} variant="outline" className="text-xs px-1 py-0 shrink-0">
                   {capability}
                 </Badge>
               ))}
               {tool.capabilities.length > 3 && (
-                <Badge variant="outline" className="text-xs px-1 py-0">
+                <Badge variant="outline" className="text-xs px-1 py-0 shrink-0">
                   +{tool.capabilities.length - 3}
                 </Badge>
               )}
