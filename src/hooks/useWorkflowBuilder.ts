@@ -124,9 +124,26 @@ export const useWorkflowBuilder = () => {
         status: workflowState.status
       };
 
-      const { data, error } = workflowState.id 
-        ? await supabase.from('tool_workflows').update(workflow).eq('id', workflowState.id).select().single()
-        : await supabase.from('tool_workflows').insert(workflow).select().single();
+      let data, error;
+      
+      if (workflowState.id) {
+        const result = await supabase
+          .from('tool_workflows')
+          .update(workflow)
+          .eq('id', workflowState.id)
+          .select()
+          .single();
+        data = result.data;
+        error = result.error;
+      } else {
+        const result = await supabase
+          .from('tool_workflows')
+          .insert(workflow)
+          .select()
+          .single();
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
 
@@ -141,6 +158,11 @@ export const useWorkflowBuilder = () => {
   }, [workflowState, updateWorkflow, logger]);
 
   const executeWorkflow = useCallback(async () => {
+    if (!workflowState.id) {
+      logger.error('execution', 'Cannot execute workflow without saving first');
+      return;
+    }
+
     const executionId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const startTime = Date.now();
     
@@ -153,11 +175,11 @@ export const useWorkflowBuilder = () => {
     updateWorkflow({ currentExecutionId: executionId });
 
     try {
-      // Create execution record
+      // Create execution record - user_id will be handled by RLS
       const { data: execution, error: execError } = await supabase
         .from('workflow_executions')
         .insert({
-          workflow_id: workflowState.id!,
+          workflow_id: workflowState.id,
           status: 'running'
         })
         .select()
