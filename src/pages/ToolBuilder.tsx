@@ -9,6 +9,7 @@ import { useToolWorkflows } from "@/hooks/useToolWorkflows";
 import { useSystemTools } from "@/hooks/useSystemTools";
 import { createWorkflowFromSystemTool } from "@/utils/systemToolTemplates";
 import { WorkflowLogger } from "@/lib/workflowLogger";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { 
   DropdownMenu,
@@ -74,12 +75,12 @@ const ToolBuilder = () => {
     }
   };
 
-  const handleCreateNewTool = () => {
+  const handleCreateNewTool = (name: string, description?: string) => {
     // Reset workflow state for new tool
     updateWorkflow({
       id: undefined,
-      name: 'New Tool',
-      description: '',
+      name: name,
+      description: description || '',
       nodes: [],
       connections: [],
       status: 'draft',
@@ -112,6 +113,34 @@ const ToolBuilder = () => {
     setCurrentTool('new');
   };
 
+  const handleRenameTool = async (tool: any, newName: string, newDescription?: string) => {
+    try {
+      const { error } = await supabase
+        .from('tool_workflows')
+        .update({ 
+          name: newName, 
+          description: newDescription || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tool.id);
+
+      if (error) throw error;
+
+      refreshTools();
+      
+      // If this tool is currently being edited, update the workflow state
+      if (currentTool === tool.id) {
+        updateWorkflow({
+          ...workflowState,
+          name: newName,
+          description: newDescription || ''
+        });
+      }
+    } catch (error) {
+      console.error('Error renaming tool:', error);
+    }
+  };
+
   const handleBackToTools = () => {
     setCurrentTool(null);
     refreshTools();
@@ -139,7 +168,7 @@ const ToolBuilder = () => {
             <div className="flex items-center gap-4">
               <Wrench className="w-6 h-6 text-primary" />
               <h1 className="text-xl font-semibold">Tool Builder</h1>
-              <Button onClick={handleCreateNewTool} className="gap-2 ml-3">
+              <Button onClick={() => handleCreateNewTool("New Tool")} className="gap-2 ml-3">
                 <Plus className="w-4 h-4" />
                 Create New Tool
               </Button>
@@ -157,7 +186,7 @@ const ToolBuilder = () => {
                     <LayoutGrid className="h-4 w-4 mr-2" />
                     Browse Tools
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleCreateNewTool}>
+                  <DropdownMenuItem onClick={() => handleCreateNewTool("New Tool")}>
                     <Plus className="h-4 w-4 mr-2" />
                     New Tool
                   </DropdownMenuItem>
@@ -176,6 +205,7 @@ const ToolBuilder = () => {
               onSelectSystemTool={handleSelectSystemTool}
               onDeleteTool={refreshTools}
               onCreateNew={handleCreateNewTool}
+              onRenameTool={handleRenameTool}
             />
           </div>
         </div>

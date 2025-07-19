@@ -1,5 +1,5 @@
 
-import { Calendar, Clock, Trash2, Play, Copy } from "lucide-react";
+import { Calendar, Clock, Trash2, Play, Copy, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -10,9 +10,10 @@ interface ToolCardProps {
   tool: WorkflowState & { id: string; created_at: string; updated_at: string };
   onSelect: (tool: WorkflowState & { id: string }) => void;
   onDelete: () => void;
+  onRename?: (tool: WorkflowState & { id: string }) => void;
 }
 
-export const ToolCard = ({ tool, onSelect, onDelete }: ToolCardProps) => {
+export const ToolCard = ({ tool, onSelect, onDelete, onRename }: ToolCardProps) => {
   const { toast } = useToast();
 
   const handleDeleteTool = async (e: React.MouseEvent) => {
@@ -69,6 +70,19 @@ export const ToolCard = ({ tool, onSelect, onDelete }: ToolCardProps) => {
             </CardDescription>
           </div>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {onRename && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRename(tool);
+                }}
+              >
+                <Edit className="w-4 h-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"

@@ -1,4 +1,5 @@
 
+import { useState } from "react";
 import { Wrench, Plus, Cpu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -6,6 +7,7 @@ import type { WorkflowState } from "@/hooks/useWorkflowBuilder";
 import type { SystemTool } from "@/hooks/useSystemTools";
 import { ToolCard } from "./ToolCard";
 import { SystemToolCard } from "./SystemToolCard";
+import { ToolNamingModal } from "./ToolNamingModal";
 
 interface ToolListProps {
   tools: (WorkflowState & { id: string; created_at: string; updated_at: string })[];
@@ -14,7 +16,8 @@ interface ToolListProps {
   onSelectTool: (tool: WorkflowState & { id: string }) => void;
   onSelectSystemTool: (tool: SystemTool) => void;
   onDeleteTool: () => void;
-  onCreateNew: () => void;
+  onCreateNew: (name: string, description?: string) => void;
+  onRenameTool?: (tool: WorkflowState & { id: string }, newName: string, newDescription?: string) => void;
 }
 
 export const ToolList = ({ 
@@ -24,8 +27,13 @@ export const ToolList = ({
   onSelectTool, 
   onSelectSystemTool,
   onDeleteTool, 
-  onCreateNew 
+  onCreateNew,
+  onRenameTool
 }: ToolListProps) => {
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [selectedTool, setSelectedTool] = useState<WorkflowState & { id: string; created_at: string; updated_at: string } | null>(null);
+  
   const hasUserTools = (tools || []).length > 0;
   const hasSystemTools = (systemTools || []).length > 0;
   const hasAnyTools = hasUserTools || hasSystemTools;
@@ -42,7 +50,7 @@ export const ToolList = ({
             Build powerful workflow automation tools by connecting AI capabilities, 
             integrations, and custom logic into reusable workflows.
           </p>
-          <Button onClick={onCreateNew} size="lg" className="gap-2">
+          <Button onClick={() => setShowCreateModal(true)} size="lg" className="gap-2">
             <Plus className="w-5 h-5" />
             Create New Tool
           </Button>
@@ -105,10 +113,42 @@ export const ToolList = ({
                 tool={tool}
                 onSelect={onSelectTool}
                 onDelete={onDeleteTool}
+                onRename={onRenameTool ? (tool) => {
+                  setSelectedTool(tool as WorkflowState & { id: string; created_at: string; updated_at: string });
+                  setShowRenameModal(true);
+                } : undefined}
               />
             ))}
           </div>
         </div>
+      )}
+
+      <ToolNamingModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onConfirm={(name, description) => onCreateNew(name, description)}
+        title="Create New Tool"
+        description="Give your new tool a descriptive name and optional description."
+      />
+
+      {selectedTool && onRenameTool && (
+        <ToolNamingModal
+          isOpen={showRenameModal}
+          onClose={() => {
+            setShowRenameModal(false);
+            setSelectedTool(null);
+          }}
+          onConfirm={(name, description) => {
+            if (selectedTool) {
+              onRenameTool(selectedTool, name, description);
+              setSelectedTool(null);
+            }
+          }}
+          initialName={selectedTool.name}
+          initialDescription={selectedTool.description}
+          title="Rename Tool"
+          description="Update the name and description for this tool."
+        />
       )}
     </div>
   );

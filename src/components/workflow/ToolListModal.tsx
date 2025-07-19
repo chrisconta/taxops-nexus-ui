@@ -17,7 +17,7 @@ interface ToolListModalProps {
   onSelectTool: (tool: WorkflowState & { id: string }) => void;
   onSelectSystemTool: (tool: SystemTool) => void;
   onDeleteTool: () => void;
-  onCreateNew: () => void;
+  onCreateNew: (name: string, description?: string) => void;
 }
 
 export const ToolListModal = ({ 
@@ -52,7 +52,7 @@ export const ToolListModal = ({
           <span className="text-sm text-muted-foreground">
             {isLoadingSystemTools ? 'Loading...' : `${totalTools} tool${totalTools !== 1 ? 's' : ''} available`}
           </span>
-          <Button onClick={() => { onCreateNew(); onClose(); }}>
+          <Button onClick={() => { onCreateNew("New Tool"); onClose(); }}>
             Create New Tool
           </Button>
         </div>
@@ -67,7 +67,7 @@ export const ToolListModal = ({
               <p className="text-muted-foreground mb-4">
                 Create your first tool to get started with workflow automation
               </p>
-              <Button onClick={() => { onCreateNew(); onClose(); }}>
+              <Button onClick={() => { onCreateNew("New Tool"); onClose(); }}>
                 Create Your First Tool
               </Button>
             </div>
