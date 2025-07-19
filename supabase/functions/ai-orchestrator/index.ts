@@ -21,6 +21,7 @@ interface ConversationState {
   };
   confirmationAttempts?: number;
   lastAssistantMessage?: string;
+  repeatedResponseCount?: number;
 }
 
 const MAX_HISTORY = 15;
@@ -39,6 +40,12 @@ export function appendMessage(
 
 const conversationStates = new Map<string, ConversationState>();
 
+// PHASE 1: Add utility function for atomic state persistence
+function saveState(conversationId: string, state: ConversationState) {
+  conversationStates.set(conversationId, state);
+  console.log(`[💾 STATE SAVED] Tool: ${state.tool}, Confirmed: ${state.confirmed}, Attempts: ${state.confirmationAttempts || 0}`);
+}
+
 // Tool-specific confirmation messages
 const toolConfirmationMessages = {
   'register_client': "Do you want me to help you register a client? I'll collect their business information like name, email, and EIN to get them set up in the system.",
@@ -52,6 +59,56 @@ const normalizeToolName = (tool: string | undefined | null): string => {
   return tool?.trim().toLowerCase() || '';
 };
 
+// PHASE 2: Enhanced confirmation with simple pattern matching before DeepSeek
+function checkSimpleConfirmation(message: string): { isConfirmed: boolean; isRejection: boolean } {
+  const normalizedMessage = message.toLowerCase().trim();
+  
+  // Strong confirmation patterns
+  const confirmationPatterns = [
+    /^(yes|yeah|yep|yup|sure|okay|ok|alright|correct|right|absolutely|definitely|proceed|go ahead|do it|let's do it|sounds good)$/i,
+    /^(yes[.,!]?|yeah[.,!]?|sure[.,!]?|ok[.,!]?)$/i,
+    /^i want to/i,
+    /please (do|proceed|go ahead)/i,
+    /let[''']?s (do|proceed|start)/i
+  ];
+  
+  // Strong rejection patterns
+  const rejectionPatterns = [
+    /^(no|nope|nah|not|never|don't|stop|cancel|abort|quit|exit)$/i,
+    /^(no[.,!]?|nope[.,!]?|not really[.,!]?)$/i,
+    /don[''']?t want/i,
+    /not interested/i,
+    /cancel/i
+  ];
+  
+  const isConfirmed = confirmationPatterns.some(pattern => pattern.test(normalizedMessage));
+  const isRejection = rejectionPatterns.some(pattern => pattern.test(normalizedMessage));
+  
+  console.log(`[🔍 SIMPLE CONFIRMATION] Message: "${message}" | Confirmed: ${isConfirmed} | Rejected: ${isRejection}`);
+  
+  return { isConfirmed, isRejection };
+}
+
+// PHASE 2: Semantic loop detection
+function detectRepeatedResponse(state: ConversationState, newResponse: string): boolean {
+  if (!state.lastAssistantMessage) {
+    return false;
+  }
+  
+  // Check if the new response is very similar to the last one
+  const isSimilar = state.lastAssistantMessage === newResponse;
+  
+  if (isSimilar) {
+    state.repeatedResponseCount = (state.repeatedResponseCount || 0) + 1;
+    console.log(`[🔁 LOOP DETECTION] Repeated response detected. Count: ${state.repeatedResponseCount}`);
+    return state.repeatedResponseCount >= 2; // Trigger after 2 repetitions
+  } else {
+    state.repeatedResponseCount = 0;
+  }
+  
+  return false;
+}
+
 // BULLETPROOF CONFIRMATION CHECK - uses dedicated confirmation prompt
 async function checkConfirmationWithDeepSeek(
   apiKey: string, 
@@ -62,22 +119,21 @@ async function checkConfirmationWithDeepSeek(
   console.log(`[🧠 CONFIRMATION CHECK] Starting confirmation check for tool: ${toolName}`);
   console.log(`[🧠 CONFIRMATION CHECK] Latest message: "${latestMessage}"`);
   
-  // Enhanced fallback detection with better patterns
-  const strongConfirmationWords = ['yes', 'yeah', 'yep', 'sure', 'okay', 'ok', 'proceed', 'go ahead', 'do it', 'confirm', 'let\'s do it', 'sounds good'];
-  const normalizedMessage = latestMessage.toLowerCase().trim();
-  
-  const hasStrongConfirmation = strongConfirmationWords.some(word => 
-    normalizedMessage.includes(word)
-  );
-  
-  console.log(`[🧠 CONFIRMATION CHECK] Strong confirmation detected via fallback: ${hasStrongConfirmation}`);
-  
-  // Strong confirmation fallback - if user says yes, proceed
-  if (hasStrongConfirmation) {
-    console.log('[🧠 CONFIRMATION CHECK] Strong confirmation via fallback logic');
+  // PHASE 2: Try simple confirmation first
+  const simpleCheck = checkSimpleConfirmation(latestMessage);
+  if (simpleCheck.isConfirmed) {
+    console.log('[🧠 CONFIRMATION CHECK] Strong confirmation via simple patterns');
     return { 
       isConfirmed: true, 
       reply: `Great! I'll help you with ${toolName.replace('_', ' ')}. Let me get started.` 
+    };
+  }
+  
+  if (simpleCheck.isRejection) {
+    console.log('[🧠 CONFIRMATION CHECK] Clear rejection via simple patterns');
+    return { 
+      isConfirmed: false, 
+      reply: 'Understood. Is there something else I can help you with?' 
     };
   }
   
@@ -139,7 +195,7 @@ Do not provide explanations, just YES or NO.`;
     console.error('[🧠 CONFIRMATION CHECK] Error in AI confirmation check:', error);
     
     // Enhanced fallback logic with better pattern matching
-    const fallbackConfirmation = hasStrongConfirmation || 
+    const fallbackConfirmation = simpleCheck.isConfirmed || 
       /^(yes|yeah|yep|sure|okay|ok)\b/i.test(latestMessage) ||
       /what.*need|how.*start|tell me|let's do|sounds good/i.test(latestMessage);
     
@@ -567,7 +623,7 @@ serve(async (req) => {
       state.messages = mergedMessages.slice(-MAX_HISTORY);
     }
     
-    // FIXED: Smart tool switching logic with proper normalization and logging
+    // PHASE 1: FIXED tool switching logic with proper normalization and logging
     console.log(`[🔧 TOOL SWITCH DEBUG] Raw source_tool: "${source_tool}"`);
     console.log(`[🔧 TOOL SWITCH DEBUG] Current state.tool: "${state.tool}"`);
     console.log(`[🔧 TOOL SWITCH DEBUG] Normalized source_tool: "${normalizeToolName(source_tool)}"`);
@@ -576,8 +632,9 @@ serve(async (req) => {
     const normalizedSourceTool = normalizeToolName(source_tool);
     const normalizedStateTool = normalizeToolName(state.tool);
     
-    if (normalizedSourceTool && normalizedSourceTool !== normalizedStateTool) {
-      console.log(`[🔁 TOOL SWITCH] from ${state.tool} → ${source_tool} (normalized comparison passed)`);
+    // PHASE 1: CORE FIX - Only reset tool if different tool AND not confirmed
+    if (normalizedSourceTool && normalizedSourceTool !== normalizedStateTool && !state.confirmed) {
+      console.log(`[🔁 TOOL SWITCH] from ${state.tool} → ${source_tool} (normalized comparison passed, not confirmed)`);
       state.tool = source_tool; // Keep original casing for consistency
       state.confirmed = false;
       state.confirmationAttempts = 0;
@@ -586,16 +643,19 @@ serve(async (req) => {
       if (!state.sourceTools.includes(source_tool)) {
         state.sourceTools.push(source_tool);
       }
+      saveState(conversation_id, state);
     } else if (normalizedSourceTool && normalizedSourceTool === normalizedStateTool) {
       console.log(`[🔧 TOOL SWITCH DEBUG] No tool switch needed - same tool (${normalizedSourceTool})`);
     } else if (!normalizedSourceTool) {
       console.log(`[🔧 TOOL SWITCH DEBUG] No source_tool provided, keeping current state`);
+    } else if (state.confirmed) {
+      console.log(`[🔧 TOOL SWITCH DEBUG] Tool already confirmed, not switching`);
     }
     
     // Add current message to state
     appendMessage(state, { role: 'user', content: message });
     
-    // ENHANCED DEBUG LOGGING FOR STATE - BEFORE CONDITIONAL LOGIC
+    // PHASE 1: ENHANCED DEBUG LOGGING FOR STATE - BEFORE CONDITIONAL LOGIC
     console.log(`[🧠 DEBUG STATE] conversation_id: ${conversation_id}`);
     console.log(`[🧠 STATE] tool: ${state.tool}`);
     console.log(`[🧠 STATE] confirmed: ${state.confirmed}`);
@@ -690,8 +750,8 @@ serve(async (req) => {
           console.log('[🧠 ORCHESTRATOR] No specific tool identified, defaulting to ai-chat');
         }
         
-        // Save state after tool selection
-        conversationStates.set(conversation_id, state);
+        // PHASE 1: Save state after tool selection
+        saveState(conversation_id, state);
         console.log('[🧠 ORCHESTRATOR] State saved after tool selection');
         
       } catch (deepseekError) {
@@ -710,25 +770,30 @@ serve(async (req) => {
       console.log('[🧠 ORCHESTRATOR] Entering PATH 2: Confirmation Phase');
       console.log(`[🧠 ORCHESTRATOR] Tool to confirm: ${state.tool}`);
       
+      // PHASE 2: Check for loop detection FIRST
+      const isLoopDetected = detectRepeatedResponse(state, toolConfirmationMessages[state.tool as keyof typeof toolConfirmationMessages] || '');
+      
       // Increment confirmation attempts
       if (!state.confirmationAttempts) state.confirmationAttempts = 0;
       state.confirmationAttempts++;
       console.log(`[🧠 ORCHESTRATOR] Confirmation attempt ${state.confirmationAttempts} for tool: ${state.tool}`);
       
-      // BULLETPROOF: Auto-confirm after MAX_CONFIRMATION_ATTEMPTS
-      if (state.confirmationAttempts >= MAX_CONFIRMATION_ATTEMPTS) {
-        console.log('[🧠 ORCHESTRATOR] Max confirmation attempts reached - auto-proceeding');
+      // PHASE 2: Auto-confirm if loop detected OR max attempts reached
+      if (isLoopDetected || state.confirmationAttempts >= MAX_CONFIRMATION_ATTEMPTS) {
+        console.log(`[🧠 ORCHESTRATOR] ${isLoopDetected ? 'Loop detected' : 'Max confirmation attempts reached'} - auto-proceeding`);
         type = 'actionable';
         state.confirmed = true;
         params = { conversation_id: conversation_id };
         reply = `Got it — proceeding with ${state.tool.replace('_', ' ')}.`;
         
-        // DON'T delete state until tool execution is successful
+        // PHASE 3: Keep state until tool execution is successful
+        saveState(conversation_id, state);
         console.log('[🧠 ORCHESTRATOR] Keeping conversation state until tool execution success');
         
         await saveMessage(supabase, conversation_id, 'assistant', reply, {
           auto_confirmed: true,
-          confirmation_attempts: state.confirmationAttempts
+          confirmation_attempts: state.confirmationAttempts,
+          loop_detected: isLoopDetected
         });
         
         const response = { 
@@ -747,7 +812,8 @@ serve(async (req) => {
             conversation_length: state.messages.length,
             parameters_handled_by_tool: true,
             auto_confirmed: true,
-            confirmation_attempts: state.confirmationAttempts
+            confirmation_attempts: state.confirmationAttempts,
+            loop_detected: isLoopDetected
           }
         };
         console.log('[🧠 ORCHESTRATOR] Sending response with auto-confirmation');
@@ -792,17 +858,6 @@ serve(async (req) => {
         reply = confirmationResult.reply;
         intent = state.tool || '';
         
-        // Check if this is identical to last assistant message (confirmation loop detection)
-        if (state.lastAssistantMessage === reply) {
-          console.log('[🔁 CONFIRMATION LOOP DETECTED] Same assistant message repeated, incrementing attempts');
-          state.confirmationAttempts = (state.confirmationAttempts || 0) + 1;
-          if (state.confirmationAttempts >= MAX_CONFIRMATION_ATTEMPTS) {
-            console.log('[🔁 CONFIRMATION LOOP] Force confirming due to repeated messages');
-            confirmationResult.isConfirmed = true;
-            reply = `I understand you want to proceed with ${state.tool?.replace('_', ' ')}. Let me help you with that.`;
-          }
-        }
-        
         if (confirmationResult.isConfirmed) {
           console.log('✅ [🧠 ORCHESTRATOR] TOOL CONFIRMED! Launching tool:', state.tool);
           type = 'actionable';
@@ -823,12 +878,13 @@ serve(async (req) => {
             };
           }
           
-          // DON'T clear the conversation state here - wait for successful tool execution
+          // PHASE 3: Keep the conversation state until successful tool execution
+          saveState(conversation_id, state);
           console.log('[🧠 ORCHESTRATOR] Tool confirmed and launching, keeping conversation state until success');
         } else {
           // Keep asking for confirmation
           state.lastAssistantMessage = reply; // Store for loop detection
-          conversationStates.set(conversation_id, state);
+          saveState(conversation_id, state);
           console.log(`[🧠 ORCHESTRATOR] Tool not confirmed, continuing conversation for confirmation attempt: ${state.confirmationAttempts}`);
         }
       } catch (deepseekError) {
@@ -841,22 +897,20 @@ serve(async (req) => {
           }
         };
         
-        // Enhanced fallback to simple confirmation logic
-        const strongConfirmationWords = ['yes', 'yeah', 'yep', 'sure', 'okay', 'ok', 'proceed', 'go ahead', 'let\'s do it', 'sounds good'];
-        const simpleConfirmation = strongConfirmationWords.some(word => 
-          message.toLowerCase().includes(word)
-        ) || /what.*need|how.*start|tell me/i.test(message);
+        // PHASE 2: Enhanced fallback to simple confirmation logic
+        const simpleCheck = checkSimpleConfirmation(message);
         
-        if (simpleConfirmation) {
+        if (simpleCheck.isConfirmed) {
           console.log('✅ [🧠 ORCHESTRATOR] FALLBACK CONFIRMATION! Launching tool:', state.tool);
           type = 'actionable';
           state.confirmed = true;
           params = { conversation_id: conversation_id };
           reply = 'I understand you want to proceed. Let me help you with that.';
+          saveState(conversation_id, state);
           console.log('[🧠 ORCHESTRATOR] Tool confirmed via fallback logic, keeping state until success');
         } else {
           reply = 'Could you please confirm if you want to proceed with this action?';
-          conversationStates.set(conversation_id, state);
+          saveState(conversation_id, state);
           console.log('[🧠 ORCHESTRATOR] Tool not confirmed via fallback, asking for clarification');
         }
       }
