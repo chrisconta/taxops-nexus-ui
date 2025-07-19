@@ -36,11 +36,40 @@ export function appendMessage(
 
 const conversationStates = new Map<string, ConversationState>();
 
-// Simplified tool extraction - no complex JSON parsing needed
+// Simplified tool extraction with proper user-friendly message generation
 export function extractToolFromResponse(text: string): { tool?: string; reply?: string } {
   console.log('Extracting tool from DeepSeek response:', text);
   
-  // Look for tool keywords in the response
+  const trimmedText = text.trim();
+  
+  // Define user-friendly messages for each tool
+  const toolMessages = {
+    'register_client': "I can help you register a new client. Please provide the client's name, email, and EIN.",
+    'create_connection': "I can help you create a connection to an external service. What type of connection would you like to set up?",
+    'build_dashboard': "I can help you build a dashboard or report. What metrics would you like to include?",
+    'ai-chat': "Hello! How can I help you today?"
+  };
+  
+  // Check if response is just a tool name (common DeepSeek response)
+  const exactToolMatches = {
+    'register_client': /^register[_\s]?client$/i,
+    'create_connection': /^create[_\s]?connection$/i,
+    'build_dashboard': /^build[_\s]?dashboard$/i,
+    'ai-chat': /^ai[_\s]?chat$/i
+  };
+  
+  // First check for exact tool name matches
+  for (const [toolName, pattern] of Object.entries(exactToolMatches)) {
+    if (pattern.test(trimmedText)) {
+      console.log(`Found tool: ${toolName} via exact match`);
+      return { 
+        tool: toolName, 
+        reply: toolMessages[toolName as keyof typeof toolMessages]
+      };
+    }
+  }
+  
+  // Look for tool keywords in the response with better message extraction
   const toolPatterns = {
     'register_client': /(?:register[_\s]client|client[_\s]registration|register.*client)/i,
     'create_connection': /(?:create[_\s]connection|connection|connect|linking)/i,
@@ -48,13 +77,29 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
     'ai-chat': /(?:ai[_\s]chat|general|conversation|chat|question)/i
   };
   
-  // First try to find explicit tool mentions
+  // Check for tool patterns and extract meaningful content
   for (const [toolName, pattern] of Object.entries(toolPatterns)) {
     if (pattern.test(text)) {
       console.log(`Found tool: ${toolName} via pattern matching`);
+      
+      // Try to extract meaningful content after tool mention
+      let extractedReply = text.replace(pattern, '').trim();
+      
+      // Clean up common prefixes/suffixes
+      extractedReply = extractedReply
+        .replace(/^[\s\-\(\)]*/, '') // Remove leading spaces, dashes, parentheses
+        .replace(/[\s\-\(\)]*$/, '') // Remove trailing spaces, dashes, parentheses
+        .replace(/^(Note:|Parameters:|Proceeding with|Tool:)/i, '') // Remove common prefixes
+        .trim();
+      
+      // If we got meaningful content, use it; otherwise use default message
+      const reply = extractedReply && extractedReply.length > 10 
+        ? extractedReply 
+        : toolMessages[toolName as keyof typeof toolMessages];
+      
       return { 
         tool: toolName, 
-        reply: text.replace(/^.*?Tool:\s*/i, '').trim() || text.trim()
+        reply: reply
       };
     }
   }
@@ -66,27 +111,37 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
       const parsed = JSON.parse(jsonMatch[0]);
       if (parsed.tool) {
         console.log(`Found tool via JSON: ${parsed.tool}`);
-        return { tool: parsed.tool, reply: parsed.reply || text };
+        const reply = parsed.reply && parsed.reply.length > 10 
+          ? parsed.reply 
+          : toolMessages[parsed.tool as keyof typeof toolMessages] || text;
+        return { tool: parsed.tool, reply };
       }
     }
   } catch (e) {
     // JSON parsing failed, continue with pattern matching
   }
   
-  // Look for tool names directly mentioned in text
+  // Look for tool names directly mentioned in text (fallback)
   const lowerText = text.toLowerCase();
   if (lowerText.includes('register') && (lowerText.includes('client') || lowerText.includes('company'))) {
-    return { tool: 'register_client', reply: text };
+    const reply = text.length > 20 ? text : toolMessages.register_client;
+    return { tool: 'register_client', reply };
   }
   if (lowerText.includes('connection') || lowerText.includes('connect')) {
-    return { tool: 'create_connection', reply: text };
+    const reply = text.length > 20 ? text : toolMessages.create_connection;
+    return { tool: 'create_connection', reply };
   }
   if (lowerText.includes('dashboard') || lowerText.includes('report')) {
-    return { tool: 'build_dashboard', reply: text };
+    const reply = text.length > 20 ? text : toolMessages.build_dashboard;
+    return { tool: 'build_dashboard', reply };
   }
   
   console.log('No specific tool identified, defaulting to ai-chat');
-  return { tool: 'ai-chat', reply: text };
+  // For ai-chat, if response is just "ai-chat", provide a better default
+  const reply = trimmedText.toLowerCase() === 'ai-chat' 
+    ? toolMessages['ai-chat'] 
+    : text;
+  return { tool: 'ai-chat', reply };
 }
 
 async function loadConversationHistory(supabase: SupabaseClient, conversationId: string): Promise<Array<{ role: string; content: string }>> {
@@ -423,8 +478,8 @@ serve(async (req) => {
         '2. If user mentions connecting to external services, use "create_connection"\n' +
         '3. If user wants to build reports or dashboards, use "build_dashboard"\n' +
         '4. For general questions or unclear intent, use "ai-chat"\n' +
-        'IMPORTANT: Review the full conversation history to understand what the user wants. ' +
-        'Respond with just the tool name (e.g., "register_client") or provide a brief helpful message if you need to ask for clarification.';
+        'RESPONSE FORMAT: Respond with ONLY the tool name (e.g., "register_client", "ai-chat") OR provide a user-friendly message if clarification is needed. ' +
+        'DO NOT include both tool name and message together. The tool name will be processed separately from the user message.';
 
       try {
         // Get DeepSeek API key for tool selection with authenticated client
