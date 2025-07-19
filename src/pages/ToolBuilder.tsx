@@ -129,6 +129,11 @@ const ToolBuilder = () => {
               <h1 className="text-xl font-semibold">Tool Builder</h1>
             </div>
             
+            <Button onClick={handleCreateNewTool} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Create New Tool
+            </Button>
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -139,10 +144,6 @@ const ToolBuilder = () => {
                 <DropdownMenuItem onClick={() => setShowToolListModal(true)}>
                   <Search className="h-4 w-4 mr-2" />
                   Browse Tools
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleCreateNewTool}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create New Tool
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
