@@ -188,10 +188,16 @@ serve(async (req) => {
       });
     }
 
-    console.log('Authorization header present, creating Supabase client');
+    console.log('Authorization header present, creating authenticated Supabase client');
     
-    // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    // Create authenticated Supabase client with JWT token
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
 
     // Extract JWT token from Authorization header
     const jwt = authHeader.replace('Bearer ', '');
@@ -244,8 +250,10 @@ serve(async (req) => {
         'Respond in JSON as {"tool": "<tool>", "reply": "<message>"}.';
 
       try {
-        // Get DeepSeek API key for tool selection
+        // Get DeepSeek API key for tool selection with authenticated client
+        console.log('Fetching DeepSeek API key with authenticated client');
         const apiKey = await decryptDeepSeekKey(supabase, userId);
+        console.log('Successfully retrieved DeepSeek API key');
         
         const dsResponse = await askDeepSeek(apiKey, [
           { role: 'system', content: instruction },
@@ -278,7 +286,7 @@ serve(async (req) => {
         'Respond in JSON as {"confirmed": true|false, "reply": "<message>"}.';
 
       try {
-        // Get DeepSeek API key for confirmation check
+        // Get DeepSeek API key for confirmation check with authenticated client
         const apiKey = await decryptDeepSeekKey(supabase, userId);
         
         const dsResponse = await askDeepSeek(apiKey, [
@@ -338,3 +346,4 @@ serve(async (req) => {
     });
   }
 });
+
