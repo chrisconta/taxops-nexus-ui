@@ -17,10 +17,12 @@ import { WorkflowLogger } from '@/lib/workflowLogger';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { ActionNode } from './ActionNode';
+import { NodeConfiguration } from './NodeConfigModal';
 
 interface WorkflowCanvasProps {
   workflowState: WorkflowState;
   onWorkflowUpdate: (updates: Partial<WorkflowState>) => void;
+  onUpdateNodeConfig: (nodeId: string, config: NodeConfiguration) => void;
   isExecuting: boolean;
 }
 
@@ -31,6 +33,7 @@ const nodeTypes = {
 export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
   workflowState,
   onWorkflowUpdate,
+  onUpdateNodeConfig,
   isExecuting
 }) => {
   const logger = WorkflowLogger.getInstance();
@@ -59,13 +62,12 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         label: node.data.label || node.type,
         action: node.data.action,
         isExecuting: isExecuting,
+        config: node.config,
         onDelete: handleDeleteNode,
-        onSettings: (nodeId: string) => {
-          logger.logUiEvent('node_settings_clicked', 'WorkflowCanvas', { nodeId });
-        }
+        onUpdateConfig: onUpdateNodeConfig,
       }
     }));
-  }, [workflowState.nodes, isExecuting, handleDeleteNode, logger]);
+  }, [workflowState.nodes, isExecuting, handleDeleteNode, onUpdateNodeConfig]);
 
   // Convert workflow connections to React Flow edges
   const reactFlowEdges = useMemo((): Edge[] => {

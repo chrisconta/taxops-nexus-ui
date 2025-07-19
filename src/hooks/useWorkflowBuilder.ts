@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { WorkflowLogger, LogEntry } from '@/lib/workflowLogger';
 import { supabase } from '@/integrations/supabase/client';
+import { NodeConfiguration } from '@/components/workflow/NodeConfigModal';
 
 export interface WorkflowNode {
   id: string;
@@ -8,6 +9,7 @@ export interface WorkflowNode {
   position: { x: number; y: number };
   data: Record<string, any>;
   metadata?: Record<string, any>;
+  config?: NodeConfiguration;
 }
 
 export interface WorkflowConnection {
@@ -61,6 +63,18 @@ export const useWorkflowBuilder = () => {
       ...updates
     }));
   }, [logger]);
+
+  const updateNodeConfig = useCallback((nodeId: string, config: NodeConfiguration) => {
+    logger.info('ui', 'Node configuration updated', { nodeId, config });
+
+    updateWorkflow({
+      nodes: workflowState.nodes.map(node => 
+        node.id === nodeId 
+          ? { ...node, config, data: { ...node.data, label: config.label } }
+          : node
+      )
+    });
+  }, [workflowState.nodes, updateWorkflow, logger]);
 
   const addNode = useCallback((node: Omit<WorkflowNode, 'id'>) => {
     const newNode: WorkflowNode = {
@@ -275,6 +289,7 @@ export const useWorkflowBuilder = () => {
   return {
     workflowState,
     updateWorkflow,
+    updateNodeConfig,
     addNode,
     removeNode,
     addConnection,

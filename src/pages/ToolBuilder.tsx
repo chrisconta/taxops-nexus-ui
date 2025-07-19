@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { WorkflowChatPanel } from "@/components/workflow/WorkflowChatPanel";
 import { WorkflowCanvas } from "@/components/workflow/WorkflowCanvas";
@@ -14,6 +15,7 @@ const ToolBuilder = () => {
   const {
     workflowState,
     updateWorkflow,
+    updateNodeConfig,
     executeWorkflow,
     saveWorkflow,
     isExecuting,
@@ -110,6 +112,7 @@ const ToolBuilder = () => {
           <WorkflowCanvas 
             workflowState={workflowState}
             onWorkflowUpdate={updateWorkflow}
+            onUpdateNodeConfig={updateNodeConfig}
             isExecuting={isExecuting}
           />
         </div>
