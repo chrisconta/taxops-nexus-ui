@@ -196,37 +196,46 @@ const ToolBuilder = () => {
           
           <div className="flex items-center gap-2">
             <Button 
-              variant="outline" 
+              variant="ghost" 
               size="sm"
               onClick={() => setShowToolListModal(true)}
+              className="h-8 w-8 p-0"
             >
-              <Wrench className="h-4 w-4 mr-2" />
-              Tools
+              <Wrench className="h-4 w-4" />
             </Button>
             <Button 
-              variant="outline" 
+              variant="ghost" 
               size="sm"
               onClick={() => setShowDebugPanel(!showDebugPanel)}
+              className="h-8 w-8 p-0"
             >
-              <Bug className="h-4 w-4 mr-2" />
-              Debug
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleSave}>
-              <Save className="h-4 w-4 mr-2" />
-              Save
-            </Button>
-            <Button variant="outline" size="sm">
-              <Share className="h-4 w-4 mr-2" />
-              Share
+              <Bug className="h-4 w-4" />
             </Button>
             <Button 
               onClick={handleExecute} 
               disabled={isExecuting}
               size="sm"
+              className="h-8 w-8 p-0"
             >
-              <Play className="h-4 w-4 mr-2" />
-              {isExecuting ? 'Running...' : 'Execute'}
+              <Play className="h-4 w-4" />
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleSave}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Share className="h-4 w-4 mr-2" />
+                  Share
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
