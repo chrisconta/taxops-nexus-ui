@@ -209,12 +209,15 @@ Do not provide explanations, just YES or NO.`;
       // Get API logs for this conversation
       const apiCallsForConversation = (messages || [])
         .filter(m => m.api_logs && Object.keys(m.api_logs).length > 0)
-        .map(m => ({
-          timestamp: m.created_at,
-          operation: m.api_logs.request?.operation || 'unknown',
-          content: m.content,
-          logs: m.api_logs
-        }));
+        .map(m => {
+          const apiLogs = m.api_logs as Record<string, any>;
+          return {
+            timestamp: m.created_at,
+            operation: (apiLogs && typeof apiLogs === 'object' && apiLogs.request?.operation) || 'unknown',
+            content: m.content,
+            logs: m.api_logs
+          };
+        });
 
       const debugInfo: ConversationDebugInfo = {
         id: debugConversationId,
