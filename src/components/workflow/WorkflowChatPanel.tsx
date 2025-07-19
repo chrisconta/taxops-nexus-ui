@@ -183,69 +183,69 @@ export const WorkflowChatPanel: React.FC<WorkflowChatPanelProps> = ({
         </p>
       </div>
 
-      {/* Chat Container */}
+      {/* Chat Container - Fixed Height */}
       <div className="flex-1 min-h-0 p-4">
-        <div className="h-full bg-card rounded-lg border border-border shadow-sm flex flex-col">
-          <ScrollArea className="flex-1 min-h-0 p-4" ref={scrollRef}>
-        <div className="space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex gap-3 ${
-                message.role === 'user' ? 'justify-end' : 'justify-start'
-              }`}
-            >
-              {message.role === 'assistant' && (
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-4 w-4 text-primary" />
-                </div>
-              )}
-              
-              <div
-                className={`max-w-[80%] rounded-lg p-3 ${
-                  message.role === 'user'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted'
-                }`}
-              >
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                <span className="text-xs opacity-70 mt-1 block">
-                  {message.timestamp.toLocaleTimeString()}
-                </span>
-                
-                {/* Debug Info for assistant messages */}
-                {message.role === 'assistant' && message.debugInfo && (
-                  <ToolDebugInfo
-                    currentTool={message.debugInfo.currentTool}
-                    debugInfo={message.debugInfo}
-                    toolChain={message.debugInfo.toolChain}
-                  />
-                )}
-              </div>
+        <div className="h-96 bg-card rounded-lg border border-border shadow-sm flex flex-col">
+          <ScrollArea className="h-full p-4" ref={scrollRef}>
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex gap-3 ${
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  {message.role === 'assistant' && (
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Bot className="h-4 w-4 text-primary" />
+                    </div>
+                  )}
+                  
+                  <div
+                    className={`max-w-[80%] rounded-lg p-3 ${
+                      message.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted'
+                    }`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <span className="text-xs opacity-70 mt-1 block">
+                      {message.timestamp.toLocaleTimeString()}
+                    </span>
+                    
+                    {/* Debug Info for assistant messages */}
+                    {message.role === 'assistant' && message.debugInfo && (
+                      <ToolDebugInfo
+                        currentTool={message.debugInfo.currentTool}
+                        debugInfo={message.debugInfo}
+                        toolChain={message.debugInfo.toolChain}
+                      />
+                    )}
+                  </div>
 
-              {message.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <User className="h-4 w-4 text-primary" />
+                  {message.role === 'user' && (
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              {isLoading && (
+                <div className="flex gap-3 justify-start">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Bot className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="bg-muted rounded-lg p-3">
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" />
+                      <div className="w-2 h-2 bg-primary/50 rounded-full animate-bounce delay-100" />
+                      <div className="w-2 h-2 bg-primary/50 rounded-full animate-bounce delay-200" />
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-          ))}
-          
-          {isLoading && (
-            <div className="flex gap-3 justify-start">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Bot className="h-4 w-4 text-primary" />
-              </div>
-              <div className="bg-muted rounded-lg p-3">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-primary/50 rounded-full animate-bounce delay-100" />
-                  <div className="w-2 h-2 bg-primary/50 rounded-full animate-bounce delay-200" />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
           </ScrollArea>
         </div>
       </div>
