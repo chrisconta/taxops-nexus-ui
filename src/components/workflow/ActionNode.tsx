@@ -29,8 +29,8 @@ export const ActionNode: React.FC<ActionNodeProps> = memo(({ id, data }) => {
   };
 
   return (
-    <Card className={`w-48 transition-all duration-200 ${
-      data.isExecuting ? 'ring-2 ring-primary ring-opacity-50' : ''
+    <Card className={`w-48 bg-blue-500 border-blue-600 text-white transition-all duration-200 ${
+      data.isExecuting ? 'ring-2 ring-blue-300 ring-opacity-50' : ''
     }`}>
       <Handle 
         type="target" 
