@@ -9,7 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useChatLogger } from '@/hooks/useChatLogger';
-import { RefreshCw, Trash2, Search, Play, Square, AlertCircle } from "lucide-react";
+import { RefreshCw, Trash2, Search, Play, Square, AlertCircle, Eye, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface OrchestratorState {
   tool?: string;
@@ -37,9 +38,11 @@ const AISettings = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Orchestrator debug state
-  const [debugConversationId, setDebugConversationId] = useState("");
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [orchestratorDebugInfo, setOrchestratorDebugInfo] = useState<ConversationDebugInfo | null>(null);
   const [isLoadingDebug, setIsLoadingDebug] = useState(false);
+  const [showDebugModal, setShowDebugModal] = useState(false);
   
   const { sessions, clearSessions } = useChatLogger();
 
@@ -123,61 +126,75 @@ const AISettings = () => {
     }
   };
 
-  const loadOrchestratorDebugInfo = async () => {
-    if (!debugConversationId.trim()) {
-      toast.error("Please enter a conversation ID");
-      return;
-    }
 
-    setIsLoadingDebug(true);
+  const fetchConversations = async () => {
     try {
-      // Fetch conversation messages to understand current state
-      const { data: messages, error: messagesError } = await supabase
-        .from('ai_messages')
-        .select('*')
-        .eq('conversation_id', debugConversationId)
-        .order('created_at', { ascending: true });
+      const { data, error } = await supabase
+        .from('ai_conversations')
+        .select(`
+          *,
+          ai_messages (
+            id,
+            role,
+            content,
+            created_at,
+            api_logs
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-      if (messagesError) throw messagesError;
+      if (error) throw error;
+      setConversations(data || []);
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+      toast.error('Failed to fetch conversations');
+    }
+  };
 
-      // Analyze the conversation to simulate orchestrator state
-      const conversationMessages = (messages || []).map(m => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.content
-      }));
+  const openConversationDebug = async (conversation: any) => {
+    setSelectedConversation(conversation);
+    setShowDebugModal(true);
 
-      // Simulate orchestrator logic to determine current state
-      let tool: string | undefined;
-      let confirmed = false;
-      let confirmationAttempts = 0;
+    // Load debug info for this conversation
+    const messages = conversation.ai_messages || [];
+    const conversationMessages = messages.map((m: any) => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.content
+    }));
 
-      // Look for tool identification patterns
-      const toolPatterns = {
-        'register_client': /(?:register[_\s]client|client[_\s]registration|register.*client)/i,
-        'create_connection': /(?:create[_\s]connection|connection|connect|linking)/i,
-        'build_dashboard': /(?:build[_\s]dashboard|dashboard|report|analytics)/i,
-        'ai-chat': /(?:ai[_\s]chat|general|conversation|chat|question)/i
-      };
+    // Simulate orchestrator logic to determine current state
+    let tool: string | undefined;
+    let confirmed = false;
+    let confirmationAttempts = 0;
 
-      // Analyze conversation for tool selection
-      for (const message of conversationMessages) {
-        if (message.role === 'user') {
-          for (const [toolName, pattern] of Object.entries(toolPatterns)) {
-            if (pattern.test(message.content)) {
-              tool = toolName;
-              break;
-            }
+    // Look for tool identification patterns
+    const toolPatterns = {
+      'register_client': /(?:register[_\s]client|client[_\s]registration|register.*client)/i,
+      'create_connection': /(?:create[_\s]connection|connection|connect|linking)/i,
+      'build_dashboard': /(?:build[_\s]dashboard|dashboard|report|analytics)/i,
+      'ai-chat': /(?:ai[_\s]chat|general|conversation|chat|question)/i
+    };
+
+    // Analyze conversation for tool selection
+    for (const message of conversationMessages) {
+      if (message.role === 'user') {
+        for (const [toolName, pattern] of Object.entries(toolPatterns)) {
+          if (pattern.test(message.content)) {
+            tool = toolName;
+            break;
           }
         }
       }
+    }
 
-      // Determine instruction type based on state
-      let instructionType: 'tool_selection' | 'confirmation' | 'none' = 'none';
-      let nextInstruction = '';
+    // Determine instruction type based on state
+    let instructionType: 'tool_selection' | 'confirmation' | 'none' = 'none';
+    let nextInstruction = '';
 
-      if (!tool) {
-        instructionType = 'tool_selection';
-        nextInstruction = `You are helping an AI orchestrator decide which tool to use based on the user's conversation. Look at the ENTIRE conversation history to understand context and extract information. Available tools:
+    if (!tool) {
+      instructionType = 'tool_selection';
+      nextInstruction = `You are helping an AI orchestrator decide which tool to use based on the user's conversation. Look at the ENTIRE conversation history to understand context and extract information. Available tools:
 - register_client: Register a new client (needs name, email, ein)
 - create_connection: Create a connection for a client (needs clientId, connectionType, credentials)
 - build_dashboard: Build a dashboard for a client (needs clientId, metrics, timeframe)
@@ -188,9 +205,9 @@ CRITICAL RULES:
 3. If user wants to build reports or dashboards, use "build_dashboard"
 4. For general questions or unclear intent, use "ai-chat"
 RESPONSE FORMAT: Respond with ONLY the tool name (e.g., "register_client", "ai-chat") OR provide a user-friendly message if clarification is needed. DO NOT include both tool name and message together. The tool name will be processed separately from the user message.`;
-      } else if (!confirmed) {
-        instructionType = 'confirmation';
-        nextInstruction = `Is this message indicating the user wants to proceed with ${tool}?
+    } else if (!confirmed) {
+      instructionType = 'confirmation';
+      nextInstruction = `Is this message indicating the user wants to proceed with ${tool}?
 
 User's message: "[LATEST_MESSAGE]"
 
@@ -204,88 +221,49 @@ Respond with ONLY:
 - "NO" if they don't want to proceed or are unclear
 
 Do not provide explanations, just YES or NO.`;
-      }
-
-      // Get API logs for this conversation
-      const apiCallsForConversation = (messages || [])
-        .filter(m => m.api_logs && Object.keys(m.api_logs).length > 0)
-        .map(m => {
-          const apiLogs = m.api_logs as Record<string, any>;
-          return {
-            timestamp: m.created_at,
-            operation: (apiLogs && typeof apiLogs === 'object' && apiLogs.request?.operation) || 'unknown',
-            content: m.content,
-            logs: m.api_logs
-          };
-        });
-
-      const debugInfo: ConversationDebugInfo = {
-        id: debugConversationId,
-        state: {
-          tool,
-          confirmed,
-          confirmationAttempts,
-          messages: conversationMessages,
-          toolChain: tool ? [tool] : [],
-          sourceTools: []
-        },
-        lastActivity: messages && messages.length > 0 ? messages[messages.length - 1].created_at : 'No activity',
-        instructionType,
-        nextInstruction,
-        apiCalls: apiCallsForConversation
-      };
-
-      setOrchestratorDebugInfo(debugInfo);
-      toast.success('Debug info loaded successfully');
-    } catch (error: any) {
-      console.error('Error loading orchestrator debug info:', error);
-      toast.error(`Failed to load debug info: ${error.message}`);
-    } finally {
-      setIsLoadingDebug(false);
-    }
-  };
-
-  const simulateUserInput = async (input: string) => {
-    if (!debugConversationId.trim()) {
-      toast.error("Please load a conversation first");
-      return;
     }
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('User not authenticated');
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke('ai-orchestrator', {
-        body: { 
-          message: input, 
-          conversation_id: debugConversationId 
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
+    // Get API logs for this conversation
+    const apiCallsForConversation = messages
+      .filter((m: any) => m.api_logs && Object.keys(m.api_logs).length > 0)
+      .map((m: any) => {
+        const apiLogs = m.api_logs as Record<string, any>;
+        return {
+          timestamp: m.created_at,
+          operation: (apiLogs && typeof apiLogs === 'object' && apiLogs.request?.operation) || 'unknown',
+          content: m.content,
+          logs: m.api_logs
+        };
       });
 
-      if (error) throw error;
+    const debugInfo: ConversationDebugInfo = {
+      id: conversation.id,
+      state: {
+        tool,
+        confirmed,
+        confirmationAttempts,
+        messages: conversationMessages,
+        toolChain: tool ? [tool] : [],
+        sourceTools: []
+      },
+      lastActivity: messages && messages.length > 0 ? messages[messages.length - 1].created_at : 'No activity',
+      instructionType,
+      nextInstruction,
+      apiCalls: apiCallsForConversation
+    };
 
-      toast.success('Simulation completed');
-      // Reload debug info to see updated state
-      await loadOrchestratorDebugInfo();
-    } catch (error: any) {
-      console.error('Error simulating user input:', error);
-      toast.error(`Simulation failed: ${error.message}`);
-    }
+    setOrchestratorDebugInfo(debugInfo);
   };
 
   useEffect(() => {
     fetchApiLogs();
     fetchChatHistory();
+    fetchConversations();
     
     const interval = setInterval(() => {
       fetchApiLogs();
       fetchChatHistory();
+      fetchConversations();
     }, 30000);
 
     return () => clearInterval(interval);
@@ -587,220 +565,254 @@ Do not provide explanations, just YES or NO.`;
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Conversation ID Input */}
-              <div className="space-y-2">
-                <label htmlFor="debug-conversation-id" className="text-sm font-medium">
-                  Conversation ID to Debug
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    id="debug-conversation-id"
-                    placeholder="Enter conversation ID"
-                    value={debugConversationId}
-                    onChange={(e) => setDebugConversationId(e.target.value)}
-                  />
-                  <Button 
-                    onClick={loadOrchestratorDebugInfo} 
-                    disabled={isLoadingDebug}
-                    className="flex items-center gap-2"
-                  >
-                    {isLoadingDebug ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Search className="h-4 w-4" />
+              {/* Conversation List */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Recent Conversations</h3>
+                <ScrollArea className="h-64 border rounded-lg">
+                  <div className="space-y-2 p-4">
+                    {conversations.map((conversation) => (
+                      <div 
+                        key={conversation.id} 
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                        onClick={() => openConversationDebug(conversation)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium truncate">{conversation.title}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {conversation.ai_messages?.length || 0} messages • {formatTimestamp(conversation.created_at)}
+                          </p>
+                        </div>
+                        <Button size="sm" variant="outline" className="flex items-center gap-1">
+                          <Eye className="h-3 w-3" />
+                          Debug
+                        </Button>
+                      </div>
+                    ))}
+                    {conversations.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+                        <p>No conversations found. Start a conversation to see debug information.</p>
+                      </div>
                     )}
-                    Load
-                  </Button>
-                </div>
+                  </div>
+                </ScrollArea>
               </div>
-
-              {orchestratorDebugInfo && (
-                <div className="space-y-4">
-                  {/* Current State */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Current Orchestrator State</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <span className="text-sm font-medium">Tool:</span>
-                          <Badge variant="outline" className="ml-2">
-                            {orchestratorDebugInfo.state.tool || 'None'}
-                          </Badge>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium">Confirmed:</span>
-                          <Badge 
-                            variant={orchestratorDebugInfo.state.confirmed ? "default" : "secondary"}
-                            className="ml-2"
-                          >
-                            {orchestratorDebugInfo.state.confirmed ? 'Yes' : 'No'}
-                          </Badge>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium">Confirmation Attempts:</span>
-                          <Badge variant="outline" className="ml-2">
-                            {orchestratorDebugInfo.state.confirmationAttempts || 0}
-                          </Badge>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium">Instruction Type:</span>
-                          <Badge 
-                            className={`ml-2 ${getInstructionTypeBadge(orchestratorDebugInfo.instructionType)}`}
-                          >
-                            {orchestratorDebugInfo.instructionType}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium">Tool Chain:</span>
-                        <div className="flex gap-1 mt-1">
-                          {orchestratorDebugInfo.state.toolChain?.map((tool, index) => (
-                            <Badge key={index} variant="outline">{tool}</Badge>
-                          )) || <span className="text-sm text-muted-foreground">None</span>}
-                        </div>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium">Last Activity:</span>
-                        <span className="text-sm text-muted-foreground ml-2">
-                          {formatTimestamp(orchestratorDebugInfo.lastActivity)}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Next DeepSeek Instruction */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        Next DeepSeek Instruction
-                        {orchestratorDebugInfo.instructionType === 'tool_selection' && (
-                          <AlertCircle className="h-5 w-5 text-yellow-500" />
-                        )}
-                      </CardTitle>
-                      <CardDescription>
-                        This is the instruction that would be sent to DeepSeek on the next API call
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="bg-muted p-4 rounded-lg">
-                        <pre className="text-xs whitespace-pre-wrap break-words">
-                          {orchestratorDebugInfo.nextInstruction}
-                        </pre>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Conversation Messages */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Conversation Messages</CardTitle>
-                      <CardDescription>
-                        Current conversation history ({orchestratorDebugInfo.state.messages.length} messages)
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <ScrollArea className="h-64">
-                        <div className="space-y-2">
-                          {orchestratorDebugInfo.state.messages.map((message, index) => (
-                            <div key={index} className="flex gap-2 text-sm">
-                              <Badge variant={message.role === 'user' ? 'default' : 'secondary'}>
-                                {message.role}
-                              </Badge>
-                              <span className="flex-1 break-words">{message.content}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    </CardContent>
-                  </Card>
-
-                  {/* API Call History */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">API Call History</CardTitle>
-                      <CardDescription>
-                        Recent orchestrator API calls for this conversation
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <ScrollArea className="h-64">
-                        <div className="space-y-3">
-                          {orchestratorDebugInfo.apiCalls.map((call, index) => (
-                            <div key={index} className="border rounded p-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="outline">{call.operation}</Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {formatTimestamp(call.timestamp)}
-                                </span>
-                              </div>
-                              <div className="text-xs bg-muted p-2 rounded max-h-32 overflow-y-auto">
-                                <pre className="whitespace-pre-wrap">
-                                  {JSON.stringify(call.logs, null, 2)}
-                                </pre>
-                              </div>
-                            </div>
-                          ))}
-                          {orchestratorDebugInfo.apiCalls.length === 0 && (
-                            <p className="text-sm text-muted-foreground">No API calls found for this conversation</p>
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </CardContent>
-                  </Card>
-
-                  {/* Debug Controls */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Debug Controls</CardTitle>
-                      <CardDescription>
-                        Simulate user inputs to test orchestrator behavior
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex gap-2 flex-wrap">
-                        <Button 
-                          size="sm" 
-                          onClick={() => simulateUserInput("yes")}
-                          className="flex items-center gap-1"
-                        >
-                          <Play className="h-3 w-3" />
-                          Simulate "yes"
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          onClick={() => simulateUserInput("no")}
-                          className="flex items-center gap-1"
-                        >
-                          <Square className="h-3 w-3" />
-                          Simulate "no"
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          onClick={() => simulateUserInput("i want to register a client")}
-                          className="flex items-center gap-1"
-                        >
-                          <Play className="h-3 w-3" />
-                          Simulate register request
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        These buttons will send simulated messages to the orchestrator and reload the debug info
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-              {!orchestratorDebugInfo && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                  <p>Enter a conversation ID and click Load to view orchestrator debug information</p>
-                </div>
-              )}
             </CardContent>
           </Card>
+
+          {/* Debug Modal */}
+          <Dialog open={showDebugModal} onOpenChange={setShowDebugModal}>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+              <DialogHeader>
+                <DialogTitle className="flex items-center justify-between">
+                  <span>Orchestrator Debug: {selectedConversation?.title}</span>
+                  <Button variant="ghost" size="sm" onClick={() => setShowDebugModal(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </DialogTitle>
+              </DialogHeader>
+              
+              {orchestratorDebugInfo && (
+                <Tabs defaultValue="logs" className="h-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="logs">Conversation Logs</TabsTrigger>
+                    <TabsTrigger value="instructions">API Instructions</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="logs" className="mt-4">
+                    <ScrollArea className="h-[60vh]">
+                      <div className="space-y-4 pr-4">
+                        {/* Current State Summary */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">Current Orchestrator State</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-2">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="font-medium">Tool:</span>
+                                <Badge variant="outline" className="ml-2">
+                                  {orchestratorDebugInfo.state.tool || 'None'}
+                                </Badge>
+                              </div>
+                              <div>
+                                <span className="font-medium">Confirmed:</span>
+                                <Badge 
+                                  variant={orchestratorDebugInfo.state.confirmed ? "default" : "secondary"}
+                                  className="ml-2"
+                                >
+                                  {orchestratorDebugInfo.state.confirmed ? 'Yes' : 'No'}
+                                </Badge>
+                              </div>
+                              <div>
+                                <span className="font-medium">Instruction Type:</span>
+                                <Badge 
+                                  className={`ml-2 ${getInstructionTypeBadge(orchestratorDebugInfo.instructionType)}`}
+                                >
+                                  {orchestratorDebugInfo.instructionType}
+                                </Badge>
+                              </div>
+                              <div>
+                                <span className="font-medium">Attempts:</span>
+                                <Badge variant="outline" className="ml-2">
+                                  {orchestratorDebugInfo.state.confirmationAttempts || 0}
+                                </Badge>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Conversation Messages */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">Conversation Messages</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {orchestratorDebugInfo.state.messages.map((message, index) => (
+                                <div key={index} className="flex gap-2 text-sm">
+                                  <Badge variant={message.role === 'user' ? 'default' : 'secondary'}>
+                                    {message.role}
+                                  </Badge>
+                                  <div className="flex-1 bg-muted p-2 rounded text-xs">
+                                    {message.content}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* API Call History */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">API Call History</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {orchestratorDebugInfo.apiCalls.map((call, index) => (
+                                <div key={index} className="border rounded p-3">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Badge variant="outline">{call.operation}</Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      {formatTimestamp(call.timestamp)}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs bg-muted p-2 rounded max-h-32 overflow-y-auto">
+                                    <pre className="whitespace-pre-wrap">
+                                      {JSON.stringify(call.logs, null, 2)}
+                                    </pre>
+                                  </div>
+                                </div>
+                              ))}
+                              {orchestratorDebugInfo.apiCalls.length === 0 && (
+                                <p className="text-sm text-muted-foreground">No API calls found for this conversation</p>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  <TabsContent value="instructions" className="mt-4">
+                    <ScrollArea className="h-[60vh]">
+                      <div className="space-y-4 pr-4">
+                        {/* Instruction Logic */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm flex items-center gap-2">
+                              Current Instruction Logic
+                              {orchestratorDebugInfo.instructionType === 'tool_selection' && (
+                                <AlertCircle className="h-4 w-4 text-yellow-500" />
+                              )}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <div className="text-sm">
+                              <div className="mb-2">
+                                <span className="font-medium">Decision Path:</span>
+                                <Badge className={`ml-2 ${getInstructionTypeBadge(orchestratorDebugInfo.instructionType)}`}>
+                                  {orchestratorDebugInfo.instructionType}
+                                </Badge>
+                              </div>
+                              <div className="bg-muted p-3 rounded text-xs">
+                                {orchestratorDebugInfo.instructionType === 'tool_selection' ? (
+                                  <div>
+                                    <p className="font-medium mb-2">Logic: !state.tool (no tool selected yet)</p>
+                                    <p>The orchestrator will ask DeepSeek to analyze the conversation and select an appropriate tool.</p>
+                                  </div>
+                                ) : orchestratorDebugInfo.instructionType === 'confirmation' ? (
+                                  <div>
+                                    <p className="font-medium mb-2">Logic: state.tool exists but !state.confirmed</p>
+                                    <p>The orchestrator will ask DeepSeek to confirm if the user wants to proceed with {orchestratorDebugInfo.state.tool}.</p>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <p className="font-medium mb-2">Logic: No specific path</p>
+                                    <p>The conversation doesn't match expected orchestrator patterns.</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Next DeepSeek Instruction */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">Next DeepSeek Instruction</CardTitle>
+                            <CardDescription className="text-xs">
+                              This is the exact instruction that would be sent to DeepSeek on the next API call
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="bg-muted p-4 rounded-lg">
+                              <pre className="text-xs whitespace-pre-wrap break-words">
+                                {orchestratorDebugInfo.nextInstruction}
+                              </pre>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Tool Pattern Analysis */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">Tool Pattern Analysis</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-xs space-y-2">
+                              <div className="grid grid-cols-1 gap-2">
+                                <div className="p-2 bg-muted rounded">
+                                  <span className="font-medium">register_client:</span> /{`register[_\\s]client|client[_\\s]registration|register.*client`}/i
+                                </div>
+                                <div className="p-2 bg-muted rounded">
+                                  <span className="font-medium">create_connection:</span> /{`create[_\\s]connection|connection|connect|linking`}/i
+                                </div>
+                                <div className="p-2 bg-muted rounded">
+                                  <span className="font-medium">build_dashboard:</span> /{`build[_\\s]dashboard|dashboard|report|analytics`}/i
+                                </div>
+                                <div className="p-2 bg-muted rounded">
+                                  <span className="font-medium">ai-chat:</span> /{`ai[_\\s]chat|general|conversation|chat|question`}/i
+                                </div>
+                              </div>
+                              {orchestratorDebugInfo.state.tool && (
+                                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                                  <p className="text-green-800">
+                                    ✓ Detected tool: <span className="font-medium">{orchestratorDebugInfo.state.tool}</span>
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+                </Tabs>
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
     </div>
