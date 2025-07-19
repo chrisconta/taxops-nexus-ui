@@ -1,4 +1,6 @@
+
 import { create } from 'zustand';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Message {
   id: string;
@@ -89,38 +91,62 @@ export const useChatStore = create<ChatState>((set, get) => ({
   send: async (text) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch('/api/orchestrate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: text, conversationId: get().conversationId }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // Get current session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('User not authenticated');
       }
 
-      const data = await response.json();
+      // Generate conversation ID if none exists
+      let currentConversationId = get().conversationId;
+      if (!currentConversationId) {
+        currentConversationId = crypto.randomUUID();
+      }
+
+      // Call the ai-orchestrator edge function
+      const { data, error } = await supabase.functions.invoke('ai-orchestrator', {
+        body: { 
+          message: text, 
+          conversation_id: currentConversationId 
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) {
+        throw new Error(`Orchestrator error: ${error.message}`);
+      }
+
+      // Add user message
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        author: "user",
+        content: text,
+        timestamp: Date.now()
+      };
+
+      // Add agent response
+      const agentMessage: Message = {
+        id: crypto.randomUUID(),
+        author: "agent",
+        content: data.reply || 'I understand. How can I help you?',
+        timestamp: Date.now(),
+        debugInfo: data.debug_info,
+        toolChain: data.tool_chain,
+        currentTool: data.current_tool
+      };
 
       set({
-        messages: [...get().messages, {
-          id: crypto.randomUUID(),
-          author: "user",
-          content: text,
-          timestamp: Date.now()
-        }, {
-          id: crypto.randomUUID(),
-          author: "agent",
-          content: data.reply,
-          timestamp: Date.now()
-        }],
+        messages: [...get().messages, userMessage, agentMessage],
         isLoading: false,
-        conversationId: data.conversation_id
+        conversationId: currentConversationId
       });
 
       return data;
     } catch (e: any) {
+      console.error('Send message error:', e);
       set({
         isLoading: false,
         error: e.message,
@@ -137,25 +163,35 @@ export const useChatStore = create<ChatState>((set, get) => ({
   load: async (conversationId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch(`/api/chat?conversationId=${conversationId}`, {
-        method: 'GET',
+      // Get current session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
+      // Call the get-conversation-messages edge function
+      const { data, error } = await supabase.functions.invoke('get-conversation-messages', {
+        body: { conversation_id: conversationId },
         headers: {
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (error) {
+        throw new Error(`Load conversation error: ${error.message}`);
       }
 
-      const data = await response.json();
+      if (data.messages && Array.isArray(data.messages)) {
+        const mappedMessages = data.messages.map((m: any) => ({
+          id: m.id || crypto.randomUUID(),
+          author: m.role === 'user' ? 'user' : 'agent',
+          content: m.content,
+          timestamp: new Date(m.created_at).getTime()
+        }));
 
-      if (data.messages) {
         set({
-          messages: data.messages.map((m: any) => ({
-            ...m,
-            timestamp: new Date(m.timestamp).getTime()
-          })),
+          messages: mappedMessages,
           isLoading: false,
           conversationId: conversationId
         });
@@ -167,8 +203,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
       }
 
-
     } catch (e: any) {
+      console.error('Load conversation error:', e);
       set({ isLoading: false, error: e.message });
     }
   },
