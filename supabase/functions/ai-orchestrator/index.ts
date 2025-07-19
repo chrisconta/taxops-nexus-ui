@@ -19,11 +19,11 @@ interface ConversationState {
     to: string;
     reason: string;
   };
-  confirmationAttempts?: number; // Track confirmation attempts to prevent infinite loops
+  confirmationAttempts?: number;
 }
 
 const MAX_HISTORY = 15;
-const MAX_CONFIRMATION_ATTEMPTS = 3; // Safety mechanism
+const MAX_CONFIRMATION_ATTEMPTS = 3;
 
 export function appendMessage(
   state: ConversationState,
@@ -46,19 +46,26 @@ const toolConfirmationMessages = {
   'ai-chat': "I'm here to help with general questions and conversations. What would you like to discuss?"
 };
 
-// Simplified confirmation check with focused YES/NO prompt
+// Enhanced confirmation check with improved logging and pattern matching
 async function checkConfirmationWithDeepSeek(
   apiKey: string, 
   conversationHistory: Array<{ role: string; content: string }>, 
   toolName: string,
   latestMessage: string
 ): Promise<{ isConfirmed: boolean; reply: string }> {
-  console.log(`Checking confirmation for tool: ${toolName}, message: "${latestMessage}"`);
+  console.log(`[🧠 CONFIRMATION CHECK] Starting confirmation check for tool: ${toolName}`);
+  console.log(`[🧠 CONFIRMATION CHECK] Latest message: "${latestMessage}"`);
   
-  // Enhanced fallback detection first
-  const strongConfirmationWords = ['yes', 'yeah', 'yep', 'sure', 'okay', 'ok', 'proceed', 'go ahead', 'do it', 'confirm'];
+  // Enhanced fallback detection with better patterns
+  const strongConfirmationWords = ['yes', 'yeah', 'yep', 'sure', 'okay', 'ok', 'proceed', 'go ahead', 'do it', 'confirm', 'let\'s do it', 'sounds good'];
   const messageWords = latestMessage.toLowerCase().split(/\s+/);
-  const hasStrongConfirmation = strongConfirmationWords.some(word => messageWords.includes(word));
+  const normalizedMessage = latestMessage.toLowerCase().trim();
+  
+  const hasStrongConfirmation = strongConfirmationWords.some(word => 
+    normalizedMessage.includes(word)
+  );
+  
+  console.log(`[🧠 CONFIRMATION CHECK] Strong confirmation detected: ${hasStrongConfirmation}`);
   
   // Tool-specific context keywords
   const toolKeywords = {
@@ -70,25 +77,29 @@ async function checkConfirmationWithDeepSeek(
   
   const relevantKeywords = toolKeywords[toolName as keyof typeof toolKeywords] || [];
   const hasRelevantContext = relevantKeywords.some(keyword => 
-    latestMessage.toLowerCase().includes(keyword)
+    normalizedMessage.includes(keyword)
   );
+  
+  console.log(`[🧠 CONFIRMATION CHECK] Relevant context detected: ${hasRelevantContext}`);
   
   // Strong confirmation if user says yes and mentions tool context
   if (hasStrongConfirmation && hasRelevantContext) {
-    console.log('Strong confirmation detected via fallback logic');
+    console.log('[🧠 CONFIRMATION CHECK] Strong confirmation via fallback logic');
     return { 
       isConfirmed: true, 
       reply: `Great! I'll help you with ${toolName.replace('_', ' ')}. Let me get started.` 
     };
   }
   
-  // Focused YES/NO confirmation prompt
-  const confirmationInstruction = `Is this message indicating the user wants to proceed with ${toolName}?
+  // Enhanced confirmation prompt with clearer structure
+  const confirmationInstruction = `The user previously selected the tool "${toolName}".
 
-User's message: "${latestMessage}"
+Based on the last few messages, is the user confirming they want to proceed with this tool?
 
-Previous conversation context:
-${conversationHistory.slice(-3).map(m => `${m.role}: ${m.content}`).join('\n')}
+Conversation History:
+${conversationHistory.slice(-5).map(m => `${m.role}: ${m.content}`).join('\n')}
+
+User's latest message: "${latestMessage}"
 
 The user has already been asked about ${toolName}. Are they confirming they want to proceed?
 
@@ -97,6 +108,8 @@ Respond with ONLY:
 - "NO" if they don't want to proceed or are unclear
 
 Do not provide explanations, just YES or NO.`;
+
+  console.log(`[🧠 DEEPSEEK CONFIRMATION PROMPT]\n${confirmationInstruction}`);
 
   try {
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -108,7 +121,7 @@ Do not provide explanations, just YES or NO.`;
       body: JSON.stringify({
         model: 'deepseek-chat',
         temperature: 0,
-        max_tokens: 10, // Very short response needed
+        max_tokens: 10,
         messages: [
           { role: 'system', content: confirmationInstruction },
           { role: 'user', content: latestMessage }
@@ -123,24 +136,24 @@ Do not provide explanations, just YES or NO.`;
     const data = await response.json();
     const aiResponse = data.choices[0].message.content.trim().toUpperCase();
     
-    console.log('AI confirmation response:', aiResponse);
+    console.log(`[🧠 DEEPSEEK CONFIRMATION RESPONSE] "${aiResponse}"`);
     
-    const isConfirmed = aiResponse.startsWith('YES');
+    const isConfirmed = aiResponse.startsWith('YES') || aiResponse === 'YES';
     const reply = isConfirmed 
       ? `Perfect! I'll help you with ${toolName.replace('_', ' ')}. Let me get started.`
       : toolConfirmationMessages[toolName as keyof typeof toolConfirmationMessages] || 'Could you please confirm if you want to proceed?';
     
-    console.log(`AI confirmation result: ${isConfirmed ? 'CONFIRMED' : 'NOT_CONFIRMED'}`);
+    console.log(`[🧠 CONFIRMATION CHECK] AI confirmation result: ${isConfirmed ? 'CONFIRMED' : 'NOT_CONFIRMED'}`);
     return { isConfirmed, reply };
   } catch (error) {
-    console.error('Error in AI confirmation check:', error);
+    console.error('[🧠 CONFIRMATION CHECK] Error in AI confirmation check:', error);
     
-    // Enhanced fallback logic
+    // Enhanced fallback logic with better pattern matching
     const fallbackConfirmation = hasStrongConfirmation || 
       /^(yes|yeah|yep|sure|okay|ok)\b/i.test(latestMessage) ||
-      /what.*need|how.*start|tell me/i.test(latestMessage);
+      /what.*need|how.*start|tell me|let's do|sounds good/i.test(latestMessage);
     
-    console.log(`Fallback confirmation result: ${fallbackConfirmation}`);
+    console.log(`[🧠 CONFIRMATION CHECK] Fallback confirmation result: ${fallbackConfirmation}`);
     return { 
       isConfirmed: fallbackConfirmation, 
       reply: fallbackConfirmation ? 'I understand you want to proceed.' : 'Could you please confirm if you want to proceed?' 
@@ -149,7 +162,7 @@ Do not provide explanations, just YES or NO.`;
 }
 
 export function extractToolFromResponse(text: string): { tool?: string; reply?: string } {
-  console.log('Extracting tool from DeepSeek response:', text);
+  console.log('[🧠 TOOL EXTRACTION] Extracting tool from DeepSeek response:', text);
   
   const trimmedText = text.trim();
   
@@ -172,7 +185,7 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
   // First check for exact tool name matches
   for (const [toolName, pattern] of Object.entries(exactToolMatches)) {
     if (pattern.test(trimmedText)) {
-      console.log(`Found tool: ${toolName} via exact match`);
+      console.log(`[🧠 TOOL EXTRACTION] Found tool: ${toolName} via exact match`);
       return { 
         tool: toolName, 
         reply: toolMessages[toolName as keyof typeof toolMessages]
@@ -191,16 +204,16 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
   // Check for tool patterns and extract meaningful content
   for (const [toolName, pattern] of Object.entries(toolPatterns)) {
     if (pattern.test(text)) {
-      console.log(`Found tool: ${toolName} via pattern matching`);
+      console.log(`[🧠 TOOL EXTRACTION] Found tool: ${toolName} via pattern matching`);
       
       // Try to extract meaningful content after tool mention
       let extractedReply = text.replace(pattern, '').trim();
       
       // Clean up common prefixes/suffixes
       extractedReply = extractedReply
-        .replace(/^[\s\-\(\)]*/, '') // Remove leading spaces, dashes, parentheses
-        .replace(/[\s\-\(\)]*$/, '') // Remove trailing spaces, dashes, parentheses
-        .replace(/^(Note:|Parameters:|Proceeding with|Tool:)/i, '') // Remove common prefixes
+        .replace(/^[\s\-\(\)]*/, '')
+        .replace(/[\s\-\(\)]*$/, '')
+        .replace(/^(Note:|Parameters:|Proceeding with|Tool:)/i, '')
         .trim();
       
       // If we got meaningful content, use it; otherwise use confirmation message
@@ -221,7 +234,7 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       if (parsed.tool) {
-        console.log(`Found tool via JSON: ${parsed.tool}`);
+        console.log(`[🧠 TOOL EXTRACTION] Found tool via JSON: ${parsed.tool}`);
         const reply = parsed.reply && parsed.reply.length > 10 
           ? parsed.reply 
           : toolMessages[parsed.tool as keyof typeof toolMessages] || text;
@@ -247,8 +260,7 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
     return { tool: 'build_dashboard', reply };
   }
   
-  console.log('No specific tool identified, defaulting to ai-chat');
-  // For ai-chat, if response is just "ai-chat", provide a better default
+  console.log('[🧠 TOOL EXTRACTION] No specific tool identified, defaulting to ai-chat');
   const reply = trimmedText.toLowerCase() === 'ai-chat' 
     ? toolMessages['ai-chat'] 
     : text;
@@ -401,22 +413,62 @@ async function saveMessage(
   }
 }
 
+// Debug endpoint for state inspection
+async function handleDebugRequest(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const conversationId = url.searchParams.get('conversation_id');
+  
+  if (!conversationId) {
+    return new Response(JSON.stringify({ 
+      error: 'Missing conversation_id parameter',
+      available_conversations: Array.from(conversationStates.keys())
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  const state = conversationStates.get(conversationId);
+  if (!state) {
+    return new Response(JSON.stringify({ 
+      error: 'No state found for conversation',
+      conversation_id: conversationId,
+      available_conversations: Array.from(conversationStates.keys())
+    }), {
+      status: 404,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  return new Response(JSON.stringify({
+    conversation_id: conversationId,
+    state: state,
+    total_conversations: conversationStates.size
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Handle debug requests
+  if (req.method === 'GET' && req.url.includes('/debug')) {
+    return handleDebugRequest(req);
+  }
+
   try {
-    console.log('AI Orchestrator function called');
-    console.log('Request method:', req.method);
-    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+    console.log('[🧠 ORCHESTRATOR] Function called');
+    console.log('[🧠 ORCHESTRATOR] Request method:', req.method);
     
     // Validate environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
     
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('Missing required environment variables:', { 
+      console.error('[🧠 ORCHESTRATOR] Missing required environment variables:', { 
         hasUrl: !!supabaseUrl, 
         hasAnonKey: !!supabaseAnonKey 
       });
@@ -427,16 +479,14 @@ serve(async (req) => {
     let requestData;
     try {
       requestData = await req.json();
-      console.log('Successfully parsed request body:', { 
+      console.log('[🧠 ORCHESTRATOR] Request data:', { 
         hasMessage: !!requestData?.message, 
         hasConversationId: !!requestData?.conversation_id,
         messageLength: requestData?.message?.length || 0,
-        hasSourceTool: !!requestData?.source_tool,
-        fullBody: requestData
+        hasSourceTool: !!requestData?.source_tool
       });
     } catch (jsonError) {
-      console.error('JSON parse error:', jsonError);
-      console.error('Unable to parse request body as JSON');
+      console.error('[🧠 ORCHESTRATOR] JSON parse error:', jsonError);
       return new Response(JSON.stringify({ 
         error: 'Invalid JSON in request body',
         details: jsonError.message
@@ -447,7 +497,7 @@ serve(async (req) => {
     }
 
     if (!requestData) {
-      console.error('Request data is null or undefined');
+      console.error('[🧠 ORCHESTRATOR] Request data is null or undefined');
       return new Response(JSON.stringify({ error: 'No request data received' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -457,7 +507,7 @@ serve(async (req) => {
     const { message, conversation_id, source_tool } = requestData;
 
     if (!conversation_id) {
-      console.error('Missing conversation_id in request');
+      console.error('[🧠 ORCHESTRATOR] Missing conversation_id in request');
       return new Response(JSON.stringify({ error: 'conversation_id required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -465,7 +515,7 @@ serve(async (req) => {
     }
 
     if (!message) {
-      console.error('Missing message in request');
+      console.error('[🧠 ORCHESTRATOR] Missing message in request');
       return new Response(JSON.stringify({ error: 'message required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -474,14 +524,14 @@ serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      console.error('Missing Authorization header');
+      console.error('[🧠 ORCHESTRATOR] Missing Authorization header');
       return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Authorization header present, creating authenticated Supabase client');
+    console.log('[🧠 ORCHESTRATOR] Creating authenticated Supabase client');
     
     // Create authenticated Supabase client with JWT token
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -494,32 +544,24 @@ serve(async (req) => {
 
     // Extract JWT token from Authorization header
     const jwt = authHeader.replace('Bearer ', '');
-    console.log('Extracted JWT token, verifying user authentication');
+    console.log('[🧠 ORCHESTRATOR] Verifying user authentication');
 
     // Get user from JWT token
     const { data: userData, error: userError } = await supabase.auth.getUser(jwt);
     
-    if (userError) {
-      console.error('User authentication error:', userError);
+    if (userError || !userData.user) {
+      console.error('[🧠 ORCHESTRATOR] User authentication error:', userError);
       return new Response(JSON.stringify({ 
         error: 'Invalid authorization token', 
-        details: userError.message 
+        details: userError?.message 
       }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    if (!userData.user) {
-      console.error('No user found in JWT token');
-      return new Response(JSON.stringify({ error: 'No user found in token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const userId = userData.user.id;
-    console.log('User authenticated successfully:', userId);
+    console.log('[🧠 ORCHESTRATOR] User authenticated successfully:', userId);
 
     // Ensure conversation exists and save user message
     await ensureConversation(supabase, conversation_id, userId);
@@ -538,12 +580,11 @@ serve(async (req) => {
     
     // If we have database history and it's longer than our in-memory state, use database history
     if (dbHistory.length > state.messages.length) {
-      console.log('Using database history as primary source');
+      console.log('[🧠 ORCHESTRATOR] Using database history as primary source');
       state.messages = dbHistory;
     } else if (dbHistory.length > 0) {
       // Merge database history with in-memory state, avoiding duplicates
       const mergedMessages = [...dbHistory];
-      // Add any new messages from state that aren't in database yet
       state.messages.forEach(msg => {
         if (!dbHistory.some(dbMsg => dbMsg.content === msg.content && dbMsg.role === msg.role)) {
           mergedMessages.push(msg);
@@ -552,34 +593,51 @@ serve(async (req) => {
       state.messages = mergedMessages.slice(-MAX_HISTORY);
     }
     
-    // Track tool switching if this came from another tool
+    // IMPROVED: Smart tool switching logic instead of aggressive reset
     if (source_tool) {
-      console.log('Request from tool:', source_tool);
+      console.log(`[🧠 ORCHESTRATOR] Request from source tool: ${source_tool}`);
       if (!state.sourceTools) state.sourceTools = [];
       if (!state.sourceTools.includes(source_tool)) {
         state.sourceTools.push(source_tool);
       }
-      // Only reset tool selection if explicitly switching tools, not just providing data
-      state.tool = undefined;
-      state.confirmed = false;
-      state.confirmationAttempts = 0; // Reset confirmation attempts on tool switch
+      
+      // Only reset if switching to a different tool
+      if (state.tool && state.tool !== source_tool) {
+        console.log(`[🔁 TOOL SWITCH DETECTED] from ${state.tool} → ${source_tool}`);
+        state.tool = source_tool;
+        state.confirmed = false;
+        state.confirmationAttempts = 0;
+      } else if (!state.tool) {
+        // First time setting tool from source
+        state.tool = source_tool;
+        state.confirmed = false;
+        state.confirmationAttempts = 0;
+      }
     }
     
     // Add current message to state
     appendMessage(state, { role: 'user', content: message });
-    console.log('Conversation state updated, total messages:', state.messages.length);
+    
+    // ENHANCED DEBUG LOGGING FOR STATE
+    console.log(`[🧠 DEBUG STATE] conversation_id: ${conversation_id}`);
+    console.log(`[🧠 STATE] tool: ${state.tool}`);
+    console.log(`[🧠 STATE] confirmed: ${state.confirmed}`);
+    console.log(`[🧠 STATE] confirmationAttempts: ${state.confirmationAttempts}`);
+    console.log(`[🧠 STATE] messages count: ${state.messages.length}`);
+    console.log(`[🧠 STATE] toolChain: ${JSON.stringify(state.toolChain)}`);
+    console.log(`[🧠 STATE] sourceTools: ${JSON.stringify(state.sourceTools)}`);
 
     let reply = '';
     let intent = state.tool || '';
     let type: 'conversational' | 'actionable' = 'conversational';
     let params: Record<string, any> = {};
     let apiLogs: any = {};
-    let currentTool = 'ai-orchestrator'; // Track which function is handling this
+    let currentTool = 'ai-orchestrator';
 
-    // CRITICAL FIX: Different logic paths based on conversation state
+    // BULLETPROOF CONDITIONAL LOGIC WITH EXTENSIVE LOGGING
     if (!state.tool) {
-      // PATH 1: No tool selected - use tool selection instructions
-      console.log('No tool selected, determining intent with tool selection instructions');
+      // PATH 1: TOOL SELECTION PHASE
+      console.log('[🧠 ORCHESTRATOR] Entering PATH 1: Tool Selection Phase');
       
       const toolSelectionInstruction =
         'You are helping an AI orchestrator decide which tool to use based on the user\'s conversation. ' +
@@ -599,7 +657,7 @@ serve(async (req) => {
 
       try {
         const apiKey = await decryptDeepSeekKey(supabase, userId);
-        console.log('Successfully retrieved DeepSeek API key for tool selection');
+        console.log('[🧠 ORCHESTRATOR] Successfully retrieved DeepSeek API key for tool selection');
         
         const requestStart = Date.now();
         
@@ -608,6 +666,7 @@ serve(async (req) => {
           ...state.messages
         ];
         
+        console.log('[🧠 ORCHESTRATOR] Sending tool selection request to DeepSeek');
         const dsResponse = await askDeepSeek(apiKey, fullMessages);
         
         const requestEnd = Date.now();
@@ -627,13 +686,16 @@ serve(async (req) => {
           }
         };
 
+        console.log('[🧠 ORCHESTRATOR] Tool selection response received:', dsResponse);
+        
         const extracted = extractToolFromResponse(dsResponse);
         if (extracted.tool) {
+          console.log(`[🧠 ORCHESTRATOR] Tool extracted: ${extracted.tool}`);
           state.tool = extracted.tool;
           intent = state.tool;
           reply = extracted.reply || '';
           state.confirmed = false;
-          state.confirmationAttempts = 0; // Reset confirmation attempts for new tool
+          state.confirmationAttempts = 0;
           
           // Track tool chain
           if (!state.toolChain) state.toolChain = [];
@@ -641,18 +703,21 @@ serve(async (req) => {
             state.toolChain.push(state.tool);
           }
           
-          conversationStates.set(conversation_id, state);
-          console.log('Tool selected:', intent, '| Tool chain:', state.toolChain);
+          console.log(`[🧠 ORCHESTRATOR] Tool selected: ${intent} | Tool chain: ${JSON.stringify(state.toolChain)}`);
         } else {
           // Default to ai-chat if no tool was identified
           state.tool = 'ai-chat';
           intent = 'ai-chat';
           reply = dsResponse;
-          conversationStates.set(conversation_id, state);
-          console.log('No specific tool identified, defaulting to ai-chat');
+          console.log('[🧠 ORCHESTRATOR] No specific tool identified, defaulting to ai-chat');
         }
+        
+        // Save state after tool selection
+        conversationStates.set(conversation_id, state);
+        console.log('[🧠 ORCHESTRATOR] State saved after tool selection');
+        
       } catch (deepseekError) {
-        console.error('DeepSeek tool selection failed:', deepseekError);
+        console.error('[🧠 ORCHESTRATOR] DeepSeek tool selection failed:', deepseekError);
         apiLogs = {
           error: {
             timestamp: new Date().toISOString(),
@@ -663,19 +728,20 @@ serve(async (req) => {
         throw deepseekError;
       }
     } else if (!state.confirmed) {
-      // PATH 2: Tool selected but not confirmed - use confirmation-focused instructions
-      console.log('Tool selected but not confirmed, using confirmation-focused instructions');
+      // PATH 2: CONFIRMATION PHASE
+      console.log('[🧠 ORCHESTRATOR] Entering PATH 2: Confirmation Phase');
+      console.log(`[🧠 ORCHESTRATOR] Tool to confirm: ${state.tool}`);
       
-      // Increment confirmation attempts properly
+      // Increment confirmation attempts
       if (!state.confirmationAttempts) state.confirmationAttempts = 0;
       state.confirmationAttempts++;
-      console.log(`Confirmation attempt ${state.confirmationAttempts} for tool: ${state.tool}`);
+      console.log(`[🧠 ORCHESTRATOR] Confirmation attempt ${state.confirmationAttempts} for tool: ${state.tool}`);
       
       // Safety mechanism: force confirmation after multiple attempts
       if (state.confirmationAttempts >= MAX_CONFIRMATION_ATTEMPTS) {
-        const hasYesWord = /\b(yes|yeah|yep|sure|okay|ok)\b/i.test(message);
+        const hasYesWord = /\b(yes|yeah|yep|sure|okay|ok|let's do it|sounds good)\b/i.test(message);
         if (hasYesWord) {
-          console.log('Safety mechanism triggered: forcing confirmation after multiple attempts');
+          console.log('[🧠 ORCHESTRATOR] Safety mechanism triggered: forcing confirmation after multiple attempts');
           type = 'actionable';
           state.confirmed = true;
           params = { conversation_id: conversation_id };
@@ -706,7 +772,7 @@ serve(async (req) => {
               confirmation_attempts: state.confirmationAttempts
             }
           };
-          console.log('Sending response with forced confirmation:', { intent: state.tool, type, replyLength: reply.length });
+          console.log('[🧠 ORCHESTRATOR] Sending response with forced confirmation');
           return new Response(
             JSON.stringify(response),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -716,11 +782,11 @@ serve(async (req) => {
       
       try {
         const apiKey = await decryptDeepSeekKey(supabase, userId);
-        console.log('Successfully retrieved DeepSeek API key for confirmation');
+        console.log('[🧠 ORCHESTRATOR] Successfully retrieved DeepSeek API key for confirmation');
         
         const requestStart = Date.now();
         
-        // Use the focused confirmation function
+        console.log('[🧠 ORCHESTRATOR] Calling checkConfirmationWithDeepSeek');
         const confirmationResult = await checkConfirmationWithDeepSeek(
           apiKey,
           state.messages,
@@ -750,7 +816,7 @@ serve(async (req) => {
         intent = state.tool || '';
         
         if (confirmationResult.isConfirmed) {
-          console.log('✅ TOOL CONFIRMED! Launching tool:', state.tool);
+          console.log('✅ [🧠 ORCHESTRATOR] TOOL CONFIRMED! Launching tool:', state.tool);
           type = 'actionable';
           state.confirmed = true;
           
@@ -771,14 +837,14 @@ serve(async (req) => {
           
           // Clear the conversation state since we're launching the tool
           conversationStates.delete(conversation_id);
-          console.log('Tool confirmed and launching, cleared conversation state');
+          console.log('[🧠 ORCHESTRATOR] Tool confirmed and launching, cleared conversation state');
         } else {
           // Keep asking for confirmation
           conversationStates.set(conversation_id, state);
-          console.log('Tool not confirmed, continuing conversation for confirmation attempt:', state.confirmationAttempts);
+          console.log(`[🧠 ORCHESTRATOR] Tool not confirmed, continuing conversation for confirmation attempt: ${state.confirmationAttempts}`);
         }
       } catch (deepseekError) {
-        console.error('DeepSeek confirmation check failed:', deepseekError);
+        console.error('[🧠 ORCHESTRATOR] DeepSeek confirmation check failed:', deepseekError);
         apiLogs = {
           error: {
             timestamp: new Date().toISOString(),
@@ -788,25 +854,32 @@ serve(async (req) => {
         };
         
         // Enhanced fallback to simple confirmation logic
-        const strongConfirmationWords = ['yes', 'yeah', 'yep', 'sure', 'okay', 'ok', 'proceed', 'go ahead'];
+        const strongConfirmationWords = ['yes', 'yeah', 'yep', 'sure', 'okay', 'ok', 'proceed', 'go ahead', 'let\'s do it', 'sounds good'];
         const simpleConfirmation = strongConfirmationWords.some(word => 
           message.toLowerCase().includes(word)
         ) || /what.*need|how.*start|tell me/i.test(message);
         
         if (simpleConfirmation) {
-          console.log('✅ FALLBACK CONFIRMATION! Launching tool:', state.tool);
+          console.log('✅ [🧠 ORCHESTRATOR] FALLBACK CONFIRMATION! Launching tool:', state.tool);
           type = 'actionable';
           state.confirmed = true;
           params = { conversation_id: conversation_id };
           reply = 'I understand you want to proceed. Let me help you with that.';
           conversationStates.delete(conversation_id);
-          console.log('Tool confirmed via fallback logic');
+          console.log('[🧠 ORCHESTRATOR] Tool confirmed via fallback logic');
         } else {
           reply = 'Could you please confirm if you want to proceed with this action?';
           conversationStates.set(conversation_id, state);
-          console.log('Tool not confirmed via fallback, asking for clarification');
+          console.log('[🧠 ORCHESTRATOR] Tool not confirmed via fallback, asking for clarification');
         }
       }
+    } else {
+      // PATH 3: TOOL ALREADY CONFIRMED (should not happen, but safety check)
+      console.log('[🧠 ORCHESTRATOR] PATH 3: Tool already confirmed - this should not happen');
+      type = 'actionable';
+      params = { conversation_id: conversation_id };
+      reply = `Continuing with ${state.tool?.replace('_', ' ')}`;
+      conversationStates.delete(conversation_id);
     }
 
     // Save assistant message with API logs
@@ -831,7 +904,8 @@ serve(async (req) => {
         confirmation_attempts: state.confirmationAttempts || 0
       }
     };
-    console.log('Sending response:', { 
+    
+    console.log('[🧠 ORCHESTRATOR] Sending response:', { 
       intent, 
       type, 
       replyLength: reply.length, 
@@ -847,8 +921,8 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err: any) {
-    console.error('AI Orchestrator error:', err);
-    console.error('Error stack:', err.stack);
+    console.error('[🧠 ORCHESTRATOR] Error:', err);
+    console.error('[🧠 ORCHESTRATOR] Error stack:', err.stack);
     return new Response(JSON.stringify({ 
       error: err.message || 'Invalid request',
       stack: err.stack,
