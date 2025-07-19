@@ -878,8 +878,11 @@ serve(async (req) => {
           to: detectedTool,
           reason: message
         };
-        saveState(conversation_id, state);
         reply = `It sounds like you might want to switch from ${state.tool.replace('_', ' ')} to ${detectedTool.replace('_', ' ')}. Shall I switch tools?`;
+        state.lastAssistantMessage = reply;
+        state.repeatedResponseCount = 0;
+        saveState(conversation_id, state);
+        await saveStateToDB(supabase, conversation_id, state);
 
         await saveMessage(supabase, conversation_id, 'assistant', reply, apiLogs);
         const response = {
@@ -967,6 +970,10 @@ serve(async (req) => {
           reply = extracted.reply || '';
           state.confirmed = false;
           state.confirmationAttempts = 0;
+
+          // Reset loop detection tracking with new confirmation message
+          state.lastAssistantMessage = reply;
+          state.repeatedResponseCount = 0;
           
           // Track tool chain
           if (!state.toolChain) state.toolChain = [];
@@ -981,6 +988,10 @@ serve(async (req) => {
           intent = 'ai-chat';
           reply = dsResponse;
           console.log('[🧠 ORCHESTRATOR] No specific tool identified, defaulting to ai-chat');
+
+          // Reset loop detection tracking with confirmation message
+          state.lastAssistantMessage = reply;
+          state.repeatedResponseCount = 0;
         }
         
         // Save state after tool selection
@@ -1011,6 +1022,10 @@ serve(async (req) => {
       if (!state.confirmationAttempts) state.confirmationAttempts = 0;
       state.confirmationAttempts++;
       console.log(`[🧠 ORCHESTRATOR] Confirmation attempt ${state.confirmationAttempts} for tool: ${state.tool}`);
+
+      // Persist updated attempts immediately for accurate loop tracking
+      saveState(conversation_id, state);
+      await saveStateToDB(supabase, conversation_id, state);
       
       // Auto-confirm if loop detected OR max attempts reached
       if (isLoopDetected || state.confirmationAttempts >= MAX_CONFIRMATION_ATTEMPTS) {
@@ -1019,6 +1034,8 @@ serve(async (req) => {
         state.confirmed = true;
         params = { conversation_id: conversation_id };
         reply = `Got it — proceeding with ${state.tool.replace('_', ' ')}.`;
+        state.lastAssistantMessage = reply;
+        state.repeatedResponseCount = 0;
         
         // PHASE 3: Keep state until tool execution is successful
         saveState(conversation_id, state);
@@ -1097,6 +1114,10 @@ serve(async (req) => {
           console.log('✅ [🧠 ORCHESTRATOR] TOOL CONFIRMED! Launching tool:', state.tool);
           type = 'actionable';
           state.confirmed = true;
+
+          // update loop tracking with final confirmation message
+          state.lastAssistantMessage = confirmationResult.reply;
+          state.repeatedResponseCount = 0;
           
           // Pass conversation_id to the tool
           params = {
@@ -1143,11 +1164,14 @@ serve(async (req) => {
           state.confirmed = true;
           params = { conversation_id: conversation_id };
           reply = 'I understand you want to proceed. Let me help you with that.';
+          state.lastAssistantMessage = reply;
+          state.repeatedResponseCount = 0;
           saveState(conversation_id, state);
           await saveStateToDB(supabase, conversation_id, state);
           console.log('[🧠 ORCHESTRATOR] Tool confirmed via fallback logic, keeping state until success');
         } else {
           reply = 'Could you please confirm if you want to proceed with this action?';
+          state.lastAssistantMessage = reply;
           saveState(conversation_id, state);
           await saveStateToDB(supabase, conversation_id, state);
           console.log('[🧠 ORCHESTRATOR] Tool not confirmed via fallback, asking for clarification');
