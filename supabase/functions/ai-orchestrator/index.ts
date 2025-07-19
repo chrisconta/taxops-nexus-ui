@@ -737,8 +737,9 @@ serve(async (req) => {
       ...(conversationStates.get(conversation_id) || {})
     } as ConversationState;
 
-    // Store back into in-memory map
-    conversationStates.set(conversation_id, state);
+    // Store back into in-memory map and ensure DB has the latest copy
+    saveState(conversation_id, state);
+    await saveStateToDB(supabase, conversation_id, state);
     
     // If we have database history and it's longer than our in-memory state, use database history
     if (dbHistory.length > state.messages.length) {
