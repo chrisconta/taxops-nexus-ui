@@ -127,26 +127,27 @@ const ToolBuilder = () => {
             <div className="flex items-center gap-4">
               <Wrench className="w-6 h-6 text-primary" />
               <h1 className="text-xl font-semibold">Tool Builder</h1>
+              <Button onClick={handleCreateNewTool} className="gap-2 ml-3">
+                <Plus className="w-4 h-4" />
+                Create New Tool
+              </Button>
             </div>
             
-            <Button onClick={handleCreateNewTool} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Create New Tool
-            </Button>
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setShowToolListModal(true)}>
-                  <Search className="h-4 w-4 mr-2" />
-                  Browse Tools
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setShowToolListModal(true)}>
+                    <Search className="h-4 w-4 mr-2" />
+                    Browse Tools
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
           {/* Main Content */}
