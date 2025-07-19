@@ -1,4 +1,5 @@
 
+
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -130,51 +131,31 @@ serve(async (req) => {
       throw new Error('Missing required environment variables');
     }
 
-    // Validate Content-Type header
-    const contentType = req.headers.get('Content-Type');
-    console.log('Content-Type:', contentType);
-    
-    if (!contentType || !contentType.includes('application/json')) {
-      console.error('Invalid or missing Content-Type header:', contentType);
-      return new Response(JSON.stringify({ 
-        error: 'Content-Type must be application/json',
-        received: contentType 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Get raw request body for debugging
-    const rawBody = await req.text();
-    console.log('Raw request body length:', rawBody.length);
-    console.log('Raw request body (first 200 chars):', rawBody.substring(0, 200));
-    
-    if (!rawBody || rawBody.trim() === '') {
-      console.error('Empty request body received');
-      return new Response(JSON.stringify({ error: 'Request body is empty' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Parse JSON with proper error handling
+    // Get request body with better error handling
     let requestData;
     try {
-      requestData = JSON.parse(rawBody);
-      console.log('Successfully parsed JSON:', { 
-        hasMessage: !!requestData.message, 
-        hasConversationId: !!requestData.conversation_id,
-        messageLength: requestData.message?.length 
+      requestData = await req.json();
+      console.log('Successfully parsed request body:', { 
+        hasMessage: !!requestData?.message, 
+        hasConversationId: !!requestData?.conversation_id,
+        messageLength: requestData?.message?.length || 0,
+        fullBody: requestData
       });
     } catch (jsonError) {
       console.error('JSON parse error:', jsonError);
-      console.error('Failed to parse body:', rawBody);
+      console.error('Unable to parse request body as JSON');
       return new Response(JSON.stringify({ 
         error: 'Invalid JSON in request body',
-        details: jsonError.message,
-        receivedBody: rawBody.substring(0, 100) + '...'
+        details: jsonError.message
       }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!requestData) {
+      console.error('Request data is null or undefined');
+      return new Response(JSON.stringify({ error: 'No request data received' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

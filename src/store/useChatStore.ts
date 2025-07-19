@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
@@ -182,7 +183,7 @@ export const useChatStore = create<ChatState>()(
 
           console.log('Session found, preparing request for ai-orchestrator function');
           
-          // Prepare request body
+          // Prepare request body - let Supabase client handle serialization
           const requestBody = { 
             message: text, 
             conversation_id: convId 
@@ -196,11 +197,8 @@ export const useChatStore = create<ChatState>()(
 
           console.log('Calling ai-orchestrator function');
           const { data, error } = await supabase.functions.invoke('ai-orchestrator', {
-            body: requestBody,
-            headers: { 
-              Authorization: `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json'
-            }
+            body: requestBody
+            // Removed explicit Content-Type header - let Supabase client handle it
           });
 
           if (error) {
@@ -230,11 +228,8 @@ export const useChatStore = create<ChatState>()(
                 body: {
                   message: text,
                   conversation_id: convId
-                },
-                headers: { 
-                  Authorization: `Bearer ${session.access_token}`,
-                  'Content-Type': 'application/json'
                 }
+                // Removed explicit Content-Type header here too
               });
 
               if (chatError) {
