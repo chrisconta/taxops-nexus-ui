@@ -36,6 +36,93 @@ export function appendMessage(
 
 const conversationStates = new Map<string, ConversationState>();
 
+// Tool-specific confirmation messages
+const toolConfirmationMessages = {
+  'register_client': "Do you want me to help you register a client? I'll collect their business information like name, email, and EIN to get them set up in the system.",
+  'create_connection': "Should I help you create a connection? I'll guide you through connecting to external services like banks or financial institutions.",
+  'build_dashboard': "Do you want me to build a dashboard for you? I'll help you create data visualizations and reports based on your requirements.",
+  'ai-chat': "I'm here to help with general questions and conversations. What would you like to discuss?"
+};
+
+// Standardized AI confirmation function
+async function checkConfirmationWithAI(
+  apiKey: string, 
+  conversationHistory: Array<{ role: string; content: string }>, 
+  toolName: string,
+  latestMessage: string
+): Promise<{ isConfirmed: boolean; reply: string }> {
+  console.log(`Checking confirmation with AI for tool: ${toolName}`);
+  
+  const toolContext = toolConfirmationMessages[toolName as keyof typeof toolConfirmationMessages] || '';
+  
+  const instruction = `You are helping determine if a user wants to proceed with the "${toolName}" tool. 
+  
+The tool context: ${toolContext}
+
+Review the conversation history and the user's latest message to determine:
+1. If they want to proceed with this tool (look for affirmative responses, specific details, or continued engagement)
+2. If they seem to want to switch to a different tool
+3. If they need more information
+
+User confirmations can be:
+- Explicit: "yes", "proceed", "do it", "go ahead"
+- Implicit: providing specific information relevant to the tool
+- Contextual: continuing the conversation in a way that indicates they want to proceed
+
+RESPONSE FORMAT:
+- If they want to proceed: Start with "CONFIRMED" then provide a helpful response
+- If they want to switch tools or do something else: Start with "NOT_CONFIRMED" then explain what you think they want
+- If unclear: Start with "NOT_CONFIRMED" then ask for clarification
+
+Be natural and conversational in your response after the CONFIRMED/NOT_CONFIRMED indicator.`;
+
+  try {
+    const fullMessages = [
+      { role: 'system', content: instruction },
+      ...conversationHistory,
+      { role: 'user', content: `Latest message: "${latestMessage}"` }
+    ];
+
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        temperature: 0,
+        max_tokens: 256,
+        messages: fullMessages
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`DeepSeek API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const aiResponse = data.choices[0].message.content.trim();
+    
+    console.log('AI confirmation response:', aiResponse);
+    
+    const isConfirmed = aiResponse.toLowerCase().startsWith('confirmed');
+    const reply = aiResponse.replace(/^(CONFIRMED|NOT_CONFIRMED)\s*/i, '').trim();
+    
+    return { isConfirmed, reply };
+  } catch (error) {
+    console.error('Error in AI confirmation check:', error);
+    // Fallback to simple keyword detection
+    const simpleConfirmation = ['yes', 'proceed', 'do it', 'go ahead', 'confirm'].some(word => 
+      latestMessage.toLowerCase().includes(word)
+    );
+    return { 
+      isConfirmed: simpleConfirmation, 
+      reply: simpleConfirmation ? 'I understand you want to proceed.' : 'Could you please confirm if you want to proceed?' 
+    };
+  }
+}
+
 // Simplified tool extraction with proper user-friendly message generation
 export function extractToolFromResponse(text: string): { tool?: string; reply?: string } {
   console.log('Extracting tool from DeepSeek response:', text);
@@ -44,10 +131,10 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
   
   // Define user-friendly messages for each tool
   const toolMessages = {
-    'register_client': "I can help you register a new client. Please provide the client's name, email, and EIN.",
-    'create_connection': "I can help you create a connection to an external service. What type of connection would you like to set up?",
-    'build_dashboard': "I can help you build a dashboard or report. What metrics would you like to include?",
-    'ai-chat': "Hello! How can I help you today?"
+    'register_client': toolConfirmationMessages.register_client,
+    'create_connection': toolConfirmationMessages.create_connection,
+    'build_dashboard': toolConfirmationMessages.build_dashboard,
+    'ai-chat': toolConfirmationMessages['ai-chat']
   };
   
   // Check if response is just a tool name (common DeepSeek response)
@@ -92,7 +179,7 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
         .replace(/^(Note:|Parameters:|Proceeding with|Tool:)/i, '') // Remove common prefixes
         .trim();
       
-      // If we got meaningful content, use it; otherwise use default message
+      // If we got meaningful content, use it; otherwise use confirmation message
       const reply = extractedReply && extractedReply.length > 10 
         ? extractedReply 
         : toolMessages[toolName as keyof typeof toolMessages];
@@ -579,64 +666,43 @@ serve(async (req) => {
         throw deepseekError;
       }
     } else if (!state.confirmed) {
-      console.log('Tool selected but not confirmed, checking confirmation with conversation context');
+      console.log('Tool selected but not confirmed, using AI-powered confirmation check');
       
-      const instruction =
-        `You are helping an AI orchestrator with the tool "${state.tool}" already selected. ` +
-        'Review the ENTIRE conversation history to understand the context. ' +
-        'The user may have already provided the necessary information in previous messages. ' +
-        'Determine if the user\'s latest message confirms they want to proceed with this tool, ' +
-        'OR if they are providing additional information for the tool. ' +
-        'Look for confirmation phrases like "yes", "proceed", "register", "create", "do it", etc. ' +
-        'If they\'re providing information (like name, email, EIN), consider it as confirmation to proceed. ' +
-        'Respond with "CONFIRMED" if they want to proceed, or provide a helpful message asking for what you need.';
-
       try {
         // Get DeepSeek API key for confirmation check with authenticated client
         const apiKey = await decryptDeepSeekKey(supabase, userId);
         
         const requestStart = Date.now();
         
-        // Include full conversation history in confirmation check
-        const fullMessages = [
-          { role: 'system', content: instruction },
-          ...state.messages
-        ];
-        
-        const requestBody = {
-          model: 'deepseek-chat',
-          temperature: 0,
-          max_tokens: 256,
-          messages: fullMessages
-        };
-        
-        const dsResponse = await askDeepSeek(apiKey, fullMessages);
+        // Use the new AI-powered confirmation function
+        const confirmationResult = await checkConfirmationWithAI(
+          apiKey,
+          state.messages,
+          state.tool,
+          message
+        );
         
         const requestEnd = Date.now();
         apiLogs = {
           request: {
             timestamp: new Date(requestStart).toISOString(),
             model: 'deepseek-chat',
-            messages: requestBody.messages,
-            temperature: 0,
-            max_tokens: 256
+            operation: 'confirmation_check',
+            tool: state.tool,
+            message_length: message.length
           },
           response: {
             timestamp: new Date(requestEnd).toISOString(),
-            content: dsResponse,
+            is_confirmed: confirmationResult.isConfirmed,
+            reply: confirmationResult.reply,
             execution_time_ms: requestEnd - requestStart
           }
         };
 
-        // Simple confirmation check
-        const isConfirmed = dsResponse.toLowerCase().includes('confirmed') || 
-                           dsResponse.toLowerCase().includes('yes') ||
-                           dsResponse.toLowerCase().includes('proceed');
-        
-        reply = dsResponse;
+        reply = confirmationResult.reply;
         intent = state.tool || '';
         
-        if (isConfirmed) {
+        if (confirmationResult.isConfirmed) {
           type = 'actionable';
           state.confirmed = true;
           
@@ -656,10 +722,10 @@ serve(async (req) => {
           }
           
           conversationStates.delete(conversation_id);
-          console.log('Tool confirmed, parameters will be extracted by the tool itself');
+          console.log('Tool confirmed via AI, parameters will be extracted by the tool itself');
         } else {
           conversationStates.set(conversation_id, state);
-          console.log('Tool not confirmed, continuing conversation');
+          console.log('Tool not confirmed via AI, continuing conversation');
         }
       } catch (deepseekError) {
         console.error('DeepSeek API call failed:', deepseekError);
@@ -667,10 +733,25 @@ serve(async (req) => {
           error: {
             timestamp: new Date().toISOString(),
             message: deepseekError.message,
-            type: 'deepseek_api_error'
+            type: 'deepseek_confirmation_error'
           }
         };
-        throw deepseekError;
+        
+        // Fallback to simple confirmation logic
+        const simpleConfirmation = ['yes', 'proceed', 'do it', 'go ahead', 'confirm'].some(word => 
+          message.toLowerCase().includes(word)
+        );
+        
+        if (simpleConfirmation) {
+          type = 'actionable';
+          state.confirmed = true;
+          params = { conversation_id: conversation_id };
+          reply = 'I understand you want to proceed. Let me help you with that.';
+          conversationStates.delete(conversation_id);
+        } else {
+          reply = 'Could you please confirm if you want to proceed with this action?';
+          conversationStates.set(conversation_id, state);
+        }
       }
     }
 
@@ -691,7 +772,8 @@ serve(async (req) => {
         tool_confirmed: state.confirmed || false,
         conversation_state: !!conversationStates.get(conversation_id),
         conversation_length: state.messages.length,
-        parameters_handled_by_tool: type === 'actionable' && intent !== 'ai-chat'
+        parameters_handled_by_tool: type === 'actionable' && intent !== 'ai-chat',
+        ai_confirmation_used: !state.confirmed && state.tool ? true : false
       }
     };
     console.log('Sending response:', { intent, type, replyLength: reply.length, hasParams: Object.keys(params).length > 0, toolChain: state.toolChain, currentTool });
