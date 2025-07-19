@@ -20,6 +20,7 @@ interface ConversationState {
     reason: string;
   };
   confirmationAttempts?: number;
+  lastAssistantMessage?: string;
 }
 
 const MAX_HISTORY = 15;
@@ -44,6 +45,11 @@ const toolConfirmationMessages = {
   'create_connection': "Should I help you create a connection? I'll guide you through connecting to external services like banks or financial institutions.",
   'build_dashboard': "Do you want me to build a dashboard for you? I'll help you create data visualizations and reports based on your requirements.",
   'ai-chat': "I'm here to help with general questions and conversations. What would you like to discuss?"
+};
+
+// Helper function to normalize tool names for comparison
+const normalizeToolName = (tool: string | undefined | null): string => {
+  return tool?.trim().toLowerCase() || '';
 };
 
 // BULLETPROOF CONFIRMATION CHECK - uses dedicated confirmation prompt
@@ -561,10 +567,18 @@ serve(async (req) => {
       state.messages = mergedMessages.slice(-MAX_HISTORY);
     }
     
-    // FIXED: Smart tool switching logic - only reset if actually switching to different tool
-    if (source_tool && source_tool !== state.tool) {
-      console.log(`[🔁 TOOL SWITCH] from ${state.tool} → ${source_tool}`);
-      state.tool = source_tool;
+    // FIXED: Smart tool switching logic with proper normalization and logging
+    console.log(`[🔧 TOOL SWITCH DEBUG] Raw source_tool: "${source_tool}"`);
+    console.log(`[🔧 TOOL SWITCH DEBUG] Current state.tool: "${state.tool}"`);
+    console.log(`[🔧 TOOL SWITCH DEBUG] Normalized source_tool: "${normalizeToolName(source_tool)}"`);
+    console.log(`[🔧 TOOL SWITCH DEBUG] Normalized state.tool: "${normalizeToolName(state.tool)}"`);
+    
+    const normalizedSourceTool = normalizeToolName(source_tool);
+    const normalizedStateTool = normalizeToolName(state.tool);
+    
+    if (normalizedSourceTool && normalizedSourceTool !== normalizedStateTool) {
+      console.log(`[🔁 TOOL SWITCH] from ${state.tool} → ${source_tool} (normalized comparison passed)`);
+      state.tool = source_tool; // Keep original casing for consistency
       state.confirmed = false;
       state.confirmationAttempts = 0;
       
@@ -572,6 +586,10 @@ serve(async (req) => {
       if (!state.sourceTools.includes(source_tool)) {
         state.sourceTools.push(source_tool);
       }
+    } else if (normalizedSourceTool && normalizedSourceTool === normalizedStateTool) {
+      console.log(`[🔧 TOOL SWITCH DEBUG] No tool switch needed - same tool (${normalizedSourceTool})`);
+    } else if (!normalizedSourceTool) {
+      console.log(`[🔧 TOOL SWITCH DEBUG] No source_tool provided, keeping current state`);
     }
     
     // Add current message to state
@@ -585,6 +603,7 @@ serve(async (req) => {
     console.log(`[🧠 STATE] messages count: ${state.messages.length}`);
     console.log(`[🧠 STATE] toolChain: ${JSON.stringify(state.toolChain)}`);
     console.log(`[🧠 STATE] sourceTools: ${JSON.stringify(state.sourceTools)}`);
+    console.log(`[🧠 STATE] lastAssistantMessage length: ${state.lastAssistantMessage?.length || 0}`);
 
     let reply = '';
     let intent = state.tool || '';
@@ -703,7 +722,9 @@ serve(async (req) => {
         state.confirmed = true;
         params = { conversation_id: conversation_id };
         reply = `Got it — proceeding with ${state.tool.replace('_', ' ')}.`;
-        conversationStates.delete(conversation_id);
+        
+        // DON'T delete state until tool execution is successful
+        console.log('[🧠 ORCHESTRATOR] Keeping conversation state until tool execution success');
         
         await saveMessage(supabase, conversation_id, 'assistant', reply, {
           auto_confirmed: true,
@@ -722,7 +743,7 @@ serve(async (req) => {
             function_called: 'ai-orchestrator',
             tool_selected: state.tool,
             tool_confirmed: true,
-            conversation_state: false,
+            conversation_state: true, // Keep state until successful execution
             conversation_length: state.messages.length,
             parameters_handled_by_tool: true,
             auto_confirmed: true,
@@ -771,6 +792,17 @@ serve(async (req) => {
         reply = confirmationResult.reply;
         intent = state.tool || '';
         
+        // Check if this is identical to last assistant message (confirmation loop detection)
+        if (state.lastAssistantMessage === reply) {
+          console.log('[🔁 CONFIRMATION LOOP DETECTED] Same assistant message repeated, incrementing attempts');
+          state.confirmationAttempts = (state.confirmationAttempts || 0) + 1;
+          if (state.confirmationAttempts >= MAX_CONFIRMATION_ATTEMPTS) {
+            console.log('[🔁 CONFIRMATION LOOP] Force confirming due to repeated messages');
+            confirmationResult.isConfirmed = true;
+            reply = `I understand you want to proceed with ${state.tool?.replace('_', ' ')}. Let me help you with that.`;
+          }
+        }
+        
         if (confirmationResult.isConfirmed) {
           console.log('✅ [🧠 ORCHESTRATOR] TOOL CONFIRMED! Launching tool:', state.tool);
           type = 'actionable';
@@ -791,11 +823,11 @@ serve(async (req) => {
             };
           }
           
-          // Clear the conversation state since we're launching the tool
-          conversationStates.delete(conversation_id);
-          console.log('[🧠 ORCHESTRATOR] Tool confirmed and launching, cleared conversation state');
+          // DON'T clear the conversation state here - wait for successful tool execution
+          console.log('[🧠 ORCHESTRATOR] Tool confirmed and launching, keeping conversation state until success');
         } else {
           // Keep asking for confirmation
+          state.lastAssistantMessage = reply; // Store for loop detection
           conversationStates.set(conversation_id, state);
           console.log(`[🧠 ORCHESTRATOR] Tool not confirmed, continuing conversation for confirmation attempt: ${state.confirmationAttempts}`);
         }
@@ -821,8 +853,7 @@ serve(async (req) => {
           state.confirmed = true;
           params = { conversation_id: conversation_id };
           reply = 'I understand you want to proceed. Let me help you with that.';
-          conversationStates.delete(conversation_id);
-          console.log('[🧠 ORCHESTRATOR] Tool confirmed via fallback logic');
+          console.log('[🧠 ORCHESTRATOR] Tool confirmed via fallback logic, keeping state until success');
         } else {
           reply = 'Could you please confirm if you want to proceed with this action?';
           conversationStates.set(conversation_id, state);
@@ -835,7 +866,7 @@ serve(async (req) => {
       type = 'actionable';
       params = { conversation_id: conversation_id };
       reply = `Continuing with ${state.tool?.replace('_', ' ')}`;
-      conversationStates.delete(conversation_id);
+      // Keep state until tool execution is successful
     }
 
     // Save assistant message with API logs
@@ -857,7 +888,13 @@ serve(async (req) => {
         conversation_length: state.messages.length,
         parameters_handled_by_tool: type === 'actionable' && intent !== 'ai-chat',
         ai_confirmation_used: !state.confirmed && state.tool ? true : false,
-        confirmation_attempts: state.confirmationAttempts || 0
+        confirmation_attempts: state.confirmationAttempts || 0,
+        source_tool_debug: {
+          raw: source_tool,
+          normalized: normalizeToolName(source_tool),
+          current_tool_normalized: normalizeToolName(state.tool),
+          comparison_result: normalizeToolName(source_tool) === normalizeToolName(state.tool)
+        }
       }
     };
     
@@ -869,7 +906,8 @@ serve(async (req) => {
       toolChain: state.toolChain, 
       currentTool,
       toolConfirmed: state.confirmed,
-      confirmationAttempts: state.confirmationAttempts
+      confirmationAttempts: state.confirmationAttempts,
+      conversationStateKept: !!conversationStates.get(conversation_id)
     });
 
     return new Response(
