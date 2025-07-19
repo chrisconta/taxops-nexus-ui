@@ -53,6 +53,7 @@ const AISettings = () => {
       const { data, error } = await supabase
         .from('ai_messages')
         .select('*')
+        .not('api_logs', 'eq', '{}')
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -128,7 +129,7 @@ const AISettings = () => {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-6 space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">AI Settings</h1>
@@ -206,15 +207,15 @@ const AISettings = () => {
                       <div className="space-y-2">
                         <div>
                           <h4 className="text-sm font-medium">Content:</h4>
-                          <p className="text-sm bg-muted p-2 rounded text-wrap break-words">
+                          <pre className="text-sm bg-muted p-2 rounded whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
                             {typeof log.content === 'string' ? log.content : JSON.stringify(log.content, null, 2)}
-                          </p>
+                          </pre>
                         </div>
                         
                         {log.api_logs && Object.keys(log.api_logs).length > 0 && (
                           <div>
                             <h4 className="text-sm font-medium">API Logs:</h4>
-                            <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
+                            <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-40">
                               {JSON.stringify(log.api_logs, null, 2)}
                             </pre>
                           </div>
@@ -286,9 +287,9 @@ const AISettings = () => {
                                 {formatTimestamp(entry.timestamp)}
                               </span>
                             </div>
-                            <p className="text-muted-foreground ml-2">{entry.details}</p>
+                            <p className="text-muted-foreground ml-2 break-words">{entry.details}</p>
                             {entry.data && (
-                              <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-x-auto">
+                              <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-auto max-h-32">
                                 {JSON.stringify(entry.data, null, 2)}
                               </pre>
                             )}
@@ -337,36 +338,35 @@ const AISettings = () => {
                         </span>
                       </div>
                       
-                      {conversation.ai_messages && conversation.ai_messages.length > 0 && (
+                       {conversation.ai_messages && conversation.ai_messages.length > 0 && (
                         <div className="space-y-2">
                           <p className="text-sm text-muted-foreground">
                             {conversation.ai_messages.length} messages
                           </p>
-                          <div className="space-y-1">
-                            {conversation.ai_messages.slice(0, 3).map((message: any) => (
-                              <div key={message.id} className="text-sm">
-                                <div className="flex items-center gap-2">
-                                  <Badge variant={message.role === 'user' ? 'default' : 'secondary'}>
-                                    {message.role}
-                                  </Badge>
-                                  <span className="text-muted-foreground text-xs">
-                                    {formatTimestamp(message.created_at)}
-                                  </span>
+                          <details className="space-y-2">
+                            <summary className="cursor-pointer text-sm text-primary hover:underline">
+                              Show all messages
+                            </summary>
+                            <div className="space-y-2 mt-2 max-h-80 overflow-y-auto">
+                              {conversation.ai_messages.map((message: any) => (
+                                <div key={message.id} className="text-sm border-l-2 border-muted pl-3">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge variant={message.role === 'user' ? 'default' : 'secondary'}>
+                                      {message.role}
+                                    </Badge>
+                                    <span className="text-muted-foreground text-xs">
+                                      {formatTimestamp(message.created_at)}
+                                    </span>
+                                  </div>
+                                  <div className="text-muted-foreground ml-2 break-words">
+                                    <pre className="whitespace-pre-wrap text-xs bg-muted/50 p-2 rounded">
+                                      {message.content}
+                                    </pre>
+                                  </div>
                                 </div>
-                                <p className="text-muted-foreground ml-2 truncate">
-                                  {message.content.length > 100 
-                                    ? `${message.content.substring(0, 100)}...` 
-                                    : message.content}
-                                </p>
-                              </div>
-                            ))}
-                            
-                            {conversation.ai_messages.length > 3 && (
-                              <p className="text-xs text-muted-foreground ml-2">
-                                ... and {conversation.ai_messages.length - 3} more messages
-                              </p>
-                            )}
-                          </div>
+                              ))}
+                            </div>
+                          </details>
                         </div>
                       )}
                       
