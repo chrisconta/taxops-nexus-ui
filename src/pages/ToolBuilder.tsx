@@ -15,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Play, Save, Share, Bug, ArrowLeft, Wrench, MoreVertical, Plus, Search } from "lucide-react";
+import { Play, Save, Share, Bug, ArrowLeft, Wrench, MoreVertical, Plus, LayoutGrid } from "lucide-react";
 
 const ToolBuilder = () => {
   const [showDebugPanel, setShowDebugPanel] = useState(false);
@@ -142,8 +142,12 @@ const ToolBuilder = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => setShowToolListModal(true)}>
-                    <Search className="h-4 w-4 mr-2" />
+                    <LayoutGrid className="h-4 w-4 mr-2" />
                     Browse Tools
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleCreateNewTool}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Tool
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
