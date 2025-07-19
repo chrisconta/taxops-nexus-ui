@@ -1,19 +1,36 @@
 
-import { Wrench, Plus } from "lucide-react";
+import { Wrench, Plus, Cpu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import type { WorkflowState } from "@/hooks/useWorkflowBuilder";
+import type { SystemTool } from "@/hooks/useSystemTools";
 import { ToolCard } from "./ToolCard";
+import { SystemToolCard } from "./SystemToolCard";
 
 interface ToolListProps {
   tools: (WorkflowState & { id: string; created_at: string; updated_at: string })[];
+  systemTools: SystemTool[];
+  isLoadingSystemTools: boolean;
   onSelectTool: (tool: WorkflowState & { id: string }) => void;
+  onSelectSystemTool: (tool: SystemTool) => void;
   onDeleteTool: () => void;
   onCreateNew: () => void;
 }
 
-export const ToolList = ({ tools, onSelectTool, onDeleteTool, onCreateNew }: ToolListProps) => {
-  if (tools.length === 0) {
+export const ToolList = ({ 
+  tools, 
+  systemTools, 
+  isLoadingSystemTools,
+  onSelectTool, 
+  onSelectSystemTool,
+  onDeleteTool, 
+  onCreateNew 
+}: ToolListProps) => {
+  const hasUserTools = tools.length > 0;
+  const hasSystemTools = systemTools.length > 0;
+  const hasAnyTools = hasUserTools || hasSystemTools;
+
+  if (!hasAnyTools && !isLoadingSystemTools) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center max-w-md">
@@ -35,24 +52,64 @@ export const ToolList = ({ tools, onSelectTool, onDeleteTool, onCreateNew }: Too
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground">Your Tools</h2>
-        <p className="text-muted-foreground">
-          {tools.length} tool{tools.length !== 1 ? 's' : ''} available
-        </p>
-      </div>
+    <div className="space-y-8">
+      {/* System Tools Section */}
+      {(hasSystemTools || isLoadingSystemTools) && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Cpu className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-bold text-foreground">System Tools</h2>
+            <span className="text-sm text-muted-foreground">
+              ({isLoadingSystemTools ? '...' : systemTools.length} available)
+            </span>
+          </div>
+          
+          {isLoadingSystemTools ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {systemTools.map((tool) => (
+                <SystemToolCard
+                  key={tool.id}
+                  tool={tool}
+                  onSelect={onSelectSystemTool}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {tools.map((tool) => (
-          <ToolCard
-            key={tool.id}
-            tool={tool}
-            onSelect={onSelectTool}
-            onDelete={onDeleteTool}
-          />
-        ))}
-      </div>
+      {/* Separator if both sections exist */}
+      {hasSystemTools && hasUserTools && <Separator />}
+
+      {/* User Tools Section */}
+      {hasUserTools && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Wrench className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-bold text-foreground">My Workflows</h2>
+            <span className="text-sm text-muted-foreground">
+              ({tools.length} tool{tools.length !== 1 ? 's' : ''})
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {tools.map((tool) => (
+              <ToolCard
+                key={tool.id}
+                tool={tool}
+                onSelect={onSelectTool}
+                onDelete={onDeleteTool}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

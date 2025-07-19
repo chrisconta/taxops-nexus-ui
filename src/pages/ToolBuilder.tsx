@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { WorkflowChatPanel } from "@/components/workflow/WorkflowChatPanel";
 import { WorkflowCanvas } from "@/components/workflow/WorkflowCanvas";
@@ -7,6 +6,8 @@ import { ToolList } from "@/components/workflow/ToolList";
 import { ToolListModal } from "@/components/workflow/ToolListModal";
 import { useWorkflowBuilder } from "@/hooks/useWorkflowBuilder";
 import { useToolWorkflows } from "@/hooks/useToolWorkflows";
+import { useSystemTools } from "@/hooks/useSystemTools";
+import { createWorkflowFromSystemTool } from "@/utils/systemToolTemplates";
 import { WorkflowLogger } from "@/lib/workflowLogger";
 import { Button } from "@/components/ui/button";
 import { 
@@ -24,6 +25,7 @@ const ToolBuilder = () => {
   const logger = WorkflowLogger.getInstance();
   
   const { tools, isLoading, refreshTools } = useToolWorkflows();
+  const { systemTools, isLoading: isLoadingSystemTools, refreshSystemTools } = useSystemTools();
   
   const {
     workflowState,
@@ -100,6 +102,16 @@ const ToolBuilder = () => {
     setCurrentTool(tool.id);
   };
 
+  const handleSelectSystemTool = (systemTool: any) => {
+    // Create a workflow template from the system tool
+    const workflowTemplate = createWorkflowFromSystemTool(systemTool);
+    updateWorkflow({
+      id: undefined,
+      ...workflowTemplate
+    });
+    setCurrentTool('new');
+  };
+
   const handleBackToTools = () => {
     setCurrentTool(null);
     refreshTools();
@@ -158,7 +170,10 @@ const ToolBuilder = () => {
           <div className="flex-1 p-6 overflow-auto">
             <ToolList
               tools={tools}
+              systemTools={systemTools}
+              isLoadingSystemTools={isLoadingSystemTools}
               onSelectTool={handleSelectTool}
+              onSelectSystemTool={handleSelectSystemTool}
               onDeleteTool={refreshTools}
               onCreateNew={handleCreateNewTool}
             />
@@ -167,9 +182,12 @@ const ToolBuilder = () => {
 
         <ToolListModal
           tools={tools}
+          systemTools={systemTools}
+          isLoadingSystemTools={isLoadingSystemTools}
           isOpen={showToolListModal}
           onClose={() => setShowToolListModal(false)}
           onSelectTool={handleSelectTool}
+          onSelectSystemTool={handleSelectSystemTool}
           onDeleteTool={refreshTools}
           onCreateNew={handleCreateNewTool}
         />
@@ -279,9 +297,12 @@ const ToolBuilder = () => {
 
       <ToolListModal
         tools={tools}
+        systemTools={systemTools}
+        isLoadingSystemTools={isLoadingSystemTools}
         isOpen={showToolListModal}
         onClose={() => setShowToolListModal(false)}
         onSelectTool={handleSelectTool}
+        onSelectSystemTool={handleSelectSystemTool}
         onDeleteTool={refreshTools}
         onCreateNew={handleCreateNewTool}
       />
