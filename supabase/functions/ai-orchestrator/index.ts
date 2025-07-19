@@ -41,6 +41,48 @@ export function appendMessage(
 
 const conversationStates = new Map<string, ConversationState>();
 
+// Load persisted conversation state from the database
+async function loadStateFromDB(
+  supabase: SupabaseClient,
+  conversationId: string
+): Promise<Record<string, any>> {
+  try {
+    const { data, error } = await supabase
+      .from('ai_conversation_states')
+      .select('state')
+      .eq('conversation_id', conversationId)
+      .single();
+
+    if (error) {
+      console.error('Error loading conversation state from DB:', error);
+      return {};
+    }
+
+    return data?.state || {};
+  } catch (err) {
+    console.error('Failed to load conversation state from DB:', err);
+    return {};
+  }
+}
+
+// Persist conversation state to the database
+async function saveStateToDB(
+  supabase: SupabaseClient,
+  conversationId: string,
+  state: Record<string, any>
+) {
+  try {
+    const { error } = await supabase
+      .from('ai_conversation_states')
+      .upsert({ conversation_id: conversationId, state });
+    if (error) {
+      console.error('Error saving conversation state to DB:', error);
+    }
+  } catch (err) {
+    console.error('Failed to save conversation state to DB:', err);
+  }
+}
+
 // Enhanced state management utility
 function saveState(conversationId: string, state: ConversationState) {
   conversationStates.set(conversationId, state);
@@ -536,20 +578,25 @@ async function handleDebugRequest(req: Request): Promise<Response> {
   }
   
   const state = conversationStates.get(conversationId);
-  if (!state) {
-    return new Response(JSON.stringify({ 
-      error: 'No state found for conversation',
-      conversation_id: conversationId,
-      available_conversations: Array.from(conversationStates.keys())
-    }), {
-      status: 404,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  let dbState: any = null;
+
+  if (supabaseUrl && supabaseAnonKey) {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { data } = await supabase
+      .from('ai_conversation_states')
+      .select('state')
+      .eq('conversation_id', conversationId)
+      .single();
+    dbState = data?.state || null;
   }
-  
+
   return new Response(JSON.stringify({
     conversation_id: conversationId,
-    state: state,
+    memory_state: state || null,
+    db_state: dbState,
     total_conversations: conversationStates.size
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -676,14 +723,22 @@ serve(async (req) => {
 
     // Load conversation history from database
     const dbHistory = await loadConversationHistory(supabase, conversation_id);
-    
-    // Get or initialize conversation state and merge with database history
-    let state = conversationStates.get(conversation_id) || { 
-      messages: [], 
-      toolChain: [], 
+
+    // Load persisted state from database
+    const persistedState = await loadStateFromDB(supabase, conversation_id);
+
+    // Get or initialize conversation state and merge with persisted state
+    let state = {
+      messages: [],
+      toolChain: [],
       sourceTools: [],
-      confirmationAttempts: 0
-    };
+      confirmationAttempts: 0,
+      ...persistedState,
+      ...(conversationStates.get(conversation_id) || {})
+    } as ConversationState;
+
+    // Store back into in-memory map
+    conversationStates.set(conversation_id, state);
     
     // If we have database history and it's longer than our in-memory state, use database history
     if (dbHistory.length > state.messages.length) {
@@ -721,6 +776,7 @@ serve(async (req) => {
         state.sourceTools.push(source_tool);
       }
       saveState(conversation_id, state);
+      await saveStateToDB(supabase, conversation_id, state);
     } else if (normalizedSourceTool && normalizedSourceTool === normalizedStateTool) {
       console.log(`[🔧 TOOL SWITCH DEBUG] No tool switch needed - same tool (${normalizedSourceTool})`);
     } else if (!normalizedSourceTool) {
@@ -777,14 +833,17 @@ serve(async (req) => {
         state.confirmed = false;
         state.confirmationAttempts = 0;
         saveState(conversation_id, state);
+        await saveStateToDB(supabase, conversation_id, state);
         reply = `Switching to ${state.tool.replace('_', ' ')}.`;
       } else if (isRejection) {
         state.pendingToolSwitch = undefined;
         saveState(conversation_id, state);
+        await saveStateToDB(supabase, conversation_id, state);
         reply = `Okay, continuing with ${state.tool?.replace('_', ' ')}.`;
       } else {
         reply = confirmationReply || 'Would you like to switch tools?';
         saveState(conversation_id, state);
+        await saveStateToDB(supabase, conversation_id, state);
       }
 
       await saveMessage(supabase, conversation_id, 'assistant', reply, apiLogs);
@@ -926,6 +985,7 @@ serve(async (req) => {
         
         // Save state after tool selection
         saveState(conversation_id, state);
+        await saveStateToDB(supabase, conversation_id, state);
         console.log('[🧠 ORCHESTRATOR] State saved after tool selection');
         
       } catch (deepseekError) {
@@ -962,6 +1022,7 @@ serve(async (req) => {
         
         // PHASE 3: Keep state until tool execution is successful
         saveState(conversation_id, state);
+        await saveStateToDB(supabase, conversation_id, state);
         console.log('[🧠 ORCHESTRATOR] Keeping conversation state until tool execution success');
         
         await saveMessage(supabase, conversation_id, 'assistant', reply, {
@@ -1054,11 +1115,13 @@ serve(async (req) => {
           
           // PHASE 3: Keep the conversation state until successful tool execution
           saveState(conversation_id, state);
+          await saveStateToDB(supabase, conversation_id, state);
           console.log('[🧠 ORCHESTRATOR] Tool confirmed and launching, keeping conversation state until success');
         } else {
           // Keep asking for confirmation
           state.lastAssistantMessage = reply; // Store for loop detection
           saveState(conversation_id, state);
+          await saveStateToDB(supabase, conversation_id, state);
           console.log(`[🧠 ORCHESTRATOR] Tool not confirmed, continuing conversation for confirmation attempt: ${state.confirmationAttempts}`);
         }
       } catch (deepseekError) {
@@ -1081,10 +1144,12 @@ serve(async (req) => {
           params = { conversation_id: conversation_id };
           reply = 'I understand you want to proceed. Let me help you with that.';
           saveState(conversation_id, state);
+          await saveStateToDB(supabase, conversation_id, state);
           console.log('[🧠 ORCHESTRATOR] Tool confirmed via fallback logic, keeping state until success');
         } else {
           reply = 'Could you please confirm if you want to proceed with this action?';
           saveState(conversation_id, state);
+          await saveStateToDB(supabase, conversation_id, state);
           console.log('[🧠 ORCHESTRATOR] Tool not confirmed via fallback, asking for clarification');
         }
       }
