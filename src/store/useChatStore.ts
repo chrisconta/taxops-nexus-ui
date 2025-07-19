@@ -221,13 +221,62 @@ export const useChatStore = create<ChatState>()(
           console.log('AI orchestrator response received:', data);
           const result = data as { intent: string; params: Record<string, any>; type: string; reply: string };
 
-          get().removeTyping();
-          get().addMessage({
-            id: crypto.randomUUID(),
-            author: 'agent',
-            content: result.reply,
-            timestamp: Date.now()
-          });
+          // Handle actionable general_chat by calling ai-chat function
+          if (result.type === 'actionable' && result.intent === 'general_chat') {
+            console.log('Handling general_chat action, calling ai-chat function');
+            
+            try {
+              const { data: chatData, error: chatError } = await supabase.functions.invoke('ai-chat', {
+                body: {
+                  message: text,
+                  conversation_id: convId
+                },
+                headers: { 
+                  Authorization: `Bearer ${session.access_token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+
+              if (chatError) {
+                console.error('AI Chat function error:', chatError);
+                throw new Error(`Chat error: ${chatError.message}`);
+              }
+
+              if (!chatData) {
+                throw new Error('No response from chat service');
+              }
+
+              console.log('AI chat response received:', chatData);
+              
+              get().removeTyping();
+              get().addMessage({
+                id: crypto.randomUUID(),
+                author: 'agent',
+                content: chatData.assistant || 'No response received',
+                timestamp: Date.now()
+              });
+              
+            } catch (chatError) {
+              console.error('Error calling ai-chat:', chatError);
+              get().removeTyping();
+              get().addMessage({
+                id: crypto.randomUUID(),
+                author: 'agent',
+                content: 'Sorry, I encountered an error processing your request. Please try again.',
+                timestamp: Date.now()
+              });
+            }
+          } else {
+            // Handle normal orchestrator responses
+            get().removeTyping();
+            get().addMessage({
+              id: crypto.randomUUID(),
+              author: 'agent',
+              content: result.reply,
+              timestamp: Date.now()
+            });
+          }
+          
           set({ isLoading: false });
           return result;
         } catch (error) {

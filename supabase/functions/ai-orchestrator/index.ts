@@ -241,21 +241,6 @@ serve(async (req) => {
     const userId = userData.user.id;
     console.log('User authenticated successfully:', userId);
 
-    // Get DeepSeek API key
-    let apiKey;
-    try {
-      apiKey = await decryptDeepSeekKey(supabase, userId);
-    } catch (keyError) {
-      console.error('Failed to get DeepSeek API key:', keyError);
-      return new Response(JSON.stringify({ 
-        error: 'DeepSeek API key not configured or invalid',
-        details: keyError.message 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     // Get or initialize conversation state
     const state = conversationStates.get(conversation_id) || { messages: [] };
     appendMessage(state, { role: 'user', content: message });
@@ -264,6 +249,7 @@ serve(async (req) => {
     let reply = '';
     let intent = state.tool || '';
     let type: 'conversational' | 'actionable' = 'conversational';
+    let params: Record<string, any> = {};
 
     if (!state.tool) {
       console.log('No tool selected, determining intent');
@@ -272,10 +258,14 @@ serve(async (req) => {
         'You are helping an AI orchestrator decide which tool to use based on the user\'s request. ' +
         'Available tools: register_client - Register a new client (needs name, email, ein); ' +
         'create_connection - Create a connection for a client (needs clientId, connectionType, credentials); ' +
-        'build_dashboard - Build a dashboard for a client (needs clientId, metrics, timeframe). ' +
+        'build_dashboard - Build a dashboard for a client (needs clientId, metrics, timeframe); ' +
+        'general_chat - Handle general conversations and questions that don\'t fit other tools. ' +
         'Respond in JSON as {"tool": "<tool>", "reply": "<message>"}.';
 
       try {
+        // Get DeepSeek API key for tool selection
+        const apiKey = await decryptDeepSeekKey(supabase, userId);
+        
         const dsResponse = await askDeepSeek(apiKey, [
           { role: 'system', content: instruction },
           ...state.messages
@@ -307,6 +297,9 @@ serve(async (req) => {
         'Respond in JSON as {"confirmed": true|false, "reply": "<message>"}.';
 
       try {
+        // Get DeepSeek API key for confirmation check
+        const apiKey = await decryptDeepSeekKey(supabase, userId);
+        
         const dsResponse = await askDeepSeek(apiKey, [
           { role: 'system', content: instruction },
           ...state.messages
@@ -319,6 +312,15 @@ serve(async (req) => {
           if (parsed.confirmed === true) {
             type = 'actionable';
             state.confirmed = true;
+            
+            // For general_chat, prepare parameters with conversation context
+            if (state.tool === 'general_chat') {
+              params = {
+                message: message,
+                conversation_id: conversation_id
+              };
+            }
+            
             conversationStates.delete(conversation_id);
             console.log('Tool confirmed, ready for action');
           } else {
@@ -336,8 +338,8 @@ serve(async (req) => {
       }
     }
 
-    const response = { intent, params: {}, type, reply };
-    console.log('Sending response:', { intent, type, replyLength: reply.length });
+    const response = { intent, params, type, reply };
+    console.log('Sending response:', { intent, type, replyLength: reply.length, hasParams: Object.keys(params).length > 0 });
 
     return new Response(
       JSON.stringify(response),
