@@ -33,7 +33,22 @@ export const useSystemTools = () => {
 
       if (error) throw error;
 
-      setSystemTools(data || []);
+      const systemTools: SystemTool[] = (data || []).map(tool => ({
+        id: tool.id,
+        name: tool.name,
+        description: tool.description || '',
+        category: tool.category,
+        capabilities: Array.isArray(tool.capabilities) ? 
+          tool.capabilities.map(cap => String(cap)) : 
+          typeof tool.capabilities === 'string' ? [tool.capabilities] : [],
+        input_schema: tool.input_schema,
+        output_schema: tool.output_schema,
+        enabled: tool.enabled,
+        created_at: tool.created_at,
+        updated_at: tool.updated_at
+      }));
+      
+      setSystemTools(systemTools);
     } catch (error) {
       console.error('Error loading system tools:', error);
       toast({

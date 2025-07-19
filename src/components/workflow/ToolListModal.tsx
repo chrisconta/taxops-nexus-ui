@@ -134,7 +134,7 @@ export const ToolListModal = ({
                       />
                     ))}
                   </div>
-                )}
+                </div>
               )}
             </>
           )}
