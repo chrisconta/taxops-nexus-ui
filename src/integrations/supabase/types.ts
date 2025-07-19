@@ -626,7 +626,7 @@ export type Database = {
           nodes?: Json
           status?: string
           updated_at?: string
-          user_id: string
+          user_id?: string
         }
         Update: {
           connections?: Json
@@ -788,7 +788,7 @@ export type Database = {
           id?: string
           started_at?: string
           status?: string
-          user_id: string
+          user_id?: string
           workflow_id: string
         }
         Update: {

@@ -138,7 +138,7 @@ export const useWorkflowBuilder = () => {
       } else {
         const result = await supabase
           .from('tool_workflows')
-          .insert(workflow)
+          .insert(workflow as any)
           .select()
           .single();
         data = result.data;
@@ -175,13 +175,13 @@ export const useWorkflowBuilder = () => {
     updateWorkflow({ currentExecutionId: executionId });
 
     try {
-      // Create execution record - user_id will be handled by RLS
+      // Create execution record - user_id will be handled by RLS defaults
       const { data: execution, error: execError } = await supabase
         .from('workflow_executions')
         .insert({
           workflow_id: workflowState.id,
           status: 'running'
-        })
+        } as any)
         .select()
         .single();
 
