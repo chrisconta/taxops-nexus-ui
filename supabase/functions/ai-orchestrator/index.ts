@@ -593,25 +593,16 @@ serve(async (req) => {
       state.messages = mergedMessages.slice(-MAX_HISTORY);
     }
     
-    // IMPROVED: Smart tool switching logic instead of aggressive reset
-    if (source_tool) {
-      console.log(`[🧠 ORCHESTRATOR] Request from source tool: ${source_tool}`);
+    // IMPROVED: Smart tool switching logic - only reset if actually switching to different tool
+    if (source_tool && source_tool !== state.tool) {
+      console.log(`[🔁 TOOL SWITCH] from ${state.tool} → ${source_tool}`);
+      state.tool = source_tool;
+      state.confirmed = false;
+      state.confirmationAttempts = 0;
+      
       if (!state.sourceTools) state.sourceTools = [];
       if (!state.sourceTools.includes(source_tool)) {
         state.sourceTools.push(source_tool);
-      }
-      
-      // Only reset if switching to a different tool
-      if (state.tool && state.tool !== source_tool) {
-        console.log(`[🔁 TOOL SWITCH DETECTED] from ${state.tool} → ${source_tool}`);
-        state.tool = source_tool;
-        state.confirmed = false;
-        state.confirmationAttempts = 0;
-      } else if (!state.tool) {
-        // First time setting tool from source
-        state.tool = source_tool;
-        state.confirmed = false;
-        state.confirmationAttempts = 0;
       }
     }
     
@@ -737,47 +728,44 @@ serve(async (req) => {
       state.confirmationAttempts++;
       console.log(`[🧠 ORCHESTRATOR] Confirmation attempt ${state.confirmationAttempts} for tool: ${state.tool}`);
       
-      // Safety mechanism: force confirmation after multiple attempts
+      // Auto-confirm after MAX_CONFIRMATION_ATTEMPTS
       if (state.confirmationAttempts >= MAX_CONFIRMATION_ATTEMPTS) {
-        const hasYesWord = /\b(yes|yeah|yep|sure|okay|ok|let's do it|sounds good)\b/i.test(message);
-        if (hasYesWord) {
-          console.log('[🧠 ORCHESTRATOR] Safety mechanism triggered: forcing confirmation after multiple attempts');
-          type = 'actionable';
-          state.confirmed = true;
-          params = { conversation_id: conversation_id };
-          reply = 'I understand you want to proceed. Let me help you with that.';
-          conversationStates.delete(conversation_id);
-          
-          await saveMessage(supabase, conversation_id, 'assistant', reply, {
-            forced_confirmation: true,
+        console.log('[🧠 ORCHESTRATOR] Max confirmation attempts reached - auto-proceeding');
+        type = 'actionable';
+        state.confirmed = true;
+        params = { conversation_id: conversation_id };
+        reply = `Got it — proceeding with ${state.tool.replace('_', ' ')}.`;
+        conversationStates.delete(conversation_id);
+        
+        await saveMessage(supabase, conversation_id, 'assistant', reply, {
+          auto_confirmed: true,
+          confirmation_attempts: state.confirmationAttempts
+        });
+        
+        const response = { 
+          intent: state.tool, 
+          params, 
+          type, 
+          reply, 
+          tool_chain: state.toolChain || [],
+          source_tool: source_tool || null,
+          current_tool: currentTool,
+          debug_info: {
+            function_called: 'ai-orchestrator',
+            tool_selected: state.tool,
+            tool_confirmed: true,
+            conversation_state: false,
+            conversation_length: state.messages.length,
+            parameters_handled_by_tool: true,
+            auto_confirmed: true,
             confirmation_attempts: state.confirmationAttempts
-          });
-          
-          const response = { 
-            intent: state.tool, 
-            params, 
-            type, 
-            reply, 
-            tool_chain: state.toolChain || [],
-            source_tool: source_tool || null,
-            current_tool: currentTool,
-            debug_info: {
-              function_called: 'ai-orchestrator',
-              tool_selected: state.tool,
-              tool_confirmed: true,
-              conversation_state: false,
-              conversation_length: state.messages.length,
-              parameters_handled_by_tool: true,
-              forced_confirmation: true,
-              confirmation_attempts: state.confirmationAttempts
-            }
-          };
-          console.log('[🧠 ORCHESTRATOR] Sending response with forced confirmation');
-          return new Response(
-            JSON.stringify(response),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
+          }
+        };
+        console.log('[🧠 ORCHESTRATOR] Sending response with auto-confirmation');
+        return new Response(
+          JSON.stringify(response),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
       
       try {
@@ -836,6 +824,7 @@ serve(async (req) => {
           }
           
           // Clear the conversation state since we're launching the tool
+          // Note: Keep minimal state recovery mechanism by reloading from database if needed
           conversationStates.delete(conversation_id);
           console.log('[🧠 ORCHESTRATOR] Tool confirmed and launching, cleared conversation state');
         } else {
