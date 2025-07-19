@@ -297,6 +297,19 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
   return { tool: 'ai-chat', reply };
 }
 
+// Detect potential tool switch in a user message when a tool is already selected
+export function detectToolSwitch(message: string, currentTool?: string): string | undefined {
+  const { tool } = extractToolFromResponse(message);
+  const normalizedCurrent = normalizeToolName(currentTool);
+  const normalizedDetected = normalizeToolName(tool);
+
+  if (tool && normalizedDetected && normalizedDetected !== normalizedCurrent) {
+    console.log(`[🔍 DETECT TOOL SWITCH] Detected request to switch from ${currentTool} to ${tool}`);
+    return tool;
+  }
+  return undefined;
+}
+
 async function loadConversationHistory(supabase: SupabaseClient, conversationId: string): Promise<Array<{ role: string; content: string }>> {
   console.log('Loading conversation history from database for:', conversationId);
   
@@ -671,6 +684,103 @@ serve(async (req) => {
     let params: Record<string, any> = {};
     let apiLogs: any = {};
     let currentTool = 'ai-orchestrator';
+
+    // Check for pending tool switch confirmation
+    if (state.pendingToolSwitch) {
+      console.log('[🔄 PENDING TOOL SWITCH] Awaiting confirmation for', JSON.stringify(state.pendingToolSwitch));
+      let { isConfirmed, isRejection } = checkSimpleConfirmation(message);
+      let confirmationReply = '';
+
+      if (!isConfirmed && !isRejection) {
+        try {
+          const apiKey = await decryptDeepSeekKey(supabase, userId);
+          const result = await checkConfirmationWithDeepSeek(
+            apiKey,
+            state.messages,
+            state.pendingToolSwitch.to,
+            message
+          );
+          isConfirmed = result.isConfirmed;
+          confirmationReply = result.reply;
+        } catch (err) {
+          console.error('[🔄 PENDING TOOL SWITCH] DeepSeek confirmation failed', err);
+        }
+      }
+
+      if (isConfirmed) {
+        state.tool = state.pendingToolSwitch.to;
+        state.pendingToolSwitch = undefined;
+        state.confirmed = false;
+        state.confirmationAttempts = 0;
+        saveState(conversation_id, state);
+        reply = `Switching to ${state.tool.replace('_', ' ')}.`;
+      } else if (isRejection) {
+        state.pendingToolSwitch = undefined;
+        saveState(conversation_id, state);
+        reply = `Okay, continuing with ${state.tool?.replace('_', ' ')}.`;
+      } else {
+        reply = confirmationReply || 'Would you like to switch tools?';
+        saveState(conversation_id, state);
+      }
+
+      await saveMessage(supabase, conversation_id, 'assistant', reply, apiLogs);
+      const response = {
+        intent: state.tool || '',
+        params: {},
+        type: 'conversational',
+        reply,
+        tool_chain: state.toolChain || [],
+        source_tool: source_tool || null,
+        current_tool: currentTool,
+        debug_info: {
+          function_called: 'ai-orchestrator',
+          pending_tool_switch: true,
+          tool_selected: state.tool,
+          tool_confirmed: state.confirmed || false,
+        }
+      };
+
+      return new Response(
+        JSON.stringify(response),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Detect new tool mention when a tool is already selected
+    if (state.tool && !state.pendingToolSwitch) {
+      const detectedTool = detectToolSwitch(message, state.tool);
+      if (detectedTool) {
+        state.pendingToolSwitch = {
+          from: state.tool,
+          to: detectedTool,
+          reason: message
+        };
+        saveState(conversation_id, state);
+        reply = `It sounds like you might want to switch from ${state.tool.replace('_', ' ')} to ${detectedTool.replace('_', ' ')}. Shall I switch tools?`;
+
+        await saveMessage(supabase, conversation_id, 'assistant', reply, apiLogs);
+        const response = {
+          intent: state.tool,
+          params: {},
+          type: 'conversational',
+          reply,
+          tool_chain: state.toolChain || [],
+          source_tool: source_tool || null,
+          current_tool: currentTool,
+          debug_info: {
+            function_called: 'ai-orchestrator',
+            pending_tool_switch: state.pendingToolSwitch,
+            tool_selected: state.tool,
+            tool_confirmed: state.confirmed || false,
+          }
+        };
+
+        return new Response(
+          JSON.stringify(response),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     // BULLETPROOF CONDITIONAL LOGIC WITH EXTENSIVE LOGGING
     if (!state.tool) {
