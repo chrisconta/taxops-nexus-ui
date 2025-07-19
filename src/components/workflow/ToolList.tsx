@@ -26,8 +26,8 @@ export const ToolList = ({
   onDeleteTool, 
   onCreateNew 
 }: ToolListProps) => {
-  const hasUserTools = tools.length > 0;
-  const hasSystemTools = systemTools.length > 0;
+  const hasUserTools = (tools || []).length > 0;
+  const hasSystemTools = (systemTools || []).length > 0;
   const hasAnyTools = hasUserTools || hasSystemTools;
 
   if (!hasAnyTools && !isLoadingSystemTools) {
@@ -60,7 +60,7 @@ export const ToolList = ({
             <Cpu className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-bold text-foreground">System Tools</h2>
             <span className="text-sm text-muted-foreground">
-              ({isLoadingSystemTools ? '...' : systemTools.length} available)
+              ({isLoadingSystemTools ? '...' : (systemTools || []).length} available)
             </span>
           </div>
           
@@ -72,7 +72,7 @@ export const ToolList = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {systemTools.map((tool) => (
+              {(systemTools || []).map((tool) => (
                 <SystemToolCard
                   key={tool.id}
                   tool={tool}
@@ -94,12 +94,12 @@ export const ToolList = ({
             <Wrench className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-bold text-foreground">My Workflows</h2>
             <span className="text-sm text-muted-foreground">
-              ({tools.length} tool{tools.length !== 1 ? 's' : ''})
+              ({(tools || []).length} tool{(tools || []).length !== 1 ? 's' : ''})
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {tools.map((tool) => (
+            {(tools || []).map((tool) => (
               <ToolCard
                 key={tool.id}
                 tool={tool}
