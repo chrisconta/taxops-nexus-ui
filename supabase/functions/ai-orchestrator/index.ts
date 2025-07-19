@@ -443,7 +443,7 @@ serve(async (req) => {
       if (!state.sourceTools.includes(source_tool)) {
         state.sourceTools.push(source_tool);
       }
-      // Reset tool selection to allow fresh routing from tool-to-tool calls
+      // Only reset tool selection if explicitly switching tools, not just providing data
       state.tool = undefined;
       state.confirmed = false;
     }
@@ -458,6 +458,29 @@ serve(async (req) => {
     let params: Record<string, any> = {};
     let apiLogs: any = {};
     let currentTool = 'ai-orchestrator'; // Track which function is handling this
+
+    // Check if user is providing information for current tool context
+    if (state.tool && !state.confirmed) {
+      // User already has a tool selected, check if they're providing information or want to switch
+      console.log('Tool already selected but not confirmed:', state.tool, '- checking if user is providing information');
+      
+      // Simple heuristic: if the current message doesn't contain tool switching keywords, 
+      // treat it as information for the current tool
+      const toolSwitchingKeywords = ['register', 'create', 'build', 'dashboard', 'connection', 'help me', 'i want to', 'let me'];
+      const messageContainsToolSwitch = toolSwitchingKeywords.some(keyword => 
+        message.toLowerCase().includes(keyword) && !message.toLowerCase().includes('name') && !message.toLowerCase().includes('email')
+      );
+      
+      if (!messageContainsToolSwitch) {
+        // User is likely providing information for current tool, proceed to confirmation check
+        console.log('User appears to be providing information for current tool:', state.tool);
+      } else {
+        // User might want to switch tools, clear current selection
+        console.log('User appears to want to switch tools, clearing current selection');
+        state.tool = undefined;
+        state.confirmed = false;
+      }
+    }
 
     if (!state.tool) {
       console.log('No tool selected, determining intent with full conversation history');
