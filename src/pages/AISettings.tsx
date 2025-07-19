@@ -129,13 +129,13 @@ const AISettings = () => {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6 max-w-7xl">
+    <div className="container mx-auto py-6 space-y-6 max-w-full overflow-hidden">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">AI Settings</h1>
           <p className="text-muted-foreground">Configure your AI service settings and monitor activity</p>
         </div>
-        <Button onClick={refreshData} disabled={isRefreshing} className="flex items-center gap-2">
+        <Button onClick={refreshData} disabled={isRefreshing} className="flex items-center gap-2 shrink-0">
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           Refresh Data
         </Button>
@@ -190,12 +190,12 @@ const AISettings = () => {
                 Recent API requests and responses ({apiLogs.length} entries)
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[600px]">
-                <div className="space-y-4">
+            <CardContent className="overflow-hidden">
+              <ScrollArea className="h-[600px] w-full">
+                <div className="space-y-4 pr-4">
                   {apiLogs.map((log) => (
-                    <div key={log.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
+                    <div key={log.id} className="border rounded-lg p-4 overflow-hidden">
+                      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline">{log.role}</Badge>
                           <span className="text-sm text-muted-foreground">
@@ -205,19 +205,23 @@ const AISettings = () => {
                       </div>
                       
                       <div className="space-y-2">
-                        <div>
+                        <div className="overflow-hidden">
                           <h4 className="text-sm font-medium">Content:</h4>
-                          <pre className="text-sm bg-muted p-2 rounded whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
-                            {typeof log.content === 'string' ? log.content : JSON.stringify(log.content, null, 2)}
-                          </pre>
+                          <div className="text-sm bg-muted p-2 rounded max-h-32 overflow-y-auto w-full">
+                            <pre className="whitespace-pre-wrap break-words text-wrap overflow-wrap-anywhere">
+                              {typeof log.content === 'string' ? log.content : JSON.stringify(log.content, null, 2)}
+                            </pre>
+                          </div>
                         </div>
                         
                         {log.api_logs && Object.keys(log.api_logs).length > 0 && (
-                          <div>
+                          <div className="overflow-hidden">
                             <h4 className="text-sm font-medium">API Logs:</h4>
-                            <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-40">
-                              {JSON.stringify(log.api_logs, null, 2)}
-                            </pre>
+                            <div className="text-xs bg-muted p-2 rounded max-h-40 overflow-auto w-full">
+                              <pre className="whitespace-pre-wrap break-words text-wrap overflow-wrap-anywhere">
+                                {JSON.stringify(log.api_logs, null, 2)}
+                              </pre>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -258,14 +262,14 @@ const AISettings = () => {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[600px]">
-                <div className="space-y-4">
+            <CardContent className="overflow-hidden">
+              <ScrollArea className="h-[600px] w-full">
+                <div className="space-y-4 pr-4">
                   {sessions.map((session) => (
-                    <div key={session.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-medium">{session.title}</h3>
-                        <div className="flex items-center gap-2">
+                    <div key={session.id} className="border rounded-lg p-4 overflow-hidden">
+                      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                        <h3 className="font-medium truncate">{session.title}</h3>
+                        <div className="flex items-center gap-2 shrink-0">
                           <Badge className={getStatusBadge(session.status)}>
                             {session.status}
                           </Badge>
@@ -277,21 +281,23 @@ const AISettings = () => {
                       
                       <div className="space-y-2">
                         {session.entries.slice(0, 10).map((entry) => (
-                          <div key={entry.id} className="text-sm">
-                            <div className="flex items-center gap-2 mb-1">
+                          <div key={entry.id} className="text-sm overflow-hidden">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <Badge variant="outline" className={getStatusBadge(entry.status)}>
                                 {entry.type}
                               </Badge>
-                              <span className="font-medium">{entry.action}</span>
-                              <span className="text-muted-foreground text-xs">
+                              <span className="font-medium truncate">{entry.action}</span>
+                              <span className="text-muted-foreground text-xs shrink-0">
                                 {formatTimestamp(entry.timestamp)}
                               </span>
                             </div>
-                            <p className="text-muted-foreground ml-2 break-words">{entry.details}</p>
+                            <p className="text-muted-foreground ml-2 break-words overflow-wrap-anywhere">{entry.details}</p>
                             {entry.data && (
-                              <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-auto max-h-32">
-                                {JSON.stringify(entry.data, null, 2)}
-                              </pre>
+                              <div className="text-xs bg-muted p-2 rounded mt-1 max-h-32 overflow-auto w-full">
+                                <pre className="whitespace-pre-wrap break-words overflow-wrap-anywhere">
+                                  {JSON.stringify(entry.data, null, 2)}
+                                </pre>
+                              </div>
                             )}
                           </div>
                         ))}
@@ -326,19 +332,19 @@ const AISettings = () => {
                 Recent conversation history ({chatHistory.length} conversations)
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[600px]">
-                <div className="space-y-4">
+            <CardContent className="overflow-hidden">
+              <ScrollArea className="h-[600px] w-full">
+                <div className="space-y-4 pr-4">
                   {chatHistory.map((conversation) => (
-                    <div key={conversation.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-medium">{conversation.title}</h3>
-                        <span className="text-sm text-muted-foreground">
+                    <div key={conversation.id} className="border rounded-lg p-4 overflow-hidden">
+                      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                        <h3 className="font-medium truncate">{conversation.title}</h3>
+                        <span className="text-sm text-muted-foreground shrink-0">
                           {formatTimestamp(conversation.created_at)}
                         </span>
                       </div>
                       
-                       {conversation.ai_messages && conversation.ai_messages.length > 0 && (
+                      {conversation.ai_messages && conversation.ai_messages.length > 0 && (
                         <div className="space-y-2">
                           <p className="text-sm text-muted-foreground">
                             {conversation.ai_messages.length} messages
@@ -347,21 +353,21 @@ const AISettings = () => {
                             <summary className="cursor-pointer text-sm text-primary hover:underline">
                               Show all messages
                             </summary>
-                            <div className="space-y-2 mt-2 max-h-80 overflow-y-auto">
+                            <div className="space-y-2 mt-2 max-h-80 overflow-y-auto w-full">
                               {conversation.ai_messages.map((message: any) => (
-                                <div key={message.id} className="text-sm border-l-2 border-muted pl-3">
-                                  <div className="flex items-center gap-2 mb-1">
+                                <div key={message.id} className="text-sm border-l-2 border-muted pl-3 overflow-hidden">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                                     <Badge variant={message.role === 'user' ? 'default' : 'secondary'}>
                                       {message.role}
                                     </Badge>
-                                    <span className="text-muted-foreground text-xs">
+                                    <span className="text-muted-foreground text-xs shrink-0">
                                       {formatTimestamp(message.created_at)}
                                     </span>
                                   </div>
-                                  <div className="text-muted-foreground ml-2 break-words">
-                                    <pre className="whitespace-pre-wrap text-xs bg-muted/50 p-2 rounded">
+                                  <div className="text-muted-foreground ml-2 overflow-hidden">
+                                    <div className="whitespace-pre-wrap text-xs bg-muted/50 p-2 rounded break-words overflow-wrap-anywhere max-h-40 overflow-y-auto">
                                       {message.content}
-                                    </pre>
+                                    </div>
                                   </div>
                                 </div>
                               ))}
