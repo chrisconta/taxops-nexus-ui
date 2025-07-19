@@ -275,8 +275,89 @@ export const useChatStore = create<ChatState>()(
             set(state => ({ currentTool: result.current_tool }));
           }
 
-          // Handle actionable ai-chat by calling ai-chat function
-          if (result.type === 'actionable' && result.intent === 'ai-chat') {
+          // Handle actionable responses (call specific tools)
+          if (result.type === 'actionable' && result.intent !== 'ai-chat') {
+            console.log(`Handling ${result.intent} action, calling agent-tool-execute function`);
+            chatLogger.logProcess(result.intent, 'started', `Calling agent-tool-execute for ${result.intent}`);
+            
+            try {
+              // UPDATED: Pass conversation_id to the tool for parameter extraction
+              const toolRequestBody = {
+                toolName: result.intent,
+                params: {}, // Empty params - tool will extract from conversation
+                conversation_id: convId // Let tool extract parameters from conversation
+              };
+              
+              chatLogger.logEdgeFunction('agent-tool-execute', 'started', toolRequestBody);
+              
+              const { data: toolData, error: toolError } = await supabase.functions.invoke('agent-tool-execute', {
+                body: toolRequestBody
+              });
+
+              if (toolError) {
+                console.error('Tool execution error:', toolError);
+                chatLogger.logEdgeFunction('agent-tool-execute', 'failed', toolRequestBody, null, toolError);
+                throw new Error(`Tool error: ${toolError.message}`);
+              }
+
+              if (!toolData) {
+                chatLogger.logEdgeFunction('agent-tool-execute', 'failed', toolRequestBody, null, 'No response data');
+                throw new Error('No response from tool execution service');
+              }
+
+              console.log('Tool execution response received:', toolData);
+              chatLogger.logEdgeFunction('agent-tool-execute', 'completed', toolRequestBody, toolData);
+              chatLogger.logProcess(result.intent, 'completed', 'Tool execution completed successfully');
+              
+              get().removeTyping();
+              
+              // Handle tool responses that need more information
+              if (toolData.needsMoreInfo) {
+                const agentMessage = {
+                  id: crypto.randomUUID(),
+                  author: 'agent' as const,
+                  content: toolData.reply || 'I need more information to proceed.',
+                  timestamp: Date.now(),
+                  toolChain: result.tool_chain || [],
+                  sourceTools: result.source_tool ? [result.source_tool] : [],
+                  currentTool: toolData.tool_executed || result.intent,
+                  debugInfo: { ...result.debug_info, needsMoreInfo: true, missing: toolData.missing }
+                };
+                get().addMessage(agentMessage);
+              } else {
+                // Tool executed successfully
+                const successMessage = toolData.result?.message || 'Task completed successfully';
+                const agentMessage = {
+                  id: crypto.randomUUID(),
+                  author: 'agent' as const,
+                  content: successMessage,
+                  timestamp: Date.now(),
+                  toolChain: result.tool_chain || [],
+                  sourceTools: result.source_tool ? [result.source_tool] : [],
+                  currentTool: toolData.tool_executed || result.intent,
+                  debugInfo: { ...result.debug_info, toolResult: toolData.result }
+                };
+                get().addMessage(agentMessage);
+              }
+              
+            } catch (toolError) {
+              console.error('Error calling agent-tool-execute:', toolError);
+              chatLogger.logError(toolError instanceof Error ? toolError : new Error(String(toolError)), 'Tool Execution');
+              chatLogger.logProcess(result.intent, 'failed', 'Failed to execute tool');
+              
+              get().removeTyping();
+              get().addMessage({
+                id: crypto.randomUUID(),
+                author: 'agent',
+                content: 'Sorry, I encountered an error executing that request. Please try again.',
+                timestamp: Date.now(),
+                currentTool: 'error',
+                debugInfo: { error: 'tool_execution_failed' }
+              });
+            }
+            
+          } else if (result.type === 'actionable' && result.intent === 'ai-chat') {
+            // Handle actionable ai-chat by calling ai-chat function
             console.log('Handling ai-chat action, calling ai-chat function');
             chatLogger.logProcess('ai-chat', 'started', 'Calling ai-chat function for general conversation');
             

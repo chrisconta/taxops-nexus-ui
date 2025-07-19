@@ -48,43 +48,6 @@ export function extractJson<T = unknown>(text: string): T | null {
   }
 }
 
-// Helper function to extract information from conversation history
-function extractParametersFromHistory(messages: Array<{ role: string; content: string }>, tool: string) {
-  const userMessages = messages.filter(m => m.role === 'user').map(m => m.content).join(' ');
-  
-  console.log('Extracting parameters from conversation history for tool:', tool);
-  console.log('User messages:', userMessages);
-  
-  const params: Record<string, any> = {};
-  
-  if (tool === 'register_client') {
-    // Extract client information patterns
-    const nameMatch = userMessages.match(/name[:\s]+([^,.\n]+)/i) || 
-                     userMessages.match(/client['\s]*s?\s*name[:\s]+([^,.\n]+)/i) ||
-                     userMessages.match(/(?:called|named)\s+([^,.\n]+)/i);
-    if (nameMatch) params.name = nameMatch[1].trim();
-    
-    const emailMatch = userMessages.match(/email[:\s]+([^\s,.\n]+@[^\s,.\n]+)/i);
-    if (emailMatch) params.email = emailMatch[1].trim();
-    
-    const einMatch = userMessages.match(/ein[:\s]+([0-9]{2}-[0-9]+)/i) ||
-                    userMessages.match(/([0-9]{2}-[0-9]+)/);
-    if (einMatch) params.ein = einMatch[1].trim();
-  } else if (tool === 'create_connection') {
-    // Extract connection information
-    const clientMatch = userMessages.match(/client[:\s]+([^,.\n]+)/i) ||
-                       userMessages.match(/for\s+([^,.\n]+)/i);
-    if (clientMatch) params.clientName = clientMatch[1].trim();
-    
-    const connectionMatch = userMessages.match(/connect\s+to\s+([^,.\n]+)/i) ||
-                           userMessages.match(/connection[:\s]+([^,.\n]+)/i);
-    if (connectionMatch) params.connectionType = connectionMatch[1].trim().toLowerCase();
-  }
-  
-  console.log('Extracted parameters:', params);
-  return params;
-}
-
 // Enhanced function to load conversation history from database
 async function loadConversationHistory(supabase: SupabaseClient, conversationId: string): Promise<Array<{ role: string; content: string }>> {
   console.log('Loading conversation history from database for:', conversationId);
@@ -470,15 +433,6 @@ serve(async (req) => {
           reply = parsed.reply || '';
           state.confirmed = false;
           
-          // Extract parameters from conversation history if tool is selected
-          if (state.tool && state.tool !== 'ai-chat') {
-            const extractedParams = extractParametersFromHistory(state.messages, state.tool);
-            if (Object.keys(extractedParams).length > 0) {
-              params = extractedParams;
-              console.log('Extracted parameters from conversation history:', params);
-            }
-          }
-          
           // Track tool chain
           if (!state.toolChain) state.toolChain = [];
           if (state.tool && !state.toolChain.includes(state.tool)) {
@@ -517,7 +471,7 @@ serve(async (req) => {
         'OR if they are providing additional information for the tool. ' +
         'Look for confirmation phrases like "yes", "proceed", "register", "create", "do it", etc. ' +
         'If they\'re providing information (like name, email, EIN), consider it as confirmation to proceed. ' +
-        'Respond in JSON as {"confirmed": true|false, "reply": "<message>", "extracted_params": <any_params_from_history>}.';
+        'Respond in JSON as {"confirmed": true|false, "reply": "<message>"}.';
 
       try {
         // Get DeepSeek API key for confirmation check with authenticated client
@@ -556,7 +510,7 @@ serve(async (req) => {
           }
         };
 
-        const parsed = extractJson<{ confirmed?: boolean; reply?: string; extracted_params?: any }>(dsResponse);
+        const parsed = extractJson<{ confirmed?: boolean; reply?: string }>(dsResponse);
         if (parsed) {
           reply = parsed.reply || '';
           intent = state.tool || '';
@@ -565,15 +519,10 @@ serve(async (req) => {
             type = 'actionable';
             state.confirmed = true;
             
-            // Extract parameters from conversation history
-            const extractedParams = extractParametersFromHistory(state.messages, state.tool || '');
-            if (Object.keys(extractedParams).length > 0) {
-              params = { ...extractedParams, ...(parsed.extracted_params || {}) };
-            } else if (parsed.extracted_params) {
-              params = parsed.extracted_params;
-            }
-            
-            console.log('Tool confirmed with parameters:', params);
+            // SIMPLIFIED: Just pass conversation_id to the tool, let tool extract parameters
+            params = {
+              conversation_id: conversation_id
+            };
             
             // For ai-chat, prepare parameters with conversation context
             if (state.tool === 'ai-chat') {
@@ -586,7 +535,7 @@ serve(async (req) => {
             }
             
             conversationStates.delete(conversation_id);
-            console.log('Tool confirmed, ready for action');
+            console.log('Tool confirmed, parameters will be extracted by the tool itself');
           } else {
             conversationStates.set(conversation_id, state);
             console.log('Tool not confirmed, continuing conversation');
@@ -628,7 +577,7 @@ serve(async (req) => {
         tool_confirmed: state.confirmed || false,
         conversation_state: !!conversationStates.get(conversation_id),
         conversation_length: state.messages.length,
-        extracted_parameters: Object.keys(params).length > 0 ? params : null
+        parameters_handled_by_tool: type === 'actionable' && intent !== 'ai-chat'
       }
     };
     console.log('Sending response:', { intent, type, replyLength: reply.length, hasParams: Object.keys(params).length > 0, toolChain: state.toolChain, currentTool });
