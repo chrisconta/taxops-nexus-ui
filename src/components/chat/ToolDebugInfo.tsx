@@ -34,6 +34,15 @@ export function ToolDebugInfo({ currentTool, debugInfo, toolChain }: ToolDebugIn
             </div>
           )}
           
+          {debugInfo?.tool_selected && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Intent Tool:</span>
+              <Badge variant="secondary" className="text-xs">
+                {debugInfo.tool_selected}
+              </Badge>
+            </div>
+          )}
+          
           {toolChain && toolChain.length > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Tool Chain:</span>

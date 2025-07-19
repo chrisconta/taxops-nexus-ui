@@ -409,13 +409,19 @@ serve(async (req) => {
       const instruction =
         'You are helping an AI orchestrator decide which tool to use based on the user\'s conversation. ' +
         'Look at the ENTIRE conversation history to understand context and extract information. ' +
-        'Available tools: register_client - Register a new client (needs name, email, ein); ' +
-        'create_connection - Create a connection for a client (needs clientId, connectionType, credentials); ' +
-        'build_dashboard - Build a dashboard for a client (needs clientId, metrics, timeframe); ' +
-        'ai-chat - Handle general conversations and questions that don\'t fit other tools. ' +
+        'Available tools:\n' +
+        '- register_client: Register a new client (needs name, email, ein)\n' +
+        '- create_connection: Create a connection for a client (needs clientId, connectionType, credentials)\n' +
+        '- build_dashboard: Build a dashboard for a client (needs clientId, metrics, timeframe)\n' +
+        '- ai-chat: Handle general conversations and questions that don\'t fit other tools\n' +
         toolContext +
+        'CRITICAL RULES:\n' +
+        '1. If user wants to "create a new client", "register a client", or provides client details (name, email, EIN), select "register_client"\n' +
+        '2. If user mentions connecting to external services, select "create_connection"\n' +
+        '3. If user wants to build reports or dashboards, select "build_dashboard"\n' +
+        '4. For general questions or unclear intent, select "ai-chat"\n' +
         'IMPORTANT: Review the full conversation history to understand what the user wants. ' +
-        'If they mentioned client details in previous messages, remember that information. ' +
+        'If they mentioned client details (name, email, EIN) anywhere in the conversation, they likely want to register a client. ' +
         'Respond in JSON as {"tool": "<tool>", "reply": "<message>", "extracted_info": <any_relevant_info_from_history>}.';
 
       try {
