@@ -7,6 +7,8 @@ import { WorkflowLogger } from '@/lib/workflowLogger';
 import { supabase } from '@/integrations/supabase/client';
 import { WorkflowState } from '@/hooks/useWorkflowBuilder';
 import { ToolDebugInfo } from '@/components/chat/ToolDebugInfo';
+import { EnhancedToolLauncher } from "@/components/agent/EnhancedToolLauncher";
+import { getSystemToolConversation, getWorkflowToolConversation } from "@/utils/toolConversationStarters";
 
 interface Message {
   id: string;
@@ -54,6 +56,48 @@ export const WorkflowChatPanel: React.FC<WorkflowChatPanelProps> = ({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const handleToolInitiate = (toolType: 'system' | 'workflow', toolData: any) => {
+    let conversationStarter;
+    let toolName;
+
+    if (toolType === 'system') {
+      conversationStarter = getSystemToolConversation(toolData);
+      toolName = toolData.name;
+    } else {
+      conversationStarter = getWorkflowToolConversation(toolData);
+      toolName = toolData.name;
+    }
+
+    // Add the tool introduction message
+    const introMessage: Message = {
+      id: `msg-${Date.now()}`,
+      role: 'assistant',
+      content: conversationStarter.initialMessage,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, introMessage]);
+
+    // Start asking for parameters if workflow needs input
+    if (conversationStarter.requiredParameters.length > 0) {
+      setTimeout(() => {
+        const paramMessage: Message = {
+          id: `msg-${Date.now() + 1}`,
+          role: 'assistant',
+          content: conversationStarter.followUpQuestions[0] || "What parameters would you like to provide for this workflow?",
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, paramMessage]);
+      }, 500);
+    }
+
+    logger.info('ui', 'Tool initiated in workflow chat', { 
+      toolType, 
+      toolName,
+      parametersRequired: conversationStarter.requiredParameters.length
+    });
+  };
 
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return;
@@ -179,7 +223,7 @@ export const WorkflowChatPanel: React.FC<WorkflowChatPanelProps> = ({
           Workflow Assistant
         </h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Describe your automation needs
+          Describe your automation needs or launch a tool
         </p>
       </div>
 
@@ -248,6 +292,14 @@ export const WorkflowChatPanel: React.FC<WorkflowChatPanelProps> = ({
             </div>
           </ScrollArea>
         </div>
+      </div>
+
+      {/* Tool Launcher */}
+      <div className="p-4 border-t">
+        <EnhancedToolLauncher 
+          onToolInitiate={handleToolInitiate}
+          disabled={isLoading} 
+        />
       </div>
 
       {/* Input */}

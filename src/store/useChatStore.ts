@@ -1,27 +1,35 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
-import chatLogger from '@/hooks/useChatLogger';
 
 export interface Message {
   id: string;
   author: "user" | "agent";
-  content: string | { text: string; downloadButton?: { label: string; url: string; filename: string } };
+  content: string | { text: string; data?: any };
   timestamp: number;
-  typing?: boolean;
-  toolCall?: { name: string; params: Record<string, any> };
+  isError?: boolean;
+  toolCall?: {
+    name: string;
+    params: Record<string, any>;
+    result?: any;
+  };
   requiresData?: boolean;
   dataCollected?: boolean;
   missingParams?: string[];
-  validationErrors?: {
-    missing: Array<{ field: string; reason: string; hint: string }>;
-    invalid: Array<{ field: string; reason: string; hint: string }>;
-  };
   actionType?: string;
-  toolChain?: string[]; // Track tool switching history
-  sourceTools?: string[]; // Track which tools were used
-  currentTool?: string; // Track which tool is currently being used
-  debugInfo?: any; // Debug information for troubleshooting
+  validationErrors?: {
+    missing: string[];
+    invalid: string[];
+  };
+  toolIntroduction?: {
+    toolType: 'system' | 'workflow';
+    toolName: string;
+    requiredParameters: Array<{
+      name: string;
+      type: string;
+      description: string;
+      required: boolean;
+    }>;
+    followUpQuestions: string[];
+  };
 }
 
 interface RecoveryState {
@@ -36,487 +44,146 @@ interface FeedbackContext {
 }
 
 interface ChatState {
-  currentConvId?: string;
   messages: Message[];
   isLoading: boolean;
+  error: string | null;
+  conversationId: string | null;
   recovery: RecoveryState;
   feedbackContext: FeedbackContext;
-  currentAction?: 'read'|'validate'|'edit'|'execute'|'error';
-  currentTarget?: string;
   registrationModeActive: boolean;
-  toolChain: string[]; // Track tool usage chain
-  currentTool?: string; // Track currently active tool
-  addMessage: (message: Message) => void;
-  clearMessages: () => void;
-  send: (text: string) => Promise<{ intent: string; params: Record<string, any>; type: string; reply: string; tool_chain?: string[]; source_tool?: string; current_tool?: string; debug_info?: any } | null>;
-  load: (convId: string) => Promise<void>;
+  action?: {
+    type: string;
+    payload: any;
+  };
+  send: (text: string) => Promise<any>;
+  load: (conversationId: string) => Promise<void>;
   startNew: () => void;
-  updateLastMessage: (content: string) => void;
-  removeTyping: () => void;
+  addMessage: (message: Message) => void;
   markDataCollected: (messageId: string) => void;
   setRecovery: (recovery: RecoveryState) => void;
-  setFeedbackContext: (ctx: FeedbackContext) => void;
-  setAction: (action?: ChatState['currentAction'], target?: string) => void;
-  clearAction: () => void;
-  shouldShowBanner: () => boolean;
+  setFeedbackContext: (context: FeedbackContext) => void;
+  setAction: (action: ChatState['action']) => void;
   setRegistrationModeActive: (active: boolean) => void;
 }
 
-export const useChatStore = create<ChatState>()(
-  persist(
-    (set, get) => ({
-      messages: [],
-      isLoading: false,
-      recovery: {},
-      feedbackContext: {},
-      currentAction: undefined,
-      currentTarget: undefined,
-      registrationModeActive: false,
-      toolChain: [],
-      currentTool: undefined,
-      
-      addMessage: (message: Message) => {
-        set(state => ({ messages: [...state.messages, message] }));
-        
-        // Log message with chat logger
-        chatLogger.logMessage(
-          message.author, 
-          typeof message.content === 'string' ? message.content : message.content.text,
-          message.id
-        );
-      },
-      
-      clearMessages: () => set({ messages: [], toolChain: [], currentTool: undefined }),
-      
-      startNew: () => {
-        const state = get();
-        if (state.currentConvId) {
-          chatLogger.endSession('completed');
-        }
-        set({ currentConvId: undefined, messages: [], toolChain: [], currentTool: undefined });
-      },
-      
-      updateLastMessage: (content: string) => {
-        set(state => {
-          const messages = [...state.messages];
-          const lastMsg = messages[messages.length - 1];
-          if (lastMsg && lastMsg.author === 'agent') {
-            // Handle string content updates
-            if (typeof lastMsg.content === 'string') {
-              lastMsg.content += content;
-            } else {
-              // If it's structured content, append to the text part
-              lastMsg.content.text += content;
-            }
-          }
-          return { messages };
-        });
-      },
-      
-      removeTyping: () => {
-        set(state => ({
-          messages: state.messages.filter(m => !m.typing)
-        }));
-      },
-      
-      markDataCollected: (messageId: string) => {
-        set(state => ({
-          messages: state.messages.map(m => 
-            m.id === messageId ? { ...m, dataCollected: true } : m
-          )
-        }));
-      },
+export const useChatStore = create<ChatState>((set, get) => ({
+  messages: [],
+  isLoading: false,
+  error: null,
+  conversationId: null,
+  recovery: {},
+  feedbackContext: {},
+  registrationModeActive: false,
+  action: undefined,
+  send: async (text) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch('/api/orchestrate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: text, conversationId: get().conversationId }),
+      });
 
-      setRecovery: (recovery: RecoveryState) => {
-        set({ recovery });
-      },
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      setFeedbackContext: (feedbackContext: FeedbackContext) => {
-        set({ feedbackContext });
-      },
-      
-      setAction: (action, target) => {
-        set({ currentAction: action, currentTarget: target });
-        if (action) {
-          chatLogger.logProcess(action, 'started', `Action ${action} started on ${target || 'unknown target'}`);
-        }
-      },
-      
-      clearAction: () => {
-        const state = get();
-        if (state.currentAction) {
-          chatLogger.logProcess(state.currentAction, 'completed', `Action ${state.currentAction} completed`);
-        }
-        set({ currentAction: undefined, currentTarget: undefined });
-      },
-      
-      shouldShowBanner: () => {
-        const state = get();
-        return !state.registrationModeActive && !state.isLoading;
-      },
-      
-      setRegistrationModeActive: (active: boolean) => {
-        set({ registrationModeActive: active });
-      },
-      
-      async send(text: string) {
-        const state = get();
-        const currentMessages = state.messages;
+      const data = await response.json();
 
-        // Ensure we have a conversation id for orchestrator state tracking
-        let convId = state.currentConvId;
-        if (!convId) {
-          convId = crypto.randomUUID();
-          set({ currentConvId: convId });
-          
-          // Start new chat logger session
-          chatLogger.startSession(convId, `Chat Session - ${new Date().toLocaleString()}`);
-        }
+      set({
+        messages: [...get().messages, {
+          id: crypto.randomUUID(),
+          author: "user",
+          content: text,
+          timestamp: Date.now()
+        }, {
+          id: crypto.randomUUID(),
+          author: "agent",
+          content: data.reply,
+          timestamp: Date.now()
+        }],
+        isLoading: false,
+        conversationId: data.conversation_id
+      });
 
-        const userMsgId = crypto.randomUUID();
-        const userMessage: Message = {
-          id: userMsgId,
-          author: 'user',
+      return data;
+    } catch (e: any) {
+      set({
+        isLoading: false,
+        error: e.message,
+        messages: [...get().messages, {
+          id: crypto.randomUUID(),
+          author: "user",
           content: text,
           timestamp: Date.now(),
-          toolChain: [...state.toolChain],
-          currentTool: state.currentTool
-        };
-
-        const typingId = crypto.randomUUID();
-        const typingMessage: Message = {
-          id: typingId,
-          author: 'agent',
-          content: '',
-          timestamp: Date.now(),
-          typing: true
-        };
-
-        set({
-          messages: [...currentMessages, userMessage, typingMessage],
-          isLoading: true
-        });
-
-        // Log user message
-        chatLogger.logMessage('user', text, userMsgId);
-
-        try {
-          console.log('Getting user session for AI orchestrator call');
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-          
-          if (sessionError) {
-            console.error('Session error:', sessionError);
-            chatLogger.logError(new Error(`Session error: ${sessionError.message}`), 'Authentication');
-            throw new Error(`Session error: ${sessionError.message}`);
-          }
-          
-          if (!session) {
-            console.error('No active session found');
-            chatLogger.logError(new Error('Not authenticated - please log in'), 'Authentication');
-            throw new Error('Not authenticated - please log in');
-          }
-
-          console.log('Session found, preparing request for ai-orchestrator function');
-          
-          // Prepare request body - let Supabase client handle serialization
-          const requestBody = { 
-            message: text, 
-            conversation_id: convId 
-          };
-          
-          console.log('Request body prepared:', { 
-            hasMessage: !!requestBody.message, 
-            hasConversationId: !!requestBody.conversation_id,
-            messageLength: requestBody.message.length 
-          });
-
-          console.log('Calling ai-orchestrator function');
-          chatLogger.logEdgeFunction('ai-orchestrator', 'started', requestBody);
-          
-          const { data, error } = await supabase.functions.invoke('ai-orchestrator', {
-            body: requestBody
-          });
-
-          if (error) {
-            console.error('Function invocation error:', error);
-            console.error('Error details:', {
-              message: error.message,
-              context: error.context,
-              details: error.details
-            });
-            chatLogger.logEdgeFunction('ai-orchestrator', 'failed', requestBody, null, error);
-            throw new Error(`Function error: ${error.message}`);
-          }
-          
-          if (!data) {
-            console.error('No data returned from function');
-            chatLogger.logEdgeFunction('ai-orchestrator', 'failed', requestBody, null, 'No response data');
-            throw new Error('No response from AI service');
-          }
-
-          console.log('AI orchestrator response received:', data);
-          chatLogger.logEdgeFunction('ai-orchestrator', 'completed', requestBody, data);
-          const result = data as { 
-            intent: string; 
-            params: Record<string, any>; 
-            type: string; 
-            reply: string; 
-            tool_chain?: string[]; 
-            source_tool?: string;
-            current_tool?: string;
-            debug_info?: any;
-          };
-
-          // Update tool chain and current tool if provided
-          if (result.tool_chain) {
-            set(state => ({ toolChain: result.tool_chain || [] }));
-          }
-          if (result.current_tool) {
-            set(state => ({ currentTool: result.current_tool }));
-          }
-
-          // Handle actionable responses (call specific tools)
-          if (result.type === 'actionable' && result.intent !== 'ai-chat') {
-            console.log(`Handling ${result.intent} action, calling agent-tool-execute function`);
-            chatLogger.logProcess(result.intent, 'started', `Calling agent-tool-execute for ${result.intent}`);
-            
-            try {
-              // UPDATED: Pass conversation_id to the tool for parameter extraction
-              const toolRequestBody = {
-                toolName: result.intent,
-                params: {}, // Empty params - tool will extract from conversation
-                conversation_id: convId // Let tool extract parameters from conversation
-              };
-              
-              chatLogger.logEdgeFunction('agent-tool-execute', 'started', toolRequestBody);
-              
-              const { data: toolData, error: toolError } = await supabase.functions.invoke('agent-tool-execute', {
-                body: toolRequestBody
-              });
-
-              if (toolError) {
-                console.error('Tool execution error:', toolError);
-                chatLogger.logEdgeFunction('agent-tool-execute', 'failed', toolRequestBody, null, toolError);
-                throw new Error(`Tool error: ${toolError.message}`);
-              }
-
-              if (!toolData) {
-                chatLogger.logEdgeFunction('agent-tool-execute', 'failed', toolRequestBody, null, 'No response data');
-                throw new Error('No response from tool execution service');
-              }
-
-              console.log('Tool execution response received:', toolData);
-              chatLogger.logEdgeFunction('agent-tool-execute', 'completed', toolRequestBody, toolData);
-              chatLogger.logProcess(result.intent, 'completed', 'Tool execution completed successfully');
-              
-              get().removeTyping();
-              
-              // Handle tool responses that need more information
-              if (toolData.needsMoreInfo) {
-                const agentMessage = {
-                  id: crypto.randomUUID(),
-                  author: 'agent' as const,
-                  content: toolData.reply || 'I need more information to proceed.',
-                  timestamp: Date.now(),
-                  toolChain: result.tool_chain || [],
-                  sourceTools: result.source_tool ? [result.source_tool] : [],
-                  currentTool: toolData.tool_executed || result.intent,
-                  debugInfo: { ...result.debug_info, needsMoreInfo: true, missing: toolData.missing }
-                };
-                get().addMessage(agentMessage);
-              } else {
-                // Tool executed successfully
-                const successMessage = toolData.result?.message || 'Task completed successfully';
-                const agentMessage = {
-                  id: crypto.randomUUID(),
-                  author: 'agent' as const,
-                  content: successMessage,
-                  timestamp: Date.now(),
-                  toolChain: result.tool_chain || [],
-                  sourceTools: result.source_tool ? [result.source_tool] : [],
-                  currentTool: toolData.tool_executed || result.intent,
-                  debugInfo: { ...result.debug_info, toolResult: toolData.result }
-                };
-                get().addMessage(agentMessage);
-              }
-              
-            } catch (toolError) {
-              console.error('Error calling agent-tool-execute:', toolError);
-              chatLogger.logError(toolError instanceof Error ? toolError : new Error(String(toolError)), 'Tool Execution');
-              chatLogger.logProcess(result.intent, 'failed', 'Failed to execute tool');
-              
-              get().removeTyping();
-              get().addMessage({
-                id: crypto.randomUUID(),
-                author: 'agent',
-                content: 'Sorry, I encountered an error executing that request. Please try again.',
-                timestamp: Date.now(),
-                currentTool: 'error',
-                debugInfo: { error: 'tool_execution_failed' }
-              });
-            }
-            
-          } else if (result.type === 'actionable' && result.intent === 'ai-chat') {
-            // Handle actionable ai-chat by calling ai-chat function
-            console.log('Handling ai-chat action, calling ai-chat function');
-            chatLogger.logProcess('ai-chat', 'started', 'Calling ai-chat function for general conversation');
-            
-            try {
-              const chatRequestBody = {
-                message: text,
-                conversation_id: convId,
-                source_tool: result.source_tool || null,
-                tool_chain: result.tool_chain || []
-              };
-              
-              chatLogger.logEdgeFunction('ai-chat', 'started', chatRequestBody);
-              
-              const { data: chatData, error: chatError } = await supabase.functions.invoke('ai-chat', {
-                body: chatRequestBody
-              });
-
-              if (chatError) {
-                console.error('AI Chat function error:', chatError);
-                chatLogger.logEdgeFunction('ai-chat', 'failed', chatRequestBody, null, chatError);
-                throw new Error(`Chat error: ${chatError.message}`);
-              }
-
-              if (!chatData) {
-                chatLogger.logEdgeFunction('ai-chat', 'failed', chatRequestBody, null, 'No response data');
-                throw new Error('No response from chat service');
-              }
-
-              console.log('AI chat response received:', chatData);
-              chatLogger.logEdgeFunction('ai-chat', 'completed', chatRequestBody, chatData);
-              chatLogger.logProcess('ai-chat', 'completed', 'General chat response received successfully');
-              
-              get().removeTyping();
-              const agentMessage = {
-                id: crypto.randomUUID(),
-                author: 'agent' as const,
-                content: chatData.assistant || 'No response received',
-                timestamp: Date.now(),
-                toolChain: result.tool_chain || [],
-                sourceTools: result.source_tool ? [result.source_tool] : [],
-                currentTool: chatData.current_tool || 'ai-chat',
-                debugInfo: chatData.debug_info
-              };
-              get().addMessage(agentMessage);
-              
-              // Check for tool switch suggestions in chat response
-              if (chatData.tool_switch) {
-                console.log('AI Chat suggested tool switch:', chatData.tool_switch);
-                // The orchestrator will handle the tool switch in the next interaction
-              }
-              
-            } catch (chatError) {
-              console.error('Error calling ai-chat:', chatError);
-              chatLogger.logError(chatError instanceof Error ? chatError : new Error(String(chatError)), 'AI Chat Function');
-              chatLogger.logProcess('ai-chat', 'failed', 'Failed to get chat response');
-              
-              get().removeTyping();
-              get().addMessage({
-                id: crypto.randomUUID(),
-                author: 'agent',
-                content: 'Sorry, I encountered an error processing your request. Please try again.',
-                timestamp: Date.now(),
-                currentTool: 'error',
-                debugInfo: { error: 'chat_function_failed' }
-              });
-            }
-          } else {
-            // Handle normal orchestrator responses
-            get().removeTyping();
-            const agentMessage = {
-              id: crypto.randomUUID(),
-              author: 'agent' as const,
-              content: result.reply,
-              timestamp: Date.now(),
-              toolChain: result.tool_chain || [],
-              sourceTools: result.source_tool ? [result.source_tool] : [],
-              currentTool: result.current_tool || 'ai-orchestrator',
-              debugInfo: result.debug_info
-            };
-            get().addMessage(agentMessage);
-          }
-          
-          set({ isLoading: false });
-          return result;
-        } catch (error) {
-          console.error('Chat error:', error);
-          chatLogger.logError(error instanceof Error ? error : new Error(String(error)), 'Chat Send Function');
-          
-          get().removeTyping();
-          
-          let errorMessage = 'Sorry, I encountered an error. Please try again.';
-          if (error instanceof Error) {
-            if (error.message.includes('Not authenticated')) {
-              errorMessage = 'Please log in to continue the conversation.';
-            } else if (error.message.includes('DeepSeek API key')) {
-              errorMessage = 'AI service configuration error. Please check your settings.';
-            } else if (error.message.includes('Function error')) {
-              errorMessage = `Service error: ${error.message}`;
-            } else if (error.message.includes('JSON')) {
-              errorMessage = 'Request formatting error. Please try again.';
-            }
-          }
-          
-          get().addMessage({
-            id: crypto.randomUUID(),
-            author: 'agent',
-            content: errorMessage,
-            timestamp: Date.now(),
-            currentTool: 'error',
-            debugInfo: { error: 'send_function_failed', errorMessage: error instanceof Error ? error.message : String(error) }
-          });
-          set({ isLoading: false });
-          throw error;
-        }
-      },
-
-      async load(convId: string) {
-        set({ isLoading: true });
-        chatLogger.logProcess('load_conversation', 'started', `Loading conversation: ${convId}`);
-        
-        try {
-          const { data, error } = await supabase
-            .from('ai_messages')
-            .select('*')
-            .eq('conversation_id', convId)
-            .order('created_at');
-
-          if (error) {
-            chatLogger.logError(error, 'Load Conversation');
-            throw error;
-          }
-
-          const messages = data.map(m => ({
-            id: m.id,
-            author: m.role === 'user' ? 'user' as const : 'agent' as const,
-            content: m.content,
-            timestamp: new Date(m.created_at).getTime()
-          }));
-
-          set({ 
-            currentConvId: convId, 
-            messages,
-            isLoading: false 
-          });
-          
-          chatLogger.logProcess('load_conversation', 'completed', `Loaded ${messages.length} messages`);
-          chatLogger.startSession(convId, `Loaded Session - ${new Date().toLocaleString()}`);
-        } catch (error) {
-          console.error('Failed to load messages:', error);
-          chatLogger.logError(error instanceof Error ? error : new Error(String(error)), 'Load Conversation');
-          chatLogger.logProcess('load_conversation', 'failed', 'Failed to load conversation messages');
-          set({ isLoading: false });
-          throw error;
-        }
-      }
-    }),
-    { 
-      name: "taxops-chat-storage",
-      partialize: (state) => ({ messages: state.messages, toolChain: state.toolChain, currentTool: state.currentTool })
+          isError: true
+        }]
+      });
     }
-  )
-);
+  },
+  load: async (conversationId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(`/api/chat?conversationId=${conversationId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.messages) {
+        set({
+          messages: data.messages.map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp).getTime()
+          })),
+          isLoading: false,
+          conversationId: conversationId
+        });
+      } else {
+        set({
+          messages: [],
+          isLoading: false,
+          conversationId: conversationId
+        });
+      }
+
+
+    } catch (e: any) {
+      set({ isLoading: false, error: e.message });
+    }
+  },
+  startNew: () => {
+    set({ messages: [], conversationId: null, recovery: {} });
+  },
+  addMessage: (message) => {
+    set({ messages: [...get().messages, message] });
+  },
+  markDataCollected: (messageId) => {
+    set(state => ({
+      messages: state.messages.map(message =>
+        message.id === messageId ? { ...message, dataCollected: true } : message
+      )
+    }));
+  },
+  setRecovery: (recovery) => {
+    set({ recovery });
+  },
+  setFeedbackContext: (context) => {
+    set({ feedbackContext: context });
+  },
+  setAction: (action) => {
+    set({ action });
+  },
+  setRegistrationModeActive: (active) => {
+    set({ registrationModeActive: active });
+  }
+}));

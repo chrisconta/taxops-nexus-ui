@@ -21,6 +21,11 @@ import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import { withAction } from "@/lib/actionWrapper";
 import { ActionBanner } from "@/components/agent/ActionBanner";
 import { useChatLogger } from "@/hooks/useChatLogger";
+import { EnhancedToolLauncher } from "@/components/agent/EnhancedToolLauncher";
+import { getSystemToolConversation, getWorkflowToolConversation } from "@/utils/toolConversationStarters";
+import type { SystemTool } from "@/hooks/useSystemTools";
+import type { WorkflowState } from "@/hooks/useWorkflowBuilder";
+
 const TypingAnimation = () => {
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
   const [currentText, setCurrentText] = useState("");
@@ -56,11 +61,13 @@ const TypingAnimation = () => {
       {currentText}<span className="animate-pulse">|</span>
     </h1>;
 };
+
 interface ChatWindowProps {
   onSend?: (text: string) => void;
   onToolInvoke?: (toolName: string, params: Record<string, any>) => void;
   isLoading?: boolean;
 }
+
 export const ChatWindow: React.FC<ChatWindowProps> = ({
   onSend: externalOnSend,
   onToolInvoke: externalOnToolInvoke,
@@ -214,6 +221,51 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       logNotification('error', 'Error', 'Failed to start new chat');
     }
   }, [startNew, toast, logProcess, logError, endSession, startSession]);
+
+  const handleToolInitiate = (toolType: 'system' | 'workflow', toolData: SystemTool | (WorkflowState & { id: string })) => {
+    let conversationStarter;
+    let toolName;
+
+    if (toolType === 'system') {
+      const systemTool = toolData as SystemTool;
+      conversationStarter = getSystemToolConversation(systemTool);
+      toolName = systemTool.name;
+    } else {
+      const workflowTool = toolData as WorkflowState & { id: string };
+      conversationStarter = getWorkflowToolConversation(workflowTool);
+      toolName = workflowTool.name;
+    }
+
+    // Add the tool introduction message
+    addMessage({
+      id: crypto.randomUUID(),
+      author: "agent",
+      content: conversationStarter.initialMessage,
+      timestamp: Date.now(),
+      toolIntroduction: {
+        toolType,
+        toolName,
+        requiredParameters: conversationStarter.requiredParameters,
+        followUpQuestions: conversationStarter.followUpQuestions
+      }
+    });
+
+    // Start asking for the first parameter if any are required
+    if (conversationStarter.requiredParameters.length > 0) {
+      const firstParam = conversationStarter.requiredParameters[0];
+      setTimeout(() => {
+        addMessage({
+          id: crypto.randomUUID(),
+          author: "agent",
+          content: conversationStarter.followUpQuestions[0] || `Please provide the ${firstParam.name} (${firstParam.description})`,
+          timestamp: Date.now()
+        });
+      }, 500);
+    }
+
+    logProcess('Tool Initiation', 'started', `User initiated ${toolType} tool: ${toolName}`);
+  };
+
   const handleSend = async (text: string) => {
     logProcess('Message Send', 'started', `User sending message: ${text.substring(0, 50)}...`);
     
@@ -343,10 +395,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       });
     }
   };
+
   const handleExecutePlan = async (plan: Plan) => {
     setCurrentPlan(plan);
     await executePlan(plan);
   };
+
   const handleToolInvoke = (toolName: string, params: Record<string, any>) => {
     // Use external handler if provided, otherwise use internal logic
     if (externalOnToolInvoke) {
@@ -417,6 +471,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       });
     }, toolName, params);
   };
+
   return <div className="h-full w-full flex flex-col overflow-hidden max-w-full">
       {/* Header with New Chat Button - Fixed at top, properly positioned */}
       {messages.length > 0}
@@ -426,9 +481,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         {messages.length === 0 ? <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px] w-full max-w-full overflow-hidden">
             <div className="text-center max-w-2xl w-full overflow-hidden">
               <TypingAnimation />
-              {/* Tool Launcher & Input centered below animation - only show when standalone */}
+              {/* Enhanced Tool Launcher & Input centered below animation - only show when standalone */}
               {!externalOnSend && <div className="mt-12 max-w-4xl w-full overflow-hidden">
-                  <ToolLauncher onInvoke={handleToolInvoke} availableTools={["register_client", "create_connection", "build_dashboard"]} disabled={isLoading} />
+                  <EnhancedToolLauncher 
+                    onToolInitiate={handleToolInitiate}
+                    disabled={isLoading} 
+                  />
                   
                   <MessageInput 
                     onSend={handleSend} 
@@ -439,7 +497,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   />
                   
                   <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
-                    <span>Use tools above or type naturally</span>
+                    <span>Select a tool above or type naturally</span>
                   </div>
                   
                   <div className="text-xs text-taxops-gray-light/60 mt-2 text-center">
@@ -519,7 +577,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       {/* Input section for standalone mode when there are messages */}
       {messages.length > 0 && !externalOnSend && <div className="flex-shrink-0 border-t border-glass-border bg-glass-bg/30 w-full max-w-full overflow-hidden">
           <div className="p-4 space-y-4 w-full max-w-full overflow-hidden">
-            <ToolLauncher onInvoke={handleToolInvoke} availableTools={["register_client", "create_connection", "build_dashboard"]} disabled={isLoading} />
+            <EnhancedToolLauncher 
+              onToolInitiate={handleToolInitiate}
+              disabled={isLoading} 
+            />
             
             <MessageInput 
               onSend={handleSend} 
@@ -530,7 +591,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             />
             
             <div className="flex justify-between text-xs text-taxops-gray-light">
-              <span>Use tools above or type naturally</span>
+              <span>Select a tool above or type naturally</span>
             </div>
             
             <div className="text-xs text-taxops-gray-light/60 text-center">
