@@ -21,12 +21,15 @@ const AISettings = () => {
   const [apiLogs, setApiLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
+  const [chatHistory, setChatHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const { toast } = useToast();
   const { sessions, clearSessions } = useChatLogger();
 
   useEffect(() => {
     checkExistingKey();
     loadApiLogs();
+    loadChatHistory();
   }, []);
 
   const checkExistingKey = async () => {
@@ -192,6 +195,40 @@ const AISettings = () => {
     });
   };
 
+  const loadChatHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('ai_conversations')
+        .select(`
+          id,
+          title,
+          created_at,
+          updated_at,
+          ai_messages(id, role, content, created_at)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      setChatHistory(data || []);
+    } catch (error) {
+      console.error('Failed to load chat history:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load chat history",
+        variant: "destructive",
+      });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const getLogTypeIcon = (type: string) => {
     switch (type) {
       case 'message': return <MessageSquare className="w-4 h-4" />;
@@ -262,7 +299,7 @@ const AISettings = () => {
         </div>
 
         <Tabs defaultValue="api-keys" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 bg-glass-bg/50 border border-glass-border">
+          <TabsList className="grid w-full grid-cols-5 bg-glass-bg/50 border border-glass-border">
             <TabsTrigger value="api-keys" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
               <Key className="w-4 h-4 mr-2" />
               API Keys
@@ -274,6 +311,10 @@ const AISettings = () => {
             <TabsTrigger value="chat-logs" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
               <MessageSquare className="w-4 h-4 mr-2" />
               Chat Logs
+            </TabsTrigger>
+            <TabsTrigger value="chat-history" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+              <User className="w-4 h-4 mr-2" />
+              Chat History
             </TabsTrigger>
             <TabsTrigger value="report-rules" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
               <FileText className="w-4 h-4 mr-2" />
@@ -593,6 +634,126 @@ const AISettings = () => {
                                       </div>
                                     </div>
                                   ))}
+                                </div>
+                              </ScrollArea>
+                            </CardContent>
+                          </Card>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="chat-history" className="mt-6">
+            <Card className="bg-glass-bg/30 border-glass-border">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white flex items-center gap-2">
+                      <User className="w-5 h-5" />
+                      Chat History
+                    </CardTitle>
+                    <CardDescription className="text-taxops-gray-light">
+                      Your conversation history and messages
+                    </CardDescription>
+                  </div>
+                  <Button
+                    onClick={loadChatHistory}
+                    variant="outline"
+                    className="bg-glass-bg/20 border-glass-border text-white hover:bg-glass-bg/30"
+                    disabled={historyLoading}
+                  >
+                    <Activity className="w-4 h-4 mr-2" />
+                    {historyLoading ? "Loading..." : "Refresh"}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {historyLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-taxops-gray-light">Loading chat history...</div>
+                  </div>
+                ) : chatHistory.length === 0 ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-taxops-gray-light">No conversations found</div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {chatHistory.map((conversation) => (
+                      <Collapsible key={conversation.id}>
+                        <CollapsibleTrigger className="w-full">
+                          <Card className="bg-glass-bg/20 border-glass-border hover:bg-glass-bg/30 transition-colors">
+                            <CardHeader className="pb-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <MessageSquare className="w-4 h-4 text-taxops-gray-light" />
+                                    <span className="text-white font-medium">{conversation.title}</span>
+                                  </div>
+                                  <Badge variant="secondary" className="bg-primary/20 text-primary">
+                                    {conversation.ai_messages?.length || 0} messages
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-4 text-sm text-taxops-gray-light">
+                                  <span>Created: {new Date(conversation.created_at).toLocaleDateString()}</span>
+                                  <span>Updated: {new Date(conversation.updated_at).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+                            </CardHeader>
+                          </Card>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <Card className="bg-glass-bg/10 border-glass-border/50 mt-2">
+                            <CardContent className="p-4">
+                              <ScrollArea className="h-96">
+                                <div className="space-y-3">
+                                  {conversation.ai_messages?.length > 0 ? (
+                                    conversation.ai_messages
+                                      .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                                      .map((message: any) => (
+                                        <div key={message.id} className="flex items-start gap-3 p-3 bg-glass-bg/20 rounded border border-glass-border/30">
+                                          <div className="flex items-center gap-2 min-w-0">
+                                            <div className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${
+                                              message.role === 'user' ? 'bg-blue-500/20 text-blue-300' : 
+                                              message.role === 'assistant' ? 'bg-green-500/20 text-green-300' : 
+                                              'bg-gray-500/20 text-gray-300'
+                                            }`}>
+                                              {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                                              <span className="uppercase font-medium">{message.role}</span>
+                                            </div>
+                                            <span className="text-xs text-taxops-gray-light">
+                                              {new Date(message.created_at).toLocaleString()}
+                                            </span>
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <div className="text-sm text-white break-words whitespace-pre-wrap">
+                                              {message.content.length > 200 ? (
+                                                <Collapsible>
+                                                  <div>{message.content.substring(0, 200)}...</div>
+                                                  <CollapsibleTrigger className="text-xs text-primary hover:text-primary/80 mt-1">
+                                                    Show more
+                                                  </CollapsibleTrigger>
+                                                  <CollapsibleContent>
+                                                    <div className="mt-2 text-sm text-white break-words whitespace-pre-wrap">
+                                                      {message.content}
+                                                    </div>
+                                                  </CollapsibleContent>
+                                                </Collapsible>
+                                              ) : (
+                                                message.content
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))
+                                  ) : (
+                                    <div className="text-center text-taxops-gray-light py-8">
+                                      No messages in this conversation
+                                    </div>
+                                  )}
                                 </div>
                               </ScrollArea>
                             </CardContent>
