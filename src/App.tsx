@@ -13,6 +13,7 @@ import Connections from "./pages/Connections";
 import ConnectionSetup from "./pages/ConnectionSetup";
 import Reports from "./pages/Reports";
 import ReportsBuilder from "./pages/ReportsBuilder";
+import ToolBuilder from "./pages/ToolBuilder";
 import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
 import ProfileSettings from "./pages/ProfileSettings";
@@ -45,6 +46,7 @@ const App = () => {
               <Route path="connections/:connectionId/setup" element={<ConnectionSetup />} />
               <Route path="reports" element={<Reports />} />
               <Route path="reports-builder" element={<ReportsBuilder />} />
+              <Route path="tool-builder" element={<ToolBuilder />} />
               <Route path="analytics" element={<Analytics />} />
               <Route path="profile-settings" element={<ProfileSettings />} />
               <Route path="settings/ai" element={<AISettings />} />

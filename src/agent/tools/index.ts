@@ -74,6 +74,15 @@ export const toolRegistry = {
   register_client: registerClientSchema,
   create_connection: createConnectionSchema,
   build_dashboard: buildDashboardSchema,
+  build_workflow: {
+    type: "object",
+    properties: {
+      name: { type: "string", minLength: 1 },
+      description: { type: "string" }
+    },
+    required: ["name"],
+    additionalProperties: false
+  }
 } as const;
 
 export type ToolName = keyof typeof toolRegistry;

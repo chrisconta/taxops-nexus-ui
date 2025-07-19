@@ -564,6 +564,84 @@ export type Database = {
         }
         Relationships: []
       }
+      system_modules: {
+        Row: {
+          capabilities: Json
+          category: string
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          input_schema: Json | null
+          name: string
+          output_schema: Json | null
+          updated_at: string
+        }
+        Insert: {
+          capabilities?: Json
+          category: string
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          input_schema?: Json | null
+          name: string
+          output_schema?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          capabilities?: Json
+          category?: string
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          input_schema?: Json | null
+          name?: string
+          output_schema?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tool_workflows: {
+        Row: {
+          connections: Json
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          name: string
+          nodes: Json
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connections?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          nodes?: Json
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connections?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          nodes?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           amount_cents: number
@@ -691,6 +769,88 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      workflow_executions: {
+        Row: {
+          completed_at: string | null
+          error_message: string | null
+          execution_log: Json
+          id: string
+          started_at: string
+          status: string
+          user_id: string
+          workflow_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error_message?: string | null
+          execution_log?: Json
+          id?: string
+          started_at?: string
+          status?: string
+          user_id: string
+          workflow_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          error_message?: string | null
+          execution_log?: Json
+          id?: string
+          started_at?: string
+          status?: string
+          user_id?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_executions_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "tool_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_logs: {
+        Row: {
+          details: Json | null
+          execution_id: string
+          id: string
+          log_level: string
+          message: string
+          source: string
+          step_index: number
+          timestamp: string
+        }
+        Insert: {
+          details?: Json | null
+          execution_id: string
+          id?: string
+          log_level: string
+          message: string
+          source: string
+          step_index: number
+          timestamp?: string
+        }
+        Update: {
+          details?: Json | null
+          execution_id?: string
+          id?: string
+          log_level?: string
+          message?: string
+          source?: string
+          step_index?: number
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_logs_execution_id_fkey"
+            columns: ["execution_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_executions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
