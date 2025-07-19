@@ -46,25 +46,25 @@ const toolConfirmationMessages = {
   'ai-chat': "I'm here to help with general questions and conversations. What would you like to discuss?"
 };
 
-// Simplified and more reliable AI confirmation function
-async function checkConfirmationWithAI(
+// Simplified confirmation check with focused YES/NO prompt
+async function checkConfirmationWithDeepSeek(
   apiKey: string, 
   conversationHistory: Array<{ role: string; content: string }>, 
   toolName: string,
   latestMessage: string
 ): Promise<{ isConfirmed: boolean; reply: string }> {
-  console.log(`Checking confirmation with AI for tool: ${toolName}, message: "${latestMessage}"`);
+  console.log(`Checking confirmation for tool: ${toolName}, message: "${latestMessage}"`);
   
-  // Enhanced fallback detection first - catch obvious confirmations before AI call
+  // Enhanced fallback detection first
   const strongConfirmationWords = ['yes', 'yeah', 'yep', 'sure', 'okay', 'ok', 'proceed', 'go ahead', 'do it', 'confirm'];
   const messageWords = latestMessage.toLowerCase().split(/\s+/);
   const hasStrongConfirmation = strongConfirmationWords.some(word => messageWords.includes(word));
   
-  // If user says "yes" and mentions the tool or related concepts, it's a strong confirmation
+  // Tool-specific context keywords
   const toolKeywords = {
     'register_client': ['client', 'register', 'business', 'company'],
     'create_connection': ['connection', 'connect', 'link', 'service'],
-    'build_dashboard': ['dashboard', 'report', 'chart', 'analytics', 'visualization'],
+    'build_dashboard': ['dashboard', 'report', 'chart', 'analytics', 'visualization', 'build'],
     'ai-chat': ['chat', 'talk', 'discuss', 'question']
   };
   
@@ -73,8 +73,8 @@ async function checkConfirmationWithAI(
     latestMessage.toLowerCase().includes(keyword)
   );
   
-  // Strong confirmation if user says yes and either mentions tool context or asks follow-up questions
-  if (hasStrongConfirmation && (hasRelevantContext || latestMessage.includes('?') || latestMessage.includes('need') || latestMessage.includes('give'))) {
+  // Strong confirmation if user says yes and mentions tool context
+  if (hasStrongConfirmation && hasRelevantContext) {
     console.log('Strong confirmation detected via fallback logic');
     return { 
       isConfirmed: true, 
@@ -82,26 +82,21 @@ async function checkConfirmationWithAI(
     };
   }
   
-  // Simplified AI confirmation prompt
-  const instruction = `You are checking if a user wants to proceed with a specific action.
+  // Focused YES/NO confirmation prompt
+  const confirmationInstruction = `Is this message indicating the user wants to proceed with ${toolName}?
 
-Tool: ${toolName}
-User's latest message: "${latestMessage}"
+User's message: "${latestMessage}"
 
-Look at the conversation and determine if the user clearly wants to proceed.
+Previous conversation context:
+${conversationHistory.slice(-3).map(m => `${m.role}: ${m.content}`).join('\n')}
 
-User confirmations include:
-- Direct: "yes", "okay", "sure", "go ahead", "proceed"  
-- Questions about next steps: "what do you need?", "how do we start?"
-- Providing relevant details or asking follow-up questions
-
-IMPORTANT: If the user says "yes" or asks "what do you need?" or similar follow-up questions, they ARE confirming.
+The user has already been asked about ${toolName}. Are they confirming they want to proceed?
 
 Respond with ONLY:
-- "CONFIRMED" if they want to proceed
-- "NOT_CONFIRMED" if they don't or if unclear
+- "YES" if they want to proceed with ${toolName}
+- "NO" if they don't want to proceed or are unclear
 
-Then add a brief helpful response.`;
+Do not provide explanations, just YES or NO.`;
 
   try {
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -113,9 +108,9 @@ Then add a brief helpful response.`;
       body: JSON.stringify({
         model: 'deepseek-chat',
         temperature: 0,
-        max_tokens: 128, // Reduced for more focused responses
+        max_tokens: 10, // Very short response needed
         messages: [
-          { role: 'system', content: instruction },
+          { role: 'system', content: confirmationInstruction },
           { role: 'user', content: latestMessage }
         ]
       })
@@ -126,13 +121,14 @@ Then add a brief helpful response.`;
     }
 
     const data = await response.json();
-    const aiResponse = data.choices[0].message.content.trim();
+    const aiResponse = data.choices[0].message.content.trim().toUpperCase();
     
     console.log('AI confirmation response:', aiResponse);
     
-    const isConfirmed = aiResponse.toLowerCase().startsWith('confirmed');
-    const reply = aiResponse.replace(/^(CONFIRMED|NOT_CONFIRMED)\s*/i, '').trim() || 
-                  (isConfirmed ? 'Great! Let me help you with that.' : 'Could you please confirm if you want to proceed?');
+    const isConfirmed = aiResponse.startsWith('YES');
+    const reply = isConfirmed 
+      ? `Perfect! I'll help you with ${toolName.replace('_', ' ')}. Let me get started.`
+      : toolConfirmationMessages[toolName as keyof typeof toolConfirmationMessages] || 'Could you please confirm if you want to proceed?';
     
     console.log(`AI confirmation result: ${isConfirmed ? 'CONFIRMED' : 'NOT_CONFIRMED'}`);
     return { isConfirmed, reply };
@@ -165,7 +161,7 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
     'ai-chat': toolConfirmationMessages['ai-chat']
   };
   
-  // Check if response is just a tool name (common DeepSeek response)
+  // Check if response is just a tool name
   const exactToolMatches = {
     'register_client': /^register[_\s]?client$/i,
     'create_connection': /^create[_\s]?connection$/i,
@@ -184,7 +180,7 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
     }
   }
   
-  // Look for tool keywords in the response with better message extraction
+  // Look for tool keywords in the response
   const toolPatterns = {
     'register_client': /(?:register[_\s]client|client[_\s]registration|register.*client)/i,
     'create_connection': /(?:create[_\s]connection|connection|connect|linking)/i,
@@ -580,15 +576,102 @@ serve(async (req) => {
     let apiLogs: any = {};
     let currentTool = 'ai-orchestrator'; // Track which function is handling this
 
-    // Check if user is providing information for current tool context
-    if (state.tool && !state.confirmed) {
-      // Increment confirmation attempts
+    // CRITICAL FIX: Different logic paths based on conversation state
+    if (!state.tool) {
+      // PATH 1: No tool selected - use tool selection instructions
+      console.log('No tool selected, determining intent with tool selection instructions');
+      
+      const toolSelectionInstruction =
+        'You are helping an AI orchestrator decide which tool to use based on the user\'s conversation. ' +
+        'Look at the ENTIRE conversation history to understand context and extract information. ' +
+        'Available tools:\n' +
+        '- register_client: Register a new client (needs name, email, ein)\n' +
+        '- create_connection: Create a connection for a client (needs clientId, connectionType, credentials)\n' +
+        '- build_dashboard: Build a dashboard for a client (needs clientId, metrics, timeframe)\n' +
+        '- ai-chat: Handle general conversations and questions that don\'t fit other tools\n' +
+        'CRITICAL RULES:\n' +
+        '1. If user wants to "create a new client", "register a client", or provides client details (name, email, EIN), use "register_client"\n' +
+        '2. If user mentions connecting to external services, use "create_connection"\n' +
+        '3. If user wants to build reports or dashboards, use "build_dashboard"\n' +
+        '4. For general questions or unclear intent, use "ai-chat"\n' +
+        'RESPONSE FORMAT: Respond with ONLY the tool name (e.g., "register_client", "ai-chat") OR provide a user-friendly message if clarification is needed. ' +
+        'DO NOT include both tool name and message together. The tool name will be processed separately from the user message.';
+
+      try {
+        const apiKey = await decryptDeepSeekKey(supabase, userId);
+        console.log('Successfully retrieved DeepSeek API key for tool selection');
+        
+        const requestStart = Date.now();
+        
+        const fullMessages = [
+          { role: 'system', content: toolSelectionInstruction },
+          ...state.messages
+        ];
+        
+        const dsResponse = await askDeepSeek(apiKey, fullMessages);
+        
+        const requestEnd = Date.now();
+        apiLogs = {
+          request: {
+            timestamp: new Date(requestStart).toISOString(),
+            model: 'deepseek-chat',
+            operation: 'tool_selection',
+            messages: fullMessages,
+            temperature: 0,  
+            max_tokens: 256
+          },
+          response: {
+            timestamp: new Date(requestEnd).toISOString(),
+            content: dsResponse,
+            execution_time_ms: requestEnd - requestStart
+          }
+        };
+
+        const extracted = extractToolFromResponse(dsResponse);
+        if (extracted.tool) {
+          state.tool = extracted.tool;
+          intent = state.tool;
+          reply = extracted.reply || '';
+          state.confirmed = false;
+          state.confirmationAttempts = 0; // Reset confirmation attempts for new tool
+          
+          // Track tool chain
+          if (!state.toolChain) state.toolChain = [];
+          if (state.tool && !state.toolChain.includes(state.tool)) {
+            state.toolChain.push(state.tool);
+          }
+          
+          conversationStates.set(conversation_id, state);
+          console.log('Tool selected:', intent, '| Tool chain:', state.toolChain);
+        } else {
+          // Default to ai-chat if no tool was identified
+          state.tool = 'ai-chat';
+          intent = 'ai-chat';
+          reply = dsResponse;
+          conversationStates.set(conversation_id, state);
+          console.log('No specific tool identified, defaulting to ai-chat');
+        }
+      } catch (deepseekError) {
+        console.error('DeepSeek tool selection failed:', deepseekError);
+        apiLogs = {
+          error: {
+            timestamp: new Date().toISOString(),
+            message: deepseekError.message,
+            type: 'deepseek_tool_selection_error'
+          }
+        };
+        throw deepseekError;
+      }
+    } else if (!state.confirmed) {
+      // PATH 2: Tool selected but not confirmed - use confirmation-focused instructions
+      console.log('Tool selected but not confirmed, using confirmation-focused instructions');
+      
+      // Increment confirmation attempts properly
       if (!state.confirmationAttempts) state.confirmationAttempts = 0;
       state.confirmationAttempts++;
+      console.log(`Confirmation attempt ${state.confirmationAttempts} for tool: ${state.tool}`);
       
-      console.log(`Tool selected but not confirmed: ${state.tool}, confirmation attempt: ${state.confirmationAttempts}`);
-      
-      // Safety mechanism: force confirmation after multiple clear attempts
+      // Safety mechanism: force confirmation after multiple attempts
       if (state.confirmationAttempts >= MAX_CONFIRMATION_ATTEMPTS) {
         const hasYesWord = /\b(yes|yeah|yep|sure|okay|ok)\b/i.test(message);
         if (hasYesWord) {
@@ -599,7 +682,6 @@ serve(async (req) => {
           reply = 'I understand you want to proceed. Let me help you with that.';
           conversationStates.delete(conversation_id);
           
-          // Save assistant message and return early
           await saveMessage(supabase, conversation_id, 'assistant', reply, {
             forced_confirmation: true,
             confirmation_attempts: state.confirmationAttempts
@@ -632,136 +714,14 @@ serve(async (req) => {
         }
       }
       
-      // User already has a tool selected, check if they're providing information or want to switch
-      console.log('Tool already selected but not confirmed:', state.tool, '- checking if user is providing information');
-      
-      // Simple heuristic: if the current message doesn't contain tool switching keywords, 
-      // treat it as information for the current tool
-      const toolSwitchingKeywords = ['register', 'create', 'build', 'dashboard', 'connection', 'help me', 'i want to', 'let me'];
-      const messageContainsToolSwitch = toolSwitchingKeywords.some(keyword => 
-        message.toLowerCase().includes(keyword) && !message.toLowerCase().includes('name') && !message.toLowerCase().includes('email')
-      );
-      
-      if (!messageContainsToolSwitch) {
-        // User is likely providing information for current tool, proceed to confirmation check
-        console.log('User appears to be providing information for current tool:', state.tool);
-      } else {
-        // User might want to switch tools, clear current selection
-        console.log('User appears to want to switch tools, clearing current selection');
-        state.tool = undefined;
-        state.confirmed = false;
-        state.confirmationAttempts = 0;
-      }
-    }
-
-    if (!state.tool) {
-      console.log('No tool selected, determining intent with full conversation history');
-      
-      // Enhanced instruction with conversation context awareness - SIMPLIFIED PROMPT
-      const toolContext = source_tool ? ` (Note: This request came from the ${source_tool} tool, so the user may be switching context)` : '';
-      const instruction =
-        'You are helping an AI orchestrator decide which tool to use based on the user\'s conversation. ' +
-        'Look at the ENTIRE conversation history to understand context and extract information. ' +
-        'Available tools:\n' +
-        '- register_client: Register a new client (needs name, email, ein)\n' +
-        '- create_connection: Create a connection for a client (needs clientId, connectionType, credentials)\n' +
-        '- build_dashboard: Build a dashboard for a client (needs clientId, metrics, timeframe)\n' +
-        '- ai-chat: Handle general conversations and questions that don\'t fit other tools\n' +
-        toolContext +
-        'CRITICAL RULES:\n' +
-        '1. If user wants to "create a new client", "register a client", or provides client details (name, email, EIN), use "register_client"\n' +
-        '2. If user mentions connecting to external services, use "create_connection"\n' +
-        '3. If user wants to build reports or dashboards, use "build_dashboard"\n' +
-        '4. For general questions or unclear intent, use "ai-chat"\n' +
-        'RESPONSE FORMAT: Respond with ONLY the tool name (e.g., "register_client", "ai-chat") OR provide a user-friendly message if clarification is needed. ' +
-        'DO NOT include both tool name and message together. The tool name will be processed separately from the user message.';
-
       try {
-        // Get DeepSeek API key for tool selection with authenticated client
-        console.log('Fetching DeepSeek API key with authenticated client');
         const apiKey = await decryptDeepSeekKey(supabase, userId);
-        console.log('Successfully retrieved DeepSeek API key');
+        console.log('Successfully retrieved DeepSeek API key for confirmation');
         
         const requestStart = Date.now();
         
-        // Include full conversation history in the API call
-        const fullMessages = [
-          { role: 'system', content: instruction },
-          ...state.messages
-        ];
-        
-        const requestBody = {
-          model: 'deepseek-chat',
-          temperature: 0,
-          max_tokens: 256,
-          messages: fullMessages
-        };
-        
-        const dsResponse = await askDeepSeek(apiKey, fullMessages);
-        
-        const requestEnd = Date.now();
-        apiLogs = {
-          request: {
-            timestamp: new Date(requestStart).toISOString(),
-            model: 'deepseek-chat',
-            messages: requestBody.messages,
-            temperature: 0,  
-            max_tokens: 256
-          },
-          response: {
-            timestamp: new Date(requestEnd).toISOString(),
-            content: dsResponse,
-            execution_time_ms: requestEnd - requestStart
-          }
-        };
-
-        // Use the existing tool extraction
-        const extracted = extractToolFromResponse(dsResponse);
-        if (extracted.tool) {
-          state.tool = extracted.tool;
-          intent = state.tool;
-          reply = extracted.reply || '';
-          state.confirmed = false;
-          state.confirmationAttempts = 0; // Reset confirmation attempts for new tool
-          
-          // Track tool chain
-          if (!state.toolChain) state.toolChain = [];
-          if (state.tool && !state.toolChain.includes(state.tool)) {
-            state.toolChain.push(state.tool);
-          }
-          
-          conversationStates.set(conversation_id, state);
-          console.log('Tool selected:', intent, '| Tool chain:', state.toolChain);
-        } else {
-          // Default to ai-chat if no tool was identified
-          state.tool = 'ai-chat';
-          intent = 'ai-chat';
-          reply = dsResponse;
-          conversationStates.set(conversation_id, state);
-          console.log('No specific tool identified, defaulting to ai-chat');
-        }
-      } catch (deepseekError) {
-        console.error('DeepSeek API call failed:', deepseekError);
-        apiLogs = {
-          error: {
-            timestamp: new Date().toISOString(),
-            message: deepseekError.message,
-            type: 'deepseek_api_error'
-          }
-        };
-        throw deepseekError;
-      }
-    } else if (!state.confirmed) {
-      console.log('Tool selected but not confirmed, using AI-powered confirmation check');
-      
-      try {
-        // Get DeepSeek API key for confirmation check with authenticated client
-        const apiKey = await decryptDeepSeekKey(supabase, userId);
-        
-        const requestStart = Date.now();
-        
-        // Use the improved AI-powered confirmation function
-        const confirmationResult = await checkConfirmationWithAI(
+        // Use the focused confirmation function
+        const confirmationResult = await checkConfirmationWithDeepSeek(
           apiKey,
           state.messages,
           state.tool,
@@ -790,10 +750,11 @@ serve(async (req) => {
         intent = state.tool || '';
         
         if (confirmationResult.isConfirmed) {
+          console.log('✅ TOOL CONFIRMED! Launching tool:', state.tool);
           type = 'actionable';
           state.confirmed = true;
           
-          // SIMPLIFIED: Just pass conversation_id to the tool, let tool extract parameters
+          // Pass conversation_id to the tool
           params = {
             conversation_id: conversation_id
           };
@@ -808,14 +769,16 @@ serve(async (req) => {
             };
           }
           
+          // Clear the conversation state since we're launching the tool
           conversationStates.delete(conversation_id);
-          console.log('Tool confirmed via AI, parameters will be extracted by the tool itself');
+          console.log('Tool confirmed and launching, cleared conversation state');
         } else {
+          // Keep asking for confirmation
           conversationStates.set(conversation_id, state);
-          console.log('Tool not confirmed via AI, continuing conversation');
+          console.log('Tool not confirmed, continuing conversation for confirmation attempt:', state.confirmationAttempts);
         }
       } catch (deepseekError) {
-        console.error('DeepSeek API call failed:', deepseekError);
+        console.error('DeepSeek confirmation check failed:', deepseekError);
         apiLogs = {
           error: {
             timestamp: new Date().toISOString(),
@@ -831,6 +794,7 @@ serve(async (req) => {
         ) || /what.*need|how.*start|tell me/i.test(message);
         
         if (simpleConfirmation) {
+          console.log('✅ FALLBACK CONFIRMATION! Launching tool:', state.tool);
           type = 'actionable';
           state.confirmed = true;
           params = { conversation_id: conversation_id };
@@ -840,7 +804,7 @@ serve(async (req) => {
         } else {
           reply = 'Could you please confirm if you want to proceed with this action?';
           conversationStates.set(conversation_id, state);
-          console.log('Tool not confirmed, asking for clarification');
+          console.log('Tool not confirmed via fallback, asking for clarification');
         }
       }
     }
@@ -867,7 +831,16 @@ serve(async (req) => {
         confirmation_attempts: state.confirmationAttempts || 0
       }
     };
-    console.log('Sending response:', { intent, type, replyLength: reply.length, hasParams: Object.keys(params).length > 0, toolChain: state.toolChain, currentTool });
+    console.log('Sending response:', { 
+      intent, 
+      type, 
+      replyLength: reply.length, 
+      hasParams: Object.keys(params).length > 0, 
+      toolChain: state.toolChain, 
+      currentTool,
+      toolConfirmed: state.confirmed,
+      confirmationAttempts: state.confirmationAttempts
+    });
 
     return new Response(
       JSON.stringify(response),
