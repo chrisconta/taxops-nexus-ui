@@ -29,10 +29,10 @@ export const useToolWorkflows = () => {
         id: workflow.id,
         name: workflow.name,
         description: workflow.description || '',
-        nodes: workflow.nodes || [],
-        connections: workflow.connections || [],
+        nodes: typeof workflow.nodes === 'string' ? JSON.parse(workflow.nodes) : (workflow.nodes || []),
+        connections: typeof workflow.connections === 'string' ? JSON.parse(workflow.connections) : (workflow.connections || []),
         status: workflow.status as 'draft' | 'active' | 'archived',
-        metadata: workflow.metadata || {},
+        metadata: typeof workflow.metadata === 'string' ? JSON.parse(workflow.metadata) : (workflow.metadata || {}),
         created_at: workflow.created_at,
         updated_at: workflow.updated_at
       }));

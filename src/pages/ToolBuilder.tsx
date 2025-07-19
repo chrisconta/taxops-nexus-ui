@@ -9,7 +9,13 @@ import { useWorkflowBuilder } from "@/hooks/useWorkflowBuilder";
 import { useToolWorkflows } from "@/hooks/useToolWorkflows";
 import { WorkflowLogger } from "@/lib/workflowLogger";
 import { Button } from "@/components/ui/button";
-import { Play, Save, Share, Bug, ArrowLeft, Wrench } from "lucide-react";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Play, Save, Share, Bug, ArrowLeft, Wrench, MoreVertical, Plus, Search } from "lucide-react";
 
 const ToolBuilder = () => {
   const [showDebugPanel, setShowDebugPanel] = useState(false);
@@ -123,22 +129,23 @@ const ToolBuilder = () => {
               <h1 className="text-xl font-semibold">Tool Builder</h1>
             </div>
             
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowToolListModal(true)}
-              >
-                <Wrench className="h-4 w-4 mr-2" />
-                Browse Tools
-              </Button>
-              <Button 
-                onClick={handleCreateNewTool}
-                size="sm"
-              >
-                Create New Tool
-              </Button>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowToolListModal(true)}>
+                  <Search className="h-4 w-4 mr-2" />
+                  Browse Tools
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCreateNewTool}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create New Tool
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Main Content */}
