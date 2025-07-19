@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
-import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User, LogOut, ChevronDown, Brain, Zap, Menu, X, BarChart3 } from "lucide-react";
+import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User, LogOut, ChevronDown, Brain, Zap, Menu, X, BarChart3, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
@@ -106,6 +106,8 @@ const Layout = () => {
         return "AI Assistant";
       case "/reports-builder":
         return "Report Builder";
+      case "/tool-builder":
+        return "Tool Builder";
       case "/analytics":
         return "Analytics";
       default:
@@ -123,6 +125,8 @@ const Layout = () => {
         return "Your AI-powered assistant for reports, clients, connections, and analytics";
       case "/reports-builder":
         return "Build custom reports with drag-and-drop interface and data transformation";
+      case "/tool-builder":
+        return "Create custom AI workflows and tools to automate your business processes";
       case "/analytics":
         return "Create interactive dashboards and visualizations from your financial data";
       default:
@@ -146,6 +150,10 @@ const Layout = () => {
     to: "/reports-builder",
     label: "Report Builder",
     icon: BarChart3
+  }, {
+    to: "/tool-builder",
+    label: "Tool Builder",
+    icon: Wrench
   }, {
     to: "/analytics",
     label: "Analytics",
