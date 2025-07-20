@@ -43,6 +43,41 @@ export const ToolCard = ({ tool, onSelect, onDelete, onRename }: ToolCardProps) 
     }
   };
 
+  const handleDuplicateTool = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    try {
+      const { data, error } = await supabase
+        .from('tool_workflows')
+        .insert({
+          name: `${tool.name} Copy`,
+          description: tool.description,
+          nodes: tool.nodes as any,
+          connections: tool.connections as any,
+          metadata: tool.metadata as any,
+          status: tool.status
+        } as any)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Tool duplicated successfully'
+      });
+
+      onDelete();
+    } catch (error) {
+      console.error('Error duplicating tool:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to duplicate tool',
+        variant: 'destructive'
+      });
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -87,14 +122,7 @@ export const ToolCard = ({ tool, onSelect, onDelete, onRename }: ToolCardProps) 
               variant="ghost"
               size="sm"
               className="text-muted-foreground hover:text-primary"
-              onClick={(e) => {
-                e.stopPropagation();
-                // TODO: Implement duplicate functionality
-                toast({
-                  title: "Coming Soon",
-                  description: "Tool duplication will be available soon",
-                });
-              }}
+              onClick={(e) => handleDuplicateTool(e)}
             >
               <Copy className="w-4 h-4" />
             </Button>
