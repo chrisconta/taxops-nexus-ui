@@ -217,9 +217,14 @@ serve(async (req) => {
     const { conversation_id, user_message } = await req.json();
 
     if (!conversation_id) {
+      console.log('[tool-create-connection] Adding switch_tool option to error response: missing conversation_id');
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'conversation_id required' 
+        error: 'conversation_id required',
+        options: {
+          switch_tool: true,
+          message: "Type 'switch' to return to the main orchestrator"
+        }
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -228,9 +233,14 @@ serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.log('[tool-create-connection] Adding switch_tool option to error response: missing auth');
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'Missing authorization header' 
+        error: 'Missing authorization header',
+        options: {
+          switch_tool: true,
+          message: "Type 'switch' to return to the main orchestrator"
+        }
       }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -248,9 +258,14 @@ serve(async (req) => {
     const { data: userData, error: userError } = await supabase.auth.getUser(jwt);
     
     if (userError || !userData.user) {
+      console.log('[tool-create-connection] Adding switch_tool option to error response: invalid token');
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'Invalid authorization token' 
+        error: 'Invalid authorization token',
+        options: {
+          switch_tool: true,
+          message: "Type 'switch' to return to the main orchestrator"
+        }
       }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -288,10 +303,15 @@ serve(async (req) => {
     const isConfirmed = confirmRegex.test(user_message || '');
 
     if (!isConfirmed) {
+      console.log('[tool-create-connection] Adding switch_tool option to confirmation response');
       return new Response(JSON.stringify({
         success: false,
         confirmation_required: true,
-        reply: summaryReply
+        reply: summaryReply,
+        options: {
+          switch_tool: true,
+          message: "Type 'switch' to return to the main orchestrator"
+        }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -321,11 +341,16 @@ serve(async (req) => {
       
       await saveMessage(supabase, conversation_id, 'assistant', reply);
       
+      console.log('[tool-create-connection] Adding switch_tool option to missing info response');
       return new Response(JSON.stringify({
         success: false,
         needs_more_info: true,
         missing_fields: missingFields,
-        reply
+        reply,
+        options: {
+          switch_tool: true,
+          message: "Type 'switch' to return to the main orchestrator"
+        }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -348,10 +373,15 @@ serve(async (req) => {
       const reply = 'I encountered an error while creating the connection. Please try again.';
       await saveMessage(supabase, conversation_id, 'assistant', reply);
       
+      console.log('[tool-create-connection] Adding switch_tool option to error response: connection creation failed');
       return new Response(JSON.stringify({
         success: false,
         error: 'Failed to create connection',
-        reply
+        reply,
+        options: {
+          switch_tool: true,
+          message: "Type 'switch' to return to the main orchestrator"
+        }
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -361,20 +391,30 @@ serve(async (req) => {
     const reply = `Perfect! I've created a ${connection_type} connection for your client. The connection has been set up and is ready for configuration. You can now test and activate it from the Connections page.`;
     await saveMessage(supabase, conversation_id, 'assistant', reply);
     
+    console.log('[tool-create-connection] Adding switch_tool option to success response');
     return new Response(JSON.stringify({
       success: true,
       connection_id: connection.id,
       connection_type,
-      reply
+      reply,
+      options: {
+        switch_tool: true,
+        message: "Type 'switch' to return to the main orchestrator"
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error: any) {
     console.error('Error in create-connection tool:', error);
+    console.log('[tool-create-connection] Adding switch_tool option to error response: exception caught');
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Internal server error'
+      error: error.message || 'Internal server error',
+      options: {
+        switch_tool: true,
+        message: "Type 'switch' to return to the main orchestrator"
+      }
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
