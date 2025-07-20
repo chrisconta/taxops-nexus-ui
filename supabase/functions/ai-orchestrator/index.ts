@@ -1221,9 +1221,10 @@ serve(async (req) => {
     if (type === 'actionable' && intent) {
       console.log('[🧠 ORCHESTRATOR] Dispatching to tool via tool-dispatcher');
 
+      const dispatchToolName = intent.replace(/_/g, '-');
+      console.log('[🧠 ORCHESTRATOR] Dispatch tool name:', dispatchToolName);
+
       try {
-        const dispatchToolName = intent.replace(/_/g, '-');
-        console.log('[🧠 ORCHESTRATOR] Dispatch tool name:', dispatchToolName);
         const { data: toolResult, error: toolError } = await supabase.functions.invoke('tool-dispatcher', {
           body: {
             tool_name: dispatchToolName,
@@ -1235,16 +1236,27 @@ serve(async (req) => {
 
         if (toolError) {
           console.error('[🧠 ORCHESTRATOR] Tool dispatcher error:', toolError);
-          // Fallback to returning the orchestration result
-        } else {
-          console.log('[🧠 ORCHESTRATOR] Tool execution result:', toolResult);
+          throw new Error(toolError.message || 'Unknown tool dispatcher error');
+        }
+
+        if (toolResult) {
+          console.log('[🧠 ORCHESTRATOR] Tool execution succeeded:', toolResult);
           return new Response(JSON.stringify(toolResult), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+
+        console.error('[🧠 ORCHESTRATOR] Tool dispatcher returned no result');
+        throw new Error('No result from tool dispatcher');
       } catch (dispatchError) {
-        console.error('[🧠 ORCHESTRATOR] Dispatch exception:', dispatchError);
-        // Continue to return the original response as fallback
+        console.error('[🧠 ORCHESTRATOR] Tool dispatch failed:', dispatchError);
+        return new Response(JSON.stringify({
+          error: 'Tool execution failed',
+          context: { intent, dispatched: true }
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
     }
 
