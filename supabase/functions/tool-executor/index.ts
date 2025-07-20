@@ -21,6 +21,15 @@ interface ToolSchema {
   completion_message: string;
 }
 
+async function saveMessage(conversationId: string, role: string, content: string) {
+  const { error } = await supabase
+    .from('ai_messages')
+    .insert({ conversation_id: conversationId, role, content });
+  if (error) {
+    console.error('Error saving AI message:', error);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -81,17 +90,25 @@ serve(async (req) => {
       toolConversation = newConversation;
     }
 
+    if (user_message) {
+      await saveMessage(conversation_id, 'user', user_message);
+    }
+
     const schema: ToolSchema = tool.execution_schema;
     const currentStep = toolConversation.current_step;
     const steps = schema.steps || [];
 
     if (currentStep >= steps.length) {
       // Tool execution completed
-      return new Response(JSON.stringify({
+      const completionResponse = {
         type: 'completion',
         message: schema.completion_message || 'Tool execution completed successfully!',
         data: toolConversation.execution_data
-      }), {
+      };
+
+      await saveMessage(conversation_id, 'assistant', completionResponse.message);
+
+      return new Response(JSON.stringify(completionResponse), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -212,6 +229,10 @@ serve(async (req) => {
       switch_tool: true,
       message: "Type 'switch' to return to the main orchestrator"
     };
+
+    if (response.message) {
+      await saveMessage(conversation_id, 'assistant', response.message);
+    }
 
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
