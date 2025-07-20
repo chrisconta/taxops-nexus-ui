@@ -1,5 +1,4 @@
 
-// @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -328,8 +327,8 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
       
       // Clean up common prefixes/suffixes
       extractedReply = extractedReply
-        .replace(/^[\s\-\(\)]*/, '')
-        .replace(/[\s\-\(\)]*$/, '')
+        .replace(/^[\s-()]+/, '')
+        .replace(/[\s-()]+$/, '')
         .replace(/^(Note:|Parameters:|Proceeding with|Tool:)/i, '')
         .trim();
       
