@@ -60,6 +60,20 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Development setup
+
+Install dependencies using npm:
+
+```sh
+npm install
+```
+
+Run the linter to check code quality:
+
+```sh
+npm run lint
+```
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/dc37e217-b8f8-40fe-aca2-6f138dd1ae04) and click on Share -> Publish.

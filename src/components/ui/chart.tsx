@@ -67,16 +67,17 @@ const ChartContainer = React.forwardRef<
 ChartContainer.displayName = "Chart"
 
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
-  const colorConfig = Object.entries(config).filter(
-    ([_, config]) => config.theme || config.color
+  const colorConfig = React.useMemo(
+    () =>
+      Object.entries(config).filter(([, cfg]) => cfg.theme || cfg.color),
+    [config]
   )
-
-  if (!colorConfig.length) {
-    return null
-  }
 
   // SECURITY FIX: Sanitize CSS to prevent XSS attacks
   const sanitizedCSS = React.useMemo(() => {
+    if (!colorConfig.length) {
+      return ""
+    }
     const cssContent = Object.entries(THEMES)
       .map(
         ([theme, prefix]) => `
@@ -106,6 +107,10 @@ ${colorConfig
       FORBID_ATTR: ['onload', 'onerror', 'onclick']
     })
   }, [id, colorConfig])
+
+  if (!colorConfig.length) {
+    return null
+  }
 
   return (
     <style

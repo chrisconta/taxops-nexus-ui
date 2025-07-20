@@ -42,28 +42,24 @@ export async function applyCrossTableFilter(
   
   // Check if the column is a field that needs cross-table mapping
   if (relationship.clientFields.includes(column)) {
-    try {
-      // Look up the foreign key value from the referenced table
-      const { data: referencedData, error: referencedError } = await supabase
-        .from('clients' as any)
-        .select('id')
-        .eq(column, value)
-        .single();
-      
-      if (referencedError) {
-        throw new Error(`${column.charAt(0).toUpperCase() + column.slice(1)} not found: ${value}`);
-      }
-      
-      if (referencedData && 'id' in referencedData) {
-        // Apply filter using the foreign key
-        return query.eq(relationship.foreignKey, referencedData.id);
-      } else {
-        // No matching record found, this will result in empty data
-        return query.eq(relationship.foreignKey, 'no-match-found');
-      }
-    } catch (error) {
-      throw error;
+    // Look up the foreign key value from the referenced table
+    const { data: referencedData, error: referencedError } = await supabase
+      .from('clients' as any)
+      .select('id')
+      .eq(column, value)
+      .single();
+
+    if (referencedError) {
+      throw new Error(`${column.charAt(0).toUpperCase() + column.slice(1)} not found: ${value}`);
     }
+
+    if (referencedData && 'id' in referencedData) {
+      // Apply filter using the foreign key
+      return query.eq(relationship.foreignKey, referencedData.id);
+    }
+
+    // No matching record found, this will result in empty data
+    return query.eq(relationship.foreignKey, 'no-match-found');
   } else {
     // Direct column filtering for fields that exist in the target table
     return query.eq(column, value);
