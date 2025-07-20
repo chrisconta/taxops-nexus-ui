@@ -2,6 +2,98 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
+// Helper from ai-chat to analyze intent
+async function analyzeUserIntent(
+  message: string,
+  apiKey: string,
+  conversationHistory: any[] = [],
+) {
+  console.log('Analyzing user intent for potential tool switching');
+
+  const instruction =
+    'You are analyzing if the user wants to switch from general chat to a specific tool. ' +
+    'Available tools: register_client, create_connection, build_dashboard. ' +
+    'Respond in JSON as {"needs_tool_switch": true|false, "suggested_tool": "<tool_name>", "reasoning": "<explanation>"}. ' +
+    'Only suggest tool switch if the user clearly wants to perform a specific business task.';
+
+  const messages = [
+    { role: 'system', content: instruction },
+    ...conversationHistory.slice(-3),
+    { role: 'user', content: message },
+  ];
+
+  try {
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        temperature: 0,
+        max_tokens: 256,
+        messages,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('DeepSeek API error in intent analysis:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content.trim();
+
+    try {
+      const cleaned = content.replace(/```json/gi, '```').replace(/```/g, '');
+      const match = cleaned.match(/\{[\s\S]*?\}/);
+      return match ? JSON.parse(match[0]) : null;
+    } catch {
+      return null;
+    }
+  } catch (error) {
+    console.error('Error in intent analysis:', error);
+    return null;
+  }
+}
+
+// Helper from ai-chat to call orchestrator
+async function callOrchestrator(
+  message: string,
+  conversationId: string,
+  authHeader: string,
+) {
+  console.log('Calling ai-orchestrator for tool switching');
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const response = await fetch(`${supabaseUrl}/functions/v1/ai-orchestrator`, {
+      method: 'POST',
+      headers: {
+        Authorization: authHeader,
+        'Content-Type': 'application/json',
+        apikey: Deno.env.get('SUPABASE_ANON_KEY') || '',
+      },
+      body: JSON.stringify({
+        message,
+        conversation_id: conversationId,
+        source_tool: 'build-dashboard',
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Orchestrator call failed:', response.status);
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error calling orchestrator:', error);
+    return null;
+  }
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -123,7 +215,7 @@ serve(async (req) => {
   }
 
   try {
-    const { conversation_id } = await req.json();
+    const { conversation_id, user_message } = await req.json();
 
     if (!conversation_id) {
       return new Response(JSON.stringify({ 
@@ -167,12 +259,23 @@ serve(async (req) => {
     }
 
     const userId = userData.user.id;
-    
+
     // Load conversation history
     const conversationHistory = await loadConversationHistory(supabase, conversation_id);
-    
-    // Get DeepSeek API key and extract parameters
+
+    // Get DeepSeek API key
     const apiKey = await decryptDeepSeekKey(supabase, userId);
+
+    // Analyze intent for possible tool switch
+    const intent = await analyzeUserIntent(user_message || '', apiKey, conversationHistory);
+    if (intent?.needs_tool_switch) {
+      console.log('Tool switch detected. Calling orchestrator...', intent);
+      const orchestratorResult = await callOrchestrator(user_message || '', conversation_id, authHeader);
+      console.log('Orchestrator result:', orchestratorResult);
+      return new Response(JSON.stringify(orchestratorResult), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // Extract parameters
     const extractedParams = await extractParameters(apiKey, conversationHistory);
     
     let { client_id, client_name, dashboard_name, metrics, timeframe } = extractedParams;
