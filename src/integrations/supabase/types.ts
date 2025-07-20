@@ -629,6 +629,57 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_conversations: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          current_step: number | null
+          execution_data: Json
+          id: string
+          state: Json
+          tool_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          current_step?: number | null
+          execution_data?: Json
+          id?: string
+          state?: Json
+          tool_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          current_step?: number | null
+          execution_data?: Json
+          id?: string
+          state?: Json
+          tool_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_conversations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_conversations_tool_id_fkey"
+            columns: ["tool_id"]
+            isOneToOne: false
+            referencedRelation: "user_tools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tool_workflows: {
         Row: {
           connections: Json
@@ -796,6 +847,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_tools: {
+        Row: {
+          conversation_config: Json
+          created_at: string
+          description: string | null
+          execution_schema: Json
+          id: string
+          name: string
+          status: Database["public"]["Enums"]["tool_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          conversation_config?: Json
+          created_at?: string
+          description?: string | null
+          execution_schema?: Json
+          id?: string
+          name: string
+          status?: Database["public"]["Enums"]["tool_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          conversation_config?: Json
+          created_at?: string
+          description?: string | null
+          execution_schema?: Json
+          id?: string
+          name?: string
+          status?: Database["public"]["Enums"]["tool_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       workflow_executions: {
         Row: {
           completed_at: string | null
@@ -915,7 +1002,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      tool_status: "draft" | "active" | "disabled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1042,6 +1129,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      tool_status: ["draft", "active", "disabled"],
+    },
   },
 } as const

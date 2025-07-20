@@ -1217,6 +1217,35 @@ serve(async (req) => {
       }
     };
     
+    // If we have an actionable response, dispatch to the tool-dispatcher
+    if (type === 'actionable' && intent) {
+      console.log('[🧠 ORCHESTRATOR] Dispatching to tool via tool-dispatcher');
+      
+      try {
+        const { data: toolResult, error: toolError } = await supabase.functions.invoke('tool-dispatcher', {
+          body: {
+            tool_name: intent,
+            conversation_id: conversation_id,
+            user_message: message,
+            user_id: userId
+          }
+        });
+
+        if (toolError) {
+          console.error('[🧠 ORCHESTRATOR] Tool dispatcher error:', toolError);
+          // Fallback to returning the orchestration result
+        } else {
+          console.log('[🧠 ORCHESTRATOR] Tool execution result:', toolResult);
+          return new Response(JSON.stringify(toolResult), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      } catch (dispatchError) {
+        console.error('[🧠 ORCHESTRATOR] Dispatch exception:', dispatchError);
+        // Continue to return the original response as fallback
+      }
+    }
+
     console.log('[🧠 ORCHESTRATOR] Sending response:', { 
       intent, 
       type, 
