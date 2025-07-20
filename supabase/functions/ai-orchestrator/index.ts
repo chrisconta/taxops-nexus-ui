@@ -1220,11 +1220,13 @@ serve(async (req) => {
     // If we have an actionable response, dispatch to the tool-dispatcher
     if (type === 'actionable' && intent) {
       console.log('[🧠 ORCHESTRATOR] Dispatching to tool via tool-dispatcher');
-      
+
       try {
+        const dispatchToolName = intent.replace(/_/g, '-');
+        console.log('[🧠 ORCHESTRATOR] Dispatch tool name:', dispatchToolName);
         const { data: toolResult, error: toolError } = await supabase.functions.invoke('tool-dispatcher', {
           body: {
-            tool_name: intent,
+            tool_name: dispatchToolName,
             conversation_id: conversation_id,
             user_message: message,
             user_id: userId
