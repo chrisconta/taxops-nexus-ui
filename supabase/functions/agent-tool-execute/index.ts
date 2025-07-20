@@ -536,7 +536,15 @@ Deno.serve(async (req) => {
     const userId = userData.user.id;
 
     // Parse request body
-    const { toolName, params, conversation_id } = await req.json();
+    let { toolName, params, conversation_id } = await req.json();
+
+    // Support passing conversation_id inside params
+    if (!conversation_id && params && typeof params === 'object' && 'conversation_id' in params) {
+      conversation_id = params.conversation_id;
+    }
+
+    const hasOnlyConversationId =
+      params && typeof params === 'object' && Object.keys(params).length === 1 && 'conversation_id' in params;
 
     // Validate toolName
     if (!(toolName in toolRegistry)) {
@@ -552,9 +560,10 @@ Deno.serve(async (req) => {
 
     const startTime = Date.now();
 
-    // NEW: If no params provided, use DeepSeek to extract them from conversation
+    // NEW: If no params provided (or only conversation_id provided), use DeepSeek to extract them from conversation
     let finalParams = params;
-    if (!params || Object.keys(params).length === 0) {
+    if (!params || Object.keys(params).length === 0 || hasOnlyConversationId) {
+      finalParams = {};
       console.log('No parameters provided, extracting from conversation using DeepSeek');
       
       try {
@@ -613,6 +622,11 @@ Deno.serve(async (req) => {
           }
         );
       }
+    }
+
+    // Remove conversation_id from params before validation
+    if (finalParams && typeof finalParams === 'object' && 'conversation_id' in finalParams) {
+      delete (finalParams as any).conversation_id;
     }
 
     // Validate params
