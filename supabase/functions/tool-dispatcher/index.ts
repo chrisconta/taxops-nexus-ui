@@ -27,6 +27,7 @@ serve(async (req) => {
 
   try {
     const { tool_name, conversation_id, user_message, user_id } = await req.json();
+    const authHeader = req.headers.get('Authorization');
     console.log('tool-dispatcher request ID:', requestId);
 
     console.log('Tool dispatcher called:', { tool_name, conversation_id, user_message, user_id });
@@ -35,14 +36,15 @@ serve(async (req) => {
     if (SYSTEM_TOOLS[tool_name]) {
       const edgeFunctionName = SYSTEM_TOOLS[tool_name];
       console.log(`Dispatching to system tool: ${edgeFunctionName}`);
-      
+
       // Call the specific system tool edge function
       const { data, error } = await supabase.functions.invoke(edgeFunctionName, {
         body: {
           conversation_id,
           user_message,
           user_id
-        }
+        },
+        ...(authHeader ? { headers: { Authorization: authHeader } } : {})
       });
 
       if (error) {

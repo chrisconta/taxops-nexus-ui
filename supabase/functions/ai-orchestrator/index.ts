@@ -1238,7 +1238,8 @@ serve(async (req) => {
             conversation_id: conversation_id,
             user_message: message,
             user_id: userId
-          }
+          },
+          headers: { Authorization: authHeader }
         });
 
         if (toolError) {
