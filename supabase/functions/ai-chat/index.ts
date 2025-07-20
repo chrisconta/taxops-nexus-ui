@@ -61,7 +61,8 @@ async function analyzeUserIntent(message: string, apiKey: string, conversationHi
 
 // Function to call ai-orchestrator for tool switching
 async function callOrchestrator(message: string, conversationId: string, authHeader: string) {
-  console.log('Calling ai-orchestrator for tool switching');
+  const reqId = crypto.randomUUID();
+  console.log('Calling ai-orchestrator for tool switching. Request ID:', reqId);
   
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -84,6 +85,7 @@ async function callOrchestrator(message: string, conversationId: string, authHea
       return null;
     }
 
+    console.log('Orchestrator call succeeded. Request ID:', reqId);
     return await response.json();
   } catch (error) {
     console.error('Error calling orchestrator:', error);
@@ -102,6 +104,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    const requestId = crypto.randomUUID();
+    console.log('[AI-CHAT] Request ID:', requestId);
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -196,14 +201,14 @@ serve(async (req) => {
       const intentAnalysis = await analyzeUserIntent(message, apiKey, conversationHistory);
       
       if (intentAnalysis?.needs_tool_switch) {
-        console.log('Intent analysis suggests tool switch:', intentAnalysis.suggested_tool);
+        console.log('Intent analysis suggests tool switch:', intentAnalysis.suggested_tool, 'Request ID:', requestId);
         
         // Call orchestrator for tool switching
         toolSwitchResponse = await callOrchestrator(message, convId, authHeader);
         
         if (toolSwitchResponse && toolSwitchResponse.intent !== 'ai-chat') {
           shouldSwitchTool = true;
-          console.log('Tool switch successful, orchestrator response:', toolSwitchResponse);
+          console.log('Tool switch successful, orchestrator response:', toolSwitchResponse, 'Request ID:', requestId);
         }
       }
     }

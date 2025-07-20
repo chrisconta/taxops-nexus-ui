@@ -23,8 +23,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const requestId = crypto.randomUUID();
+
   try {
     const { tool_name, conversation_id, user_message, user_id } = await req.json();
+    console.log('tool-dispatcher request ID:', requestId);
 
     console.log('Tool dispatcher called:', { tool_name, conversation_id, user_message, user_id });
 
@@ -103,7 +106,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error in tool-dispatcher:', error);
+    console.error('Error in tool-dispatcher:', error, 'Request ID:', requestId);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

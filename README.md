@@ -74,6 +74,16 @@ Run the linter to check code quality:
 npm run lint
 ```
 
+## Tool switching & confirmations
+
+The `ai-orchestrator` function decides which tool to run based on the
+conversation history. When the user message suggests a different tool than the
+current one, the orchestrator asks for confirmation before switching. These
+confirmation prompts are triggered automatically and can be accepted by replying
+"yes" or declined with "no". The frontend simply sends the user's messages to
+the orchestrator via `supabase.functions.invoke('ai-orchestrator')`, and the
+orchestrator handles tool selection, switch requests and dispatching.
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/dc37e217-b8f8-40fe-aca2-6f138dd1ae04) and click on Share -> Publish.

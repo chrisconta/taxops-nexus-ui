@@ -619,14 +619,17 @@ serve(async (req) => {
     // Validate environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-    
+
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('[🧠 ORCHESTRATOR] Missing required environment variables:', { 
-        hasUrl: !!supabaseUrl, 
-        hasAnonKey: !!supabaseAnonKey 
+      console.error('[🧠 ORCHESTRATOR] Missing required environment variables:', {
+        hasUrl: !!supabaseUrl,
+        hasAnonKey: !!supabaseAnonKey
       });
       throw new Error('Missing required environment variables');
     }
+
+    const requestId = generateRequestId();
+    console.log(`[🧠 ORCHESTRATOR] Request ID: ${requestId}`);
 
     // Get request body with better error handling
     let requestData;
@@ -807,14 +810,14 @@ serve(async (req) => {
 
     // Check for pending tool switch confirmation
     if (state.pendingToolSwitch) {
-      console.log('[🔄 PENDING TOOL SWITCH] Awaiting confirmation for', JSON.stringify(state.pendingToolSwitch));
+      console.log(`[🔄 PENDING TOOL SWITCH] Request ${requestId} awaiting confirmation for`, JSON.stringify(state.pendingToolSwitch));
       let { isConfirmed, isRejection } = checkSimpleConfirmation(message);
       let confirmationReply = '';
 
       if (!isConfirmed && !isRejection) {
         try {
           const apiKey = await decryptDeepSeekKey(supabase, userId);
-          console.log('[🧠 ORCHESTRATOR] Entering confirmation phase for', state.pendingToolSwitch.to);
+          console.log(`[🔄 CONFIRMATION REQUEST] Request ${requestId} for ${state.pendingToolSwitch.to}`);
           const result = await checkConfirmationWithDeepSeek(
             apiKey,
             state.messages,
@@ -829,6 +832,7 @@ serve(async (req) => {
       }
 
       if (isConfirmed) {
+        console.log(`[🔄 SWITCH CONFIRMED] Request ${requestId} switching to ${state.pendingToolSwitch.to}`);
         state.tool = state.pendingToolSwitch.to;
         state.pendingToolSwitch = undefined;
         state.confirmed = false;
@@ -837,11 +841,13 @@ serve(async (req) => {
         await saveStateToDB(supabase, conversation_id, state);
         reply = `Switching to ${state.tool.replace('_', ' ')}.`;
       } else if (isRejection) {
+        console.log(`[🔄 SWITCH REJECTED] Request ${requestId}`);
         state.pendingToolSwitch = undefined;
         saveState(conversation_id, state);
         await saveStateToDB(supabase, conversation_id, state);
         reply = `Okay, continuing with ${state.tool?.replace('_', ' ')}.`;
       } else {
+        console.log(`[🔄 SWITCH CONFIRMATION NEEDED] Request ${requestId}`);
         reply = confirmationReply || 'Would you like to switch tools?';
         saveState(conversation_id, state);
         await saveStateToDB(supabase, conversation_id, state);
@@ -874,6 +880,7 @@ serve(async (req) => {
     if (state.tool && !state.pendingToolSwitch) {
       const detectedTool = detectToolSwitch(message, state.tool);
       if (detectedTool) {
+        console.log(`[🔄 SWITCH DETECTED] Request ${requestId} from ${state.tool} to ${detectedTool}`);
         state.pendingToolSwitch = {
           from: state.tool,
           to: detectedTool,
@@ -1082,7 +1089,7 @@ serve(async (req) => {
         
         const requestStart = Date.now();
 
-        console.log('[🧠 ORCHESTRATOR] Entering confirmation phase for', state.tool);
+        console.log(`[🔄 CONFIRMATION REQUEST] Request ${requestId} for ${state.tool}`);
         console.log('[🧠 ORCHESTRATOR] Calling checkConfirmationWithDeepSeek');
         const confirmationResult = await checkConfirmationWithDeepSeek(
           apiKey,
@@ -1249,7 +1256,7 @@ serve(async (req) => {
         console.error('[🧠 ORCHESTRATOR] Tool dispatcher returned no result');
         throw new Error('No result from tool dispatcher');
       } catch (dispatchError) {
-        console.error('[🧠 ORCHESTRATOR] Tool dispatch failed:', dispatchError);
+        console.error(`[🧠 ORCHESTRATOR] Tool dispatch failed for request ${requestId}:`, dispatchError);
         return new Response(JSON.stringify({
           error: 'Tool execution failed',
           context: { intent, dispatched: true }

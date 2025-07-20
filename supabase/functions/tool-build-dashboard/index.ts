@@ -244,6 +244,8 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
       global: { headers: { Authorization: authHeader } }
     });
+    const requestId = crypto.randomUUID();
+    console.log('build-dashboard request ID:', requestId);
 
     const jwt = authHeader.replace('Bearer ', '');
     const { data: userData, error: userError } = await supabase.auth.getUser(jwt);
@@ -269,7 +271,7 @@ serve(async (req) => {
     // Analyze intent for possible tool switch
     const intent = await analyzeUserIntent(user_message || '', apiKey, conversationHistory);
     if (intent?.needs_tool_switch) {
-      console.log('Tool switch detected. Calling orchestrator...', intent);
+      console.log('Tool switch detected. Calling orchestrator...', intent, 'Request ID:', requestId);
       const orchestratorResult = await callOrchestrator(user_message || '', conversation_id, authHeader);
       console.log('Orchestrator result:', orchestratorResult);
       return new Response(JSON.stringify(orchestratorResult), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
