@@ -1,1 +1,71 @@
+
 project_id = "zitderdjvqtadtwgatmm"
+
+[functions.action-logger]
+verify_jwt = true
+
+[functions.agent-feedback]
+verify_jwt = true
+
+[functions.agent-tool-execute]
+verify_jwt = true
+
+[functions.ai-chat]
+verify_jwt = true
+
+[functions.ai-orchestrator]
+verify_jwt = true
+
+[functions.ai-planner]
+verify_jwt = true
+
+[functions.check-subscription]
+verify_jwt = true
+
+[functions.create-checkout]
+verify_jwt = true
+
+[functions.customer-portal]
+verify_jwt = true
+
+[functions.execute-sql]
+verify_jwt = true
+
+[functions.file-import-processor]
+verify_jwt = true
+
+[functions.get-conversation-messages]
+verify_jwt = true
+
+[functions.list-conversations]
+verify_jwt = true
+
+[functions.mercury-sync-manager]
+verify_jwt = true
+
+[functions.save-ai-key]
+verify_jwt = true
+
+[functions.test-mercury-connection]
+verify_jwt = true
+
+[functions.tool-build-dashboard]
+verify_jwt = true
+
+[functions.tool-create-connection]
+verify_jwt = true
+
+[functions.tool-dispatcher]
+verify_jwt = true
+
+[functions.tool-executor]
+verify_jwt = true
+
+[functions.tool-register-client]
+verify_jwt = true
+
+[functions.validate-mercury-token]
+verify_jwt = true
+
+[functions.workflow-planner]
+verify_jwt = true
