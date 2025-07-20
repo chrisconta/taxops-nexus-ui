@@ -11,16 +11,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChatLogger } from '@/hooks/useChatLogger';
 import { RefreshCw, Trash2, Search, Play, Square, AlertCircle, Eye, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
 interface OrchestratorState {
   tool?: string;
   confirmed?: boolean;
   confirmationAttempts?: number;
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{
+    role: string;
+    content: string;
+  }>;
   toolChain?: string[];
   sourceTools?: string[];
 }
-
 interface ConversationDebugInfo {
   id: string;
   state: OrchestratorState;
@@ -29,40 +30,39 @@ interface ConversationDebugInfo {
   nextInstruction: string;
   apiCalls: any[];
 }
-
 const AISettings = () => {
   const [deepseekKey, setDeepseekKey] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [apiLogs, setApiLogs] = useState<any[]>([]);
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   // Orchestrator debug state
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [orchestratorDebugInfo, setOrchestratorDebugInfo] = useState<ConversationDebugInfo | null>(null);
   const [isLoadingDebug, setIsLoadingDebug] = useState(false);
   const [showDebugModal, setShowDebugModal] = useState(false);
-  
-  const { sessions, clearSessions } = useChatLogger();
-
+  const {
+    sessions,
+    clearSessions
+  } = useChatLogger();
   const saveDeepSeekKey = async () => {
     if (!deepseekKey.trim()) {
       toast.error("Please enter a DeepSeek API key");
       return;
     }
-
     setIsLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('save-ai-key', {
-        body: { 
-          provider: 'deepseek', 
-          apiKey: deepseekKey.trim() 
+      const {
+        error
+      } = await supabase.functions.invoke('save-ai-key', {
+        body: {
+          provider: 'deepseek',
+          apiKey: deepseekKey.trim()
         }
       });
-
       if (error) throw error;
-      
       toast.success('DeepSeek API key saved successfully');
       setDeepseekKey("");
     } catch (error: any) {
@@ -72,27 +72,26 @@ const AISettings = () => {
       setIsLoading(false);
     }
   };
-
   const fetchApiLogs = async () => {
     try {
-      const { data, error } = await supabase
-        .from('agent_tool_logs')
-        .select('*')
-        .order('invoked_at', { ascending: false })
-        .limit(50);
-
+      const {
+        data,
+        error
+      } = await supabase.from('agent_tool_logs').select('*').order('invoked_at', {
+        ascending: false
+      }).limit(50);
       if (error) throw error;
       setApiLogs(data || []);
     } catch (error) {
       console.error('Error fetching API logs:', error);
     }
   };
-
   const fetchChatHistory = async () => {
     try {
-      const { data, error } = await supabase
-        .from('ai_conversations')
-        .select(`
+      const {
+        data,
+        error
+      } = await supabase.from('ai_conversations').select(`
           *,
           ai_messages (
             id,
@@ -101,22 +100,21 @@ const AISettings = () => {
             created_at,
             api_logs
           )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
+        `).order('created_at', {
+        ascending: false
+      }).limit(20);
       if (error) throw error;
       setChatHistory(data || []);
     } catch (error) {
       console.error('Error fetching chat history:', error);
     }
   };
-
   const fetchConversations = async () => {
     try {
-      const { data, error } = await supabase
-        .from('ai_conversations')
-        .select(`
+      const {
+        data,
+        error
+      } = await supabase.from('ai_conversations').select(`
           *,
           ai_messages (
             id,
@@ -125,10 +123,9 @@ const AISettings = () => {
             created_at,
             api_logs
           )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
+        `).order('created_at', {
+        ascending: false
+      }).limit(50);
       if (error) throw error;
       setConversations(data || []);
     } catch (error) {
@@ -136,7 +133,6 @@ const AISettings = () => {
       toast.error('Failed to fetch conversations');
     }
   };
-
   const openConversationDebug = async (conversation: any) => {
     setSelectedConversation(conversation);
     setShowDebugModal(true);
@@ -176,7 +172,6 @@ const AISettings = () => {
     // Determine instruction type based on state
     let instructionType: 'tool_selection' | 'confirmation' | 'none' = 'none';
     let nextInstruction = '';
-
     if (!tool) {
       instructionType = 'tool_selection';
       nextInstruction = `You are helping an AI orchestrator decide which tool to use based on the user's conversation. Look at the ENTIRE conversation history to understand context and extract information. Available tools:
@@ -209,18 +204,15 @@ Do not provide explanations, just YES or NO.`;
     }
 
     // Get API logs for this conversation
-    const apiCallsForConversation = messages
-      .filter((m: any) => m.api_logs && Object.keys(m.api_logs).length > 0)
-      .map((m: any) => {
-        const apiLogs = m.api_logs as Record<string, any>;
-        return {
-          timestamp: m.created_at,
-          operation: (apiLogs && typeof apiLogs === 'object' && apiLogs.request?.operation) || 'unknown',
-          content: m.content,
-          logs: m.api_logs
-        };
-      });
-
+    const apiCallsForConversation = messages.filter((m: any) => m.api_logs && Object.keys(m.api_logs).length > 0).map((m: any) => {
+      const apiLogs = m.api_logs as Record<string, any>;
+      return {
+        timestamp: m.created_at,
+        operation: apiLogs && typeof apiLogs === 'object' && apiLogs.request?.operation || 'unknown',
+        content: m.content,
+        logs: m.api_logs
+      };
+    });
     const debugInfo: ConversationDebugInfo = {
       id: conversation.id,
       state: {
@@ -236,38 +228,31 @@ Do not provide explanations, just YES or NO.`;
       nextInstruction,
       apiCalls: apiCallsForConversation
     };
-
     setOrchestratorDebugInfo(debugInfo);
   };
-
   useEffect(() => {
     fetchApiLogs();
     fetchChatHistory();
     fetchConversations();
-    
     const interval = setInterval(() => {
       fetchApiLogs();
       fetchChatHistory();
       fetchConversations();
     }, 30000);
-
     return () => clearInterval(interval);
   }, []);
-
   const formatTimestamp = (timestamp: string) => {
     return new Date(timestamp).toLocaleString();
   };
-
   const getStatusBadge = (status: string) => {
     const colors = {
       error: "bg-red-100 text-red-800",
-      success: "bg-green-100 text-green-800", 
+      success: "bg-green-100 text-green-800",
       info: "bg-blue-100 text-blue-800",
       warning: "bg-yellow-100 text-yellow-800"
     };
     return colors[status as keyof typeof colors] || colors.info;
   };
-
   const getInstructionTypeBadge = (type: string) => {
     const colors = {
       tool_selection: "bg-blue-100 text-blue-800",
@@ -276,7 +261,6 @@ Do not provide explanations, just YES or NO.`;
     };
     return colors[type as keyof typeof colors] || colors.none;
   };
-
   const refreshData = async () => {
     setIsRefreshing(true);
     try {
@@ -288,21 +272,14 @@ Do not provide explanations, just YES or NO.`;
       setIsRefreshing(false);
     }
   };
-
   const clearAllSessions = () => {
     clearSessions();
     toast.success('All chat sessions cleared');
   };
-
-  return (
-    <div className="container mx-auto py-6 space-y-6">
+  return <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">AI Settings</h1>
-        <Button 
-          onClick={refreshData} 
-          disabled={isRefreshing}
-          className="flex items-center gap-2"
-        >
+        <Button onClick={refreshData} disabled={isRefreshing} className="flex items-center gap-2">
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           Refresh Data
         </Button>
@@ -330,24 +307,10 @@ Do not provide explanations, just YES or NO.`;
                 <label htmlFor="deepseek-key" className="text-sm font-medium">
                   DeepSeek API Key
                 </label>
-                <Input
-                  id="deepseek-key"
-                  type="password"
-                  placeholder="Enter your DeepSeek API key"
-                  value={deepseekKey}
-                  onChange={(e) => setDeepseekKey(e.target.value)}
-                />
+                <Input id="deepseek-key" type="password" placeholder="Enter your DeepSeek API key" value={deepseekKey} onChange={e => setDeepseekKey(e.target.value)} />
               </div>
-              <Button 
-                onClick={saveDeepSeekKey} 
-                disabled={isLoading}
-                className="flex items-center gap-2"
-              >
-                {isLoading ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Search className="h-4 w-4" />
-                )}
+              <Button onClick={saveDeepSeekKey} disabled={isLoading} className="flex items-center gap-2">
+                {isLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 Save API Key
               </Button>
             </CardContent>
@@ -365,8 +328,7 @@ Do not provide explanations, just YES or NO.`;
             <CardContent className="overflow-hidden">
               <ScrollArea className="h-96">
                 <div className="space-y-3">
-                  {apiLogs.map((log) => (
-                    <div key={log.id} className="border rounded-lg p-4">
+                  {apiLogs.map(log => <div key={log.id} className="border rounded-lg p-4">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline">{log.role}</Badge>
@@ -380,37 +342,28 @@ Do not provide explanations, just YES or NO.`;
                           <span className="text-sm font-medium">Tool:</span>
                           <Badge variant="secondary">{log.tool_name}</Badge>
                         </div>
-                        {log.success ? (
-                          <div className="text-sm text-green-600">
+                        {log.success ? <div className="text-sm text-green-600">
                             ✅ Success ({log.execution_time_ms}ms)
-                          </div>
-                        ) : (
-                          <div className="text-sm text-red-600">
+                          </div> : <div className="text-sm text-red-600">
                             ❌ Failed: {log.error_message}
-                          </div>
-                        )}
+                          </div>}
                         <div className="text-xs text-muted-foreground bg-muted p-2 rounded max-h-32 overflow-y-auto">
                           <pre className="whitespace-pre-wrap">
                             {JSON.stringify(log.parameters, null, 2)}
                           </pre>
                         </div>
-                        {log.result && (
-                          <div className="text-xs text-muted-foreground bg-muted p-2 rounded max-h-32 overflow-y-auto">
+                        {log.result && <div className="text-xs text-muted-foreground bg-muted p-2 rounded max-h-32 overflow-y-auto">
                             <strong>Result:</strong>
                             <pre className="whitespace-pre-wrap">
                               {JSON.stringify(log.result, null, 2)}
                             </pre>
-                          </div>
-                        )}
+                          </div>}
                       </div>
-                    </div>
-                  ))}
+                    </div>)}
                   
-                  {apiLogs.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
+                  {apiLogs.length === 0 && <div className="text-center py-8 text-muted-foreground">
                       No API logs found. Start using the AI tools to see activity here.
-                    </div>
-                  )}
+                    </div>}
                 </div>
               </ScrollArea>
             </CardContent>
@@ -422,12 +375,7 @@ Do not provide explanations, just YES or NO.`;
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 Chat Logs
-                <Button 
-                  onClick={clearAllSessions} 
-                  variant="outline" 
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
+                <Button onClick={clearAllSessions} variant="outline" size="sm" className="flex items-center gap-2">
                   <Trash2 className="h-4 w-4" />
                   Clear All
                 </Button>
@@ -439,8 +387,7 @@ Do not provide explanations, just YES or NO.`;
             <CardContent className="overflow-hidden">
               <ScrollArea className="h-96">
                 <div className="space-y-4">
-                  {sessions.map((session) => (
-                    <div key={session.id} className="border rounded-lg p-4">
+                  {sessions.map(session => <div key={session.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <Badge className={getStatusBadge(session.status)}>
@@ -453,8 +400,7 @@ Do not provide explanations, just YES or NO.`;
                       </div>
                       
                       <div className="space-y-1">
-                        {session.entries.slice(0, 10).map((entry, index) => (
-                          <div key={index} className="text-sm">
+                        {session.entries.slice(0, 10).map((entry, index) => <div key={index} className="text-sm">
                              <div className="flex items-center gap-2 mb-1">
                                <Badge variant="outline" className="text-xs">
                                  {entry.type}
@@ -465,25 +411,19 @@ Do not provide explanations, just YES or NO.`;
                               </span>
                             </div>
                             <p className="text-muted-foreground ml-2 break-words overflow-wrap-anywhere">{entry.details}</p>
-                          </div>
-                        ))}
+                          </div>)}
                         
-                        {session.entries.length > 10 && (
-                          <p className="text-sm text-muted-foreground mt-2">
+                        {session.entries.length > 10 && <p className="text-sm text-muted-foreground mt-2">
                             ... and {session.entries.length - 10} more entries
-                          </p>
-                        )}
+                          </p>}
                       </div>
                       
                       <Separator className="my-2" />
-                    </div>
-                  ))}
+                    </div>)}
                   
-                  {sessions.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
+                  {sessions.length === 0 && <div className="text-center py-8 text-muted-foreground">
                       No chat sessions found. Start a conversation to see activity logs here.
-                    </div>
-                  )}
+                    </div>}
                 </div>
               </ScrollArea>
             </CardContent>
@@ -501,8 +441,7 @@ Do not provide explanations, just YES or NO.`;
             <CardContent className="overflow-hidden">
               <ScrollArea className="h-96">
                 <div className="space-y-4">
-                  {chatHistory.map((conversation) => (
-                    <div key={conversation.id} className="border rounded-lg p-4">
+                  {chatHistory.map(conversation => <div key={conversation.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                         <h3 className="font-medium truncate">{conversation.title}</h3>
                         <span className="text-sm text-muted-foreground shrink-0">
@@ -511,14 +450,11 @@ Do not provide explanations, just YES or NO.`;
                       </div>
                       
                       <div className="space-y-2">
-                        {conversation.ai_messages && conversation.ai_messages.length > 0 && (
-                          <div className="text-sm text-muted-foreground">
+                        {conversation.ai_messages && conversation.ai_messages.length > 0 && <div className="text-sm text-muted-foreground">
                             {conversation.ai_messages.length} messages
-                          </div>
-                        )}
+                          </div>}
                         
-                        {conversation.ai_messages?.slice(0, 3).map((message: any) => (
-                          <div key={message.id} className="text-sm border-l-2 border-muted pl-3">
+                        {conversation.ai_messages?.slice(0, 3).map((message: any) => <div key={message.id} className="text-sm border-l-2 border-muted pl-3">
                             <div className="flex items-center gap-2 mb-1">
                               <Badge variant="outline" className="text-xs">
                                 {message.role}
@@ -529,29 +465,20 @@ Do not provide explanations, just YES or NO.`;
                             </div>
                             <div className="text-muted-foreground ml-2 overflow-hidden">
                               <p className="line-clamp-2 break-words overflow-wrap-anywhere">
-                                {message.content.length > 100 
-                                  ? `${message.content.substring(0, 100)}...` 
-                                  : message.content
-                                }
+                                {message.content.length > 100 ? `${message.content.substring(0, 100)}...` : message.content}
                               </p>
                             </div>
-                          </div>
-                        ))}
+                          </div>)}
                         
-                        {conversation.ai_messages?.length > 3 && (
-                          <p className="text-xs text-muted-foreground">
+                        {conversation.ai_messages?.length > 3 && <p className="text-xs text-muted-foreground">
                             ... and {conversation.ai_messages.length - 3} more messages
-                          </p>
-                        )}
+                          </p>}
                       </div>
-                    </div>
-                  ))}
+                    </div>)}
                   
-                  {chatHistory.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
+                  {chatHistory.length === 0 && <div className="text-center py-8 text-muted-foreground">
                       No conversation history found. Start a conversation to see history here.
-                    </div>
-                  )}
+                    </div>}
                 </div>
               </ScrollArea>
             </CardContent>
@@ -572,12 +499,7 @@ Do not provide explanations, just YES or NO.`;
                 <h3 className="text-lg font-medium">Recent Conversations</h3>
                 <ScrollArea className="h-64 border rounded-lg">
                   <div className="space-y-2 p-4">
-                    {conversations.map((conversation) => (
-                      <div 
-                        key={conversation.id} 
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                        onClick={() => openConversationDebug(conversation)}
-                      >
+                    {conversations.map(conversation => <div key={conversation.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer" onClick={() => openConversationDebug(conversation)}>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium truncate">{conversation.title}</h4>
                           <p className="text-sm text-muted-foreground">
@@ -588,14 +510,11 @@ Do not provide explanations, just YES or NO.`;
                           <Eye className="h-3 w-3" />
                           Debug
                         </Button>
-                      </div>
-                    ))}
-                    {conversations.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
+                      </div>)}
+                    {conversations.length === 0 && <div className="text-center py-8 text-muted-foreground">
                         <AlertCircle className="h-8 w-8 mx-auto mb-2" />
                         <p>No conversations found. Start a conversation to see debug information.</p>
-                      </div>
-                    )}
+                      </div>}
                   </div>
                 </ScrollArea>
               </div>
@@ -608,14 +527,11 @@ Do not provide explanations, just YES or NO.`;
               <DialogHeader>
                 <DialogTitle className="flex items-center justify-between">
                   <span>Orchestrator Debug: {selectedConversation?.title}</span>
-                  <Button variant="ghost" size="sm" onClick={() => setShowDebugModal(false)}>
-                    <X className="h-4 w-4" />
-                  </Button>
+                  
                 </DialogTitle>
               </DialogHeader>
               
-              {orchestratorDebugInfo && (
-                <Tabs defaultValue="logs" className="h-full">
+              {orchestratorDebugInfo && <Tabs defaultValue="logs" className="h-full">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="logs">Conversation Logs</TabsTrigger>
                     <TabsTrigger value="instructions">API Instructions</TabsTrigger>
@@ -639,18 +555,13 @@ Do not provide explanations, just YES or NO.`;
                               </div>
                               <div>
                                 <span className="font-medium">Confirmed:</span>
-                                <Badge 
-                                  variant={orchestratorDebugInfo.state.confirmed ? "default" : "secondary"}
-                                  className="ml-2"
-                                >
+                                <Badge variant={orchestratorDebugInfo.state.confirmed ? "default" : "secondary"} className="ml-2">
                                   {orchestratorDebugInfo.state.confirmed ? 'Yes' : 'No'}
                                 </Badge>
                               </div>
                               <div>
                                 <span className="font-medium">Instruction Type:</span>
-                                <Badge 
-                                  className={`ml-2 ${getInstructionTypeBadge(orchestratorDebugInfo.instructionType)}`}
-                                >
+                                <Badge className={`ml-2 ${getInstructionTypeBadge(orchestratorDebugInfo.instructionType)}`}>
                                   {orchestratorDebugInfo.instructionType}
                                 </Badge>
                               </div>
@@ -671,16 +582,14 @@ Do not provide explanations, just YES or NO.`;
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-3">
-                              {orchestratorDebugInfo.state.messages.map((message, index) => (
-                                <div key={index} className="flex gap-2 text-sm">
+                              {orchestratorDebugInfo.state.messages.map((message, index) => <div key={index} className="flex gap-2 text-sm">
                                   <Badge variant={message.role === 'user' ? 'default' : 'secondary'}>
                                     {message.role}
                                   </Badge>
                                   <div className="flex-1 bg-muted p-2 rounded text-xs">
                                     {message.content}
                                   </div>
-                                </div>
-                              ))}
+                                </div>)}
                             </div>
                           </CardContent>
                         </Card>
@@ -692,8 +601,7 @@ Do not provide explanations, just YES or NO.`;
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-3">
-                              {orchestratorDebugInfo.apiCalls.map((call, index) => (
-                                <div key={index} className="border rounded p-3">
+                              {orchestratorDebugInfo.apiCalls.map((call, index) => <div key={index} className="border rounded p-3">
                                   <div className="flex items-center gap-2 mb-2">
                                     <Badge variant="outline">{call.operation}</Badge>
                                     <span className="text-xs text-muted-foreground">
@@ -705,11 +613,8 @@ Do not provide explanations, just YES or NO.`;
                                       {JSON.stringify(call.logs, null, 2)}
                                     </pre>
                                   </div>
-                                </div>
-                              ))}
-                              {orchestratorDebugInfo.apiCalls.length === 0 && (
-                                <p className="text-sm text-muted-foreground">No API calls found for this conversation</p>
-                              )}
+                                </div>)}
+                              {orchestratorDebugInfo.apiCalls.length === 0 && <p className="text-sm text-muted-foreground">No API calls found for this conversation</p>}
                             </div>
                           </CardContent>
                         </Card>
@@ -725,9 +630,7 @@ Do not provide explanations, just YES or NO.`;
                           <CardHeader>
                             <CardTitle className="text-sm flex items-center gap-2">
                               Current Instruction Logic
-                              {orchestratorDebugInfo.instructionType === 'tool_selection' && (
-                                <AlertCircle className="h-4 w-4 text-yellow-500" />
-                              )}
+                              {orchestratorDebugInfo.instructionType === 'tool_selection' && <AlertCircle className="h-4 w-4 text-yellow-500" />}
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3">
@@ -739,22 +642,16 @@ Do not provide explanations, just YES or NO.`;
                                 </Badge>
                               </div>
                               <div className="bg-muted p-3 rounded text-xs">
-                                {orchestratorDebugInfo.instructionType === 'tool_selection' ? (
-                                  <div>
+                                {orchestratorDebugInfo.instructionType === 'tool_selection' ? <div>
                                     <p className="font-medium mb-2">Logic: !state.tool (no tool selected yet)</p>
                                     <p>The orchestrator will ask DeepSeek to analyze the conversation and select an appropriate tool.</p>
-                                  </div>
-                                ) : orchestratorDebugInfo.instructionType === 'confirmation' ? (
-                                  <div>
+                                  </div> : orchestratorDebugInfo.instructionType === 'confirmation' ? <div>
                                     <p className="font-medium mb-2">Logic: state.tool exists but !state.confirmed</p>
                                     <p>The orchestrator will ask DeepSeek to confirm if the user wants to proceed with {orchestratorDebugInfo.state.tool}.</p>
-                                  </div>
-                                ) : (
-                                  <div>
+                                  </div> : <div>
                                     <p className="font-medium mb-2">Logic: No specific path</p>
                                     <p>The conversation doesn't match expected orchestrator patterns.</p>
-                                  </div>
-                                )}
+                                  </div>}
                               </div>
                             </div>
                           </CardContent>
@@ -798,27 +695,22 @@ Do not provide explanations, just YES or NO.`;
                                   <span className="font-medium">ai-chat:</span> /ai[_\s]chat|general|conversation|chat|question/i
                                 </div>
                               </div>
-                              {orchestratorDebugInfo.state.tool && (
-                                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                              {orchestratorDebugInfo.state.tool && <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
                                   <p className="text-green-800">
                                     ✓ Detected tool: <span className="font-medium">{orchestratorDebugInfo.state.tool}</span>
                                   </p>
-                                </div>
-                              )}
+                                </div>}
                             </div>
                           </CardContent>
                         </Card>
                       </div>
                     </ScrollArea>
                   </TabsContent>
-                </Tabs>
-              )}
+                </Tabs>}
             </DialogContent>
           </Dialog>
         </TabsContent>
       </Tabs>
-    </div>
-  );
+    </div>;
 };
-
 export default AISettings;
