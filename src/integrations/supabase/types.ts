@@ -86,6 +86,32 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_conversation_states: {
+        Row: {
+          conversation_id: string
+          state: Json
+          updated_at: string
+        }
+        Insert: {
+          conversation_id: string
+          state?: Json
+          updated_at?: string
+        }
+        Update: {
+          conversation_id?: string
+          state?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversation_states_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_conversations: {
         Row: {
           created_at: string | null
