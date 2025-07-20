@@ -277,8 +277,26 @@ serve(async (req) => {
 
     // Extract parameters
     const extractedParams = await extractParameters(apiKey, conversationHistory);
-    
+
     let { client_id, client_name, dashboard_name, metrics, timeframe } = extractedParams;
+
+    const summaryReply =
+      `Here is what I gathered:\n- Client ID: ${client_id ?? 'N/A'}\n- Client Name: ${client_name ?? 'N/A'}\n- Dashboard Name: ${dashboard_name ?? 'N/A'}\n- Metrics: ${(metrics && metrics.join(', ')) || 'N/A'}\n- Timeframe: ${timeframe ?? 'N/A'}\nPlease confirm to proceed.`;
+
+    await saveMessage(supabase, conversation_id, 'assistant', summaryReply);
+
+    const confirmRegex = /\b(yes|yep|sure|confirm|looks good|go ahead|correct|that's right)\b/i;
+    const isConfirmed = confirmRegex.test(user_message || '');
+
+    if (!isConfirmed) {
+      return new Response(JSON.stringify({
+        success: false,
+        confirmation_required: true,
+        reply: summaryReply
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
     
     // If we have client_name but no client_id, look up the client
     if (!client_id && client_name) {
