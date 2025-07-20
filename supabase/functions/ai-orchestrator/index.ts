@@ -815,6 +815,7 @@ serve(async (req) => {
       if (!isConfirmed && !isRejection) {
         try {
           const apiKey = await decryptDeepSeekKey(supabase, userId);
+          console.log('[🧠 ORCHESTRATOR] Entering confirmation phase for', state.pendingToolSwitch.to);
           const result = await checkConfirmationWithDeepSeek(
             apiKey,
             state.messages,
@@ -1081,7 +1082,8 @@ serve(async (req) => {
         console.log('[🧠 ORCHESTRATOR] Successfully retrieved DeepSeek API key for confirmation');
         
         const requestStart = Date.now();
-        
+
+        console.log('[🧠 ORCHESTRATOR] Entering confirmation phase for', state.tool);
         console.log('[🧠 ORCHESTRATOR] Calling checkConfirmationWithDeepSeek');
         const confirmationResult = await checkConfirmationWithDeepSeek(
           apiKey,
