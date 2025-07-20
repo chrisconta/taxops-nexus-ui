@@ -275,20 +275,38 @@ serve(async (req) => {
 
     // Extract parameters
     const extractedParams = await extractParameters(apiKey, conversationHistory);
-    
+
     const { name, email, ein } = extractedParams;
-    
+
+    const summaryReply =
+      `Here is what I gathered:\n- Name: ${name ?? 'N/A'}\n- Email: ${email ?? 'N/A'}\n- EIN: ${ein ?? 'N/A'}\nPlease confirm to proceed.`;
+
+    await saveMessage(supabase, conversation_id, 'assistant', summaryReply);
+
+    const confirmRegex = /\b(yes|yep|sure|confirm|looks good|go ahead|correct|that's right)\b/i;
+    const isConfirmed = confirmRegex.test(user_message || '');
+
+    if (!isConfirmed) {
+      return new Response(JSON.stringify({
+        success: false,
+        confirmation_required: true,
+        reply: summaryReply
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     // Check if we have all required parameters
     if (!name || !email || !ein) {
       const missingFields = [];
       if (!name) missingFields.push('business name');
       if (!email) missingFields.push('email address');
       if (!ein) missingFields.push('EIN/Tax ID');
-      
+
       const reply = `I need some additional information to register your client. Please provide the ${missingFields.join(', ')}.`;
-      
+
       await saveMessage(supabase, conversation_id, 'assistant', reply);
-      
+
       return new Response(JSON.stringify({
         success: false,
         needs_more_info: true,
