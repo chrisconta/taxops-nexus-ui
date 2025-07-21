@@ -374,8 +374,14 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
 // Detect potential tool switch in a user message when a tool is already selected
 export function detectToolSwitch(message: string, currentTool?: string): string | undefined {
   const { tool } = extractToolFromResponse(message);
-  const normalizedCurrent = normalizeToolName(currentTool);
   const normalizedDetected = normalizeToolName(tool);
+  if (
+    normalizedDetected === 'ai_chat' &&
+    !/\b(chat|switch|cancel|exit)\b/i.test(message)
+  ) {
+    return undefined;
+  }
+  const normalizedCurrent = normalizeToolName(currentTool);
 
   if (tool && normalizedDetected && normalizedDetected !== normalizedCurrent) {
     console.log(`[🔍 DETECT TOOL SWITCH] Detected request to switch from ${currentTool} to ${tool}`);
