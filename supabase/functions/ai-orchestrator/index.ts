@@ -102,9 +102,8 @@ const toolConfirmationMessages = {
 };
 
 // Helper function to normalize tool names for comparison
-const normalizeToolName = (tool: string | undefined | null): string => {
-  return tool?.trim().toLowerCase() || '';
-};
+const normalizeToolName = (tool?: string | null) =>
+  tool?.trim().toLowerCase().replace(/[-\s]+/g, '_') || '';
 
 // Enhanced confirmation with simple pattern matching before DeepSeek
 function checkSimpleConfirmation(message: string): { isConfirmed: boolean; isRejection: boolean } {
@@ -365,8 +364,8 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
   }
   
   console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | No specific tool identified, defaulting to ai-chat`);
-  const reply = trimmedText.toLowerCase() === 'ai-chat' 
-    ? toolMessages['ai-chat'] 
+  const reply = normalizeToolName(trimmedText) === 'ai_chat'
+    ? toolMessages['ai-chat']
     : text;
   console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Default reply: "${reply}"`);
   return { tool: 'ai-chat', reply };
@@ -1134,7 +1133,7 @@ serve(async (req) => {
           };
           
           // For ai-chat, prepare parameters with conversation context
-          if (state.tool === 'ai-chat') {
+          if (normalizeToolName(state.tool) === 'ai_chat') {
             params = {
               message: message,
               conversation_id: conversation_id,
@@ -1212,7 +1211,7 @@ serve(async (req) => {
         tool_confirmed: state.confirmed || false,
         conversation_state: !!conversationStates.get(conversation_id),
         conversation_length: state.messages.length,
-        parameters_handled_by_tool: type === 'actionable' && intent !== 'ai-chat',
+        parameters_handled_by_tool: type === 'actionable' && normalizeToolName(intent) !== 'ai_chat',
         ai_confirmation_used: !state.confirmed && state.tool ? true : false,
         confirmation_attempts: state.confirmationAttempts || 0,
         source_tool_debug: {
