@@ -94,6 +94,10 @@ async function callOrchestrator(
   }
 }
 
+// Normalize tool names for comparison
+const normalizeToolName = (tool?: string | null) =>
+  tool?.trim().toLowerCase().replace(/[-\s]+/g, '_') || '';
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -284,7 +288,9 @@ serve(async (req) => {
 
     // Analyze intent for possible tool switch
     const intent = await analyzeUserIntent(user_message || '', apiKey, conversationHistory);
-    if (intent?.needs_tool_switch) {
+    const suggested = normalizeToolName(intent?.suggested_tool);
+    const current = 'create_connection';
+    if (intent?.needs_tool_switch && suggested && suggested !== current) {
       console.log('Tool switch detected. Calling orchestrator...', intent, 'Request ID:', requestId);
       const orchestratorResult = await callOrchestrator(user_message || '', conversation_id, authHeader);
       console.log('Orchestrator result:', orchestratorResult);
