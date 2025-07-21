@@ -32,29 +32,6 @@ const ReportsBuilder = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [currentReport, setCurrentReport] = useState(null);
 
-  // If no report ID is provided, show the ReportsHome component
-  if (!reportId) {
-    const handleCreateReport = async (title: string, type: string, content?: any) => {
-      const newReport = await createReport(title, type, content);
-      if (newReport) {
-        navigate(`/reports?id=${newReport.id}`);
-      }
-    };
-
-    const handleEditReport = (report: Report) => {
-      navigate(`/reports?id=${report.id}`);
-    };
-
-    return (
-      <div className="h-[calc(100vh-120px)] overflow-auto">
-        <ReportsHome 
-          onCreateReport={handleCreateReport}
-          onEditReport={handleEditReport}
-        />
-      </div>
-    );
-  }
-
   // Load existing report if ID is provided
   useEffect(() => {
     if (reportId && reports.length > 0) {
@@ -106,6 +83,29 @@ const ReportsBuilder = () => {
   const handleBack = () => {
     navigate('/reports');
   };
+
+  const handleCreateReport = async (title: string, type: string, content?: any) => {
+    const newReport = await createReport(title, type, content);
+    if (newReport) {
+      navigate(`/reports?id=${newReport.id}`);
+    }
+  };
+
+  const handleEditReport = (report: Report) => {
+    navigate(`/reports?id=${report.id}`);
+  };
+
+  // If no report ID is provided, show the ReportsHome component
+  if (!reportId) {
+    return (
+      <div className="h-[calc(100vh-120px)] overflow-auto">
+        <ReportsHome 
+          onCreateReport={handleCreateReport}
+          onEditReport={handleEditReport}
+        />
+      </div>
+    );
+  }
 
   // Show the report builder interface when a report ID is present
   return (
