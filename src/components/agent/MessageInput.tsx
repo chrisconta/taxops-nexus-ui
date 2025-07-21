@@ -37,12 +37,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   };
 
   return (
-    <div className="flex space-x-3 p-1">{/* Added p-1 to prevent focus ring clipping */}
+    <div className="flex space-x-2 md:space-x-3 p-1 w-full max-w-full overflow-hidden">
       <Input 
         value={input} 
         onChange={e => setInput(e.target.value)} 
         placeholder={`${placeholder} (max 4000 chars)`}
-        className="flex-1 bg-glass-bg/20 border-glass-border text-white placeholder:text-taxops-gray-light h-16 text-lg" 
+        className="flex-1 bg-glass-bg/20 border-glass-border text-white placeholder:text-taxops-gray-light h-12 md:h-16 text-base md:text-lg min-w-0" 
         onKeyPress={handleKeyPress} 
         disabled={isLoading || disabled} 
         maxLength={4000} 
@@ -51,18 +51,18 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         <Button 
           onClick={onNewChat} 
           disabled={isLoading || disabled} 
-          className="bg-secondary hover:bg-secondary/80 h-16 px-4"
+          className="bg-secondary hover:bg-secondary/80 h-12 md:h-16 px-3 md:px-4 flex-shrink-0"
           title="Start new chat"
         >
-          <MessageSquare className="w-5 h-5" />
+          <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
         </Button>
       )}
       <Button 
         onClick={handleSend} 
         disabled={!input.trim() || isLoading || disabled || input.length > 4000} 
-        className="bg-primary hover:bg-primary/80 h-16 px-6"
+        className="bg-primary hover:bg-primary/80 h-12 md:h-16 px-4 md:px-6 flex-shrink-0"
       >
-        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+        {isLoading ? <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" /> : <Send className="w-4 h-4 md:w-5 md:h-5" />}
       </Button>
     </div>
   );

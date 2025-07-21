@@ -314,8 +314,10 @@ const Layout = () => {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-8 foldable:p-4 foldable-portrait:p-2 pt-28 foldable:pt-20 overflow-auto min-h-screen">
-          <Outlet />
+        <main className="flex-1 p-2 md:p-8 pt-20 md:pt-28 overflow-auto min-h-screen max-w-full">
+          <div className="max-w-full overflow-hidden">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>;

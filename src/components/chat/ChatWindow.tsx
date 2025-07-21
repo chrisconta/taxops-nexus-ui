@@ -478,15 +478,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* Chat Messages - Properly constrained scrollable area */}
       <div className="flex-1 min-h-0 w-full overflow-hidden">
-        {messages.length === 0 ? <div className="flex flex-col items-center justify-center h-full px-4 min-h-[400px] w-full max-w-full overflow-hidden">
-            <div className="text-center max-w-2xl w-full overflow-hidden">
-              <TypingAnimation />
+        {messages.length === 0 ? <div className="flex flex-col items-center justify-center h-full px-2 md:px-4 min-h-[300px] md:min-h-[400px] w-full max-w-full overflow-hidden">
+            <div className="text-center max-w-full md:max-w-2xl w-full overflow-hidden">
+              <div className="mb-6 md:mb-8">
+                <h1 className="text-2xl md:text-4xl font-bold text-white mb-4 md:mb-8 h-12 md:h-16 flex items-center justify-center px-2">
+                  What can I help you with today?
+                </h1>
+              </div>
               {/* Enhanced Tool Launcher & Input centered below animation - only show when standalone */}
-              {!externalOnSend && <div className="mt-12 max-w-4xl w-full overflow-hidden">
-                  <EnhancedToolLauncher 
-                    onToolInitiate={handleToolInitiate}
-                    disabled={isLoading} 
-                  />
+              {!externalOnSend && <div className="mt-6 md:mt-12 max-w-full md:max-w-4xl w-full overflow-hidden px-2">
+                  <div className="mb-4 md:mb-6">
+                    <EnhancedToolLauncher 
+                      onToolInitiate={handleToolInitiate}
+                      disabled={isLoading} 
+                    />
+                  </div>
                   
                   <MessageInput 
                     onSend={handleSend} 
@@ -496,8 +502,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     showNewChatButton={true}
                   />
                   
-                  <div className="flex justify-between text-xs text-taxops-gray-light mt-2">
-                    <span>Select a tool above or type naturally</span>
+                  <div className="flex justify-center md:justify-between text-xs text-taxops-gray-light mt-2 px-1">
+                    <span className="text-center">Select a tool above or type naturally</span>
                   </div>
                   
                   <div className="text-xs text-taxops-gray-light/60 mt-2 text-center">
