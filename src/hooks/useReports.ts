@@ -38,7 +38,10 @@ export const useReports = () => {
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      setReports(data || []);
+      setReports((data || []).map(report => ({
+        ...report,
+        status: report.status as 'draft' | 'published' | 'archived'
+      })));
     } catch (error) {
       console.error('Error loading reports:', error);
       toast({
@@ -59,7 +62,8 @@ export const useReports = () => {
           title,
           report_type: type,
           content,
-          status: 'draft'
+          status: 'draft',
+          user_id: (await supabase.auth.getUser()).data.user?.id
         })
         .select()
         .single();
@@ -142,7 +146,8 @@ export const useReports = () => {
           title: `${report.title} Copy`,
           report_type: report.report_type,
           content: report.content,
-          status: 'draft'
+          status: 'draft',
+          user_id: (await supabase.auth.getUser()).data.user?.id
         })
         .select()
         .single();

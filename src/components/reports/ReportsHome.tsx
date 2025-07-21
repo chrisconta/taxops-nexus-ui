@@ -41,7 +41,10 @@ export const ReportsHome = ({ onCreateReport, onEditReport }: ReportsHomeProps) 
   const handleDuplicate = async (report: Report) => {
     const duplicated = await duplicateReport(report);
     if (duplicated) {
-      onEditReport(duplicated);
+      onEditReport({
+        ...duplicated,
+        status: duplicated.status as 'draft' | 'published' | 'archived'
+      });
     }
   };
 
