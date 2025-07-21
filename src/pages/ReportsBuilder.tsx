@@ -1,13 +1,20 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ReportTopNav } from "@/components/reports/ReportTopNav";
 import { ReportCanvas } from "@/components/reports/ReportCanvas";
 import { ComponentPalette } from "@/components/reports/ComponentPalette";
 import { ConfigurationPanel } from "@/components/reports/ConfigurationPanel";
 import { ReportStatusBar } from "@/components/reports/ReportStatusBar";
 import { useReportBuilder } from "@/hooks/useReportBuilder";
+import { useReports } from "@/hooks/useReports";
 
 const ReportsBuilder = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const reportId = searchParams.get('id');
+  
+  const { reports, updateReport } = useReports();
   const {
     reportState,
     updateState,
@@ -22,6 +29,43 @@ const ReportsBuilder = () => {
   } = useReportBuilder();
 
   const [showFilters, setShowFilters] = useState(false);
+  const [currentReport, setCurrentReport] = useState(null);
+
+  // Load existing report if ID is provided
+  useEffect(() => {
+    if (reportId && reports.length > 0) {
+      const report = reports.find(r => r.id === reportId);
+      if (report) {
+        setCurrentReport(report);
+        // Load the report content into the builder
+        updateState({
+          title: report.title,
+          activeView: report.content?.activeView || 'table',
+          components: report.content?.components || [],
+          selectedComponent: null
+        });
+      }
+    }
+  }, [reportId, reports, updateState]);
+
+  // Auto-save functionality
+  useEffect(() => {
+    if (currentReport && reportState.title !== 'New Report') {
+      const saveTimer = setTimeout(() => {
+        updateReport(currentReport.id, {
+          title: reportState.title,
+          content: {
+            activeView: reportState.activeView,
+            components: reportState.components,
+            filters: reportState.filters
+          }
+        });
+        updateState({ lastSaved: new Date() });
+      }, 2000);
+
+      return () => clearTimeout(saveTimer);
+    }
+  }, [reportState, currentReport, updateReport]);
 
   const handleTitleChange = (title: string) => {
     updateState({ title });
@@ -33,6 +77,10 @@ const ReportsBuilder = () => {
 
   const handleShowFilters = () => {
     setShowFilters(!showFilters);
+  };
+
+  const handleBack = () => {
+    navigate('/reports');
   };
 
   return (
@@ -47,6 +95,7 @@ const ReportsBuilder = () => {
         onUndo={undo}
         onRedo={redo}
         onShowFilters={handleShowFilters}
+        onBack={handleBack}
         canUndo={canUndo}
         canRedo={canRedo}
       />
@@ -98,8 +147,17 @@ const ReportsBuilder = () => {
         lastSaved={reportState.lastSaved}
         componentsCount={reportState.components.length}
         onSave={() => {
-          updateState({ lastSaved: new Date() });
-          console.log('Report saved');
+          if (currentReport) {
+            updateReport(currentReport.id, {
+              title: reportState.title,
+              content: {
+                activeView: reportState.activeView,
+                components: reportState.components,
+                filters: reportState.filters
+              }
+            });
+            updateState({ lastSaved: new Date() });
+          }
         }}
         onExport={() => {
           console.log('Exporting report...');
