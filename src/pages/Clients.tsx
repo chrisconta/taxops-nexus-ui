@@ -353,7 +353,7 @@ const Clients = () => {
   }
 
   return (
-    <div className="space-y-8 animate-slide-up">
+    <div className="space-y-6 md:space-y-8 animate-slide-up max-w-full overflow-hidden px-1 md:px-0">
       {/* Metrics Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {metricsConfig.map((metric, index) => {
@@ -384,8 +384,8 @@ const Clients = () => {
       </div>
 
       {/* Controls */}
-      <Card className="p-6 bg-glass-bg/50 backdrop-blur-sm border-glass-border">
-        <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
+      <Card className="p-4 md:p-6 bg-glass-bg/50 backdrop-blur-sm border-glass-border">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col sm:flex-row gap-4 flex-1">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-taxops-gray-light" />
@@ -398,20 +398,22 @@ const Clients = () => {
             </div>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button 
               variant="outline" 
-              className="gap-2 hover:bg-glass-bg/50 transition-all duration-300 group"
+              className="gap-2 hover:bg-glass-bg/50 transition-all duration-300 group text-xs sm:text-sm"
               onClick={handleDownloadCSV}
             >
               <Download className="w-4 h-4 group-hover:scale-110 transition-transform" />
-              Download Client List
+              <span className="hidden sm:inline">Download Client List</span>
+              <span className="sm:hidden">Download</span>
             </Button>
-            <Button className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-glow transition-all duration-300 group"
+            <Button className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-glow transition-all duration-300 group text-xs sm:text-sm"
               onClick={() => navigate("/clients/new")}
             >
               <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
-              Add Client
+              <span className="hidden sm:inline">Add Client</span>
+              <span className="sm:hidden">Add</span>
             </Button>
           </div>
         </div>
@@ -423,24 +425,24 @@ const Clients = () => {
           filteredClients.map((client, index) => (
             <Card
               key={client.id}
-              className={`p-6 bg-glass-bg/50 backdrop-blur-sm border-glass-border hover:border-primary/30 transition-all duration-300 group hover:shadow-glow animate-slide-up`}
+              className={`p-4 md:p-6 bg-glass-bg/50 backdrop-blur-sm border-glass-border hover:border-primary/30 transition-all duration-300 group hover:shadow-glow animate-slide-up`}
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-6 flex-1">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:space-x-6 flex-1 gap-4">
                   {/* Client Info */}
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-semibold text-white group-hover:text-primary transition-colors">
+                  <div className="space-y-1 min-w-0 flex-shrink-0">
+                    <h3 className="text-lg font-semibold text-white group-hover:text-primary transition-colors truncate">
                       {client.name}
                     </h3>
-                    <p className="text-sm text-taxops-gray-light">{client.email}</p>
-                    <p className="text-sm text-taxops-gray-light font-mono">{client.taxid}</p>
+                    <p className="text-sm text-taxops-gray-light truncate">{client.email}</p>
+                    <p className="text-sm text-taxops-gray-light font-mono truncate">{client.taxid}</p>
                   </div>
                   
                   {/* Credentials */}
-                  <div className="flex flex-col space-y-2">
+                  <div className="flex flex-col space-y-2 min-w-0">
                     <p className="text-xs text-taxops-gray-light uppercase tracking-wide">Credentials</p>
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center flex-wrap gap-2">
                       {client.credentials.map((credential, credIndex) => (
                         <TooltipProvider key={credIndex}>
                           <Tooltip>
@@ -462,9 +464,9 @@ const Clients = () => {
                   </div>
                   
                   {/* Last Sync */}
-                  <div className="flex flex-col space-y-2">
+                  <div className="flex flex-col space-y-2 min-w-0">
                     <p className="text-xs text-taxops-gray-light uppercase tracking-wide">Last Sync</p>
-                    <p className="text-sm text-white">
+                    <p className="text-sm text-white truncate">
                       {client.last_sync_at ? new Date(client.last_sync_at).toLocaleDateString() : 'Never'}
                     </p>
                     {client.last_sync_successful !== null && (
