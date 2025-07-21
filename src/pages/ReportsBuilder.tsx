@@ -15,7 +15,7 @@ const ReportsBuilder = () => {
   const [searchParams] = useSearchParams();
   const reportId = searchParams.get('id');
   
-  const { reports, updateReport } = useReports();
+  const { reports, updateReport, createReport } = useReports();
   const {
     reportState,
     updateState,
@@ -35,7 +35,6 @@ const ReportsBuilder = () => {
   // If no report ID is provided, show the ReportsHome component
   if (!reportId) {
     const handleCreateReport = async (title: string, type: string, content?: any) => {
-      const { createReport } = useReports();
       const newReport = await createReport(title, type, content);
       if (newReport) {
         navigate(`/reports?id=${newReport.id}`);
