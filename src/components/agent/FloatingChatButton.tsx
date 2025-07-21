@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useUIStore } from "@/stores/uiStore";
 import { useLocation } from "react-router-dom";
@@ -7,8 +8,8 @@ export const FloatingChatButton: React.FC = () => {
   const { toggleSidebar } = useUIStore();
   const location = useLocation();
   
-  // Don't show the floating button when user is on the AI assistant page (reports)
-  if (location.pathname === '/reports') {
+  // Don't show the floating button when user is on the AI assistant page
+  if (location.pathname === '/ai-assistant') {
     return null;
   }
   

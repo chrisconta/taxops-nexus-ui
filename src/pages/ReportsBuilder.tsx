@@ -6,8 +6,9 @@ import { ReportCanvas } from "@/components/reports/ReportCanvas";
 import { ComponentPalette } from "@/components/reports/ComponentPalette";
 import { ConfigurationPanel } from "@/components/reports/ConfigurationPanel";
 import { ReportStatusBar } from "@/components/reports/ReportStatusBar";
+import { ReportsHome } from "@/components/reports/ReportsHome";
 import { useReportBuilder } from "@/hooks/useReportBuilder";
-import { useReports } from "@/hooks/useReports";
+import { useReports, Report } from "@/hooks/useReports";
 
 const ReportsBuilder = () => {
   const navigate = useNavigate();
@@ -30,6 +31,30 @@ const ReportsBuilder = () => {
 
   const [showFilters, setShowFilters] = useState(false);
   const [currentReport, setCurrentReport] = useState(null);
+
+  // If no report ID is provided, show the ReportsHome component
+  if (!reportId) {
+    const handleCreateReport = async (title: string, type: string, content?: any) => {
+      const { createReport } = useReports();
+      const newReport = await createReport(title, type, content);
+      if (newReport) {
+        navigate(`/reports?id=${newReport.id}`);
+      }
+    };
+
+    const handleEditReport = (report: Report) => {
+      navigate(`/reports?id=${report.id}`);
+    };
+
+    return (
+      <div className="h-[calc(100vh-120px)] overflow-auto">
+        <ReportsHome 
+          onCreateReport={handleCreateReport}
+          onEditReport={handleEditReport}
+        />
+      </div>
+    );
+  }
 
   // Load existing report if ID is provided
   useEffect(() => {
@@ -83,6 +108,7 @@ const ReportsBuilder = () => {
     navigate('/reports');
   };
 
+  // Show the report builder interface when a report ID is present
   return (
     <div className="h-[calc(100vh-120px)] overflow-hidden">
       {/* Top Navigation Bar */}

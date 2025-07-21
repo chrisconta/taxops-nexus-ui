@@ -1,4 +1,3 @@
-
 import { NavLink, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
 import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User, LogOut, ChevronDown, Brain, Zap, Menu, X, BarChart3, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -103,9 +102,9 @@ const Layout = () => {
         return "Client Management";
       case "/connections":
         return "Connections";
-      case "/reports":
+      case "/ai-assistant":
         return "AI Assistant";
-      case "/reports-builder":
+      case "/reports":
         return "Report Builder";
       case "/tool-builder":
         return "Tool Builder";
@@ -122,9 +121,9 @@ const Layout = () => {
         return "Manage your clients and their tax compliance status";
       case "/connections":
         return "Connect and manage financial service integrations";
-      case "/reports":
+      case "/ai-assistant":
         return "Your AI-powered assistant for reports, clients, connections, and analytics";
-      case "/reports-builder":
+      case "/reports":
         return "Build custom reports with drag-and-drop interface and data transformation";
       case "/tool-builder":
         return "Create custom AI workflows and tools to automate your business processes";
@@ -137,15 +136,19 @@ const Layout = () => {
 
   // Helper function to check if a route is active
   const isRouteActive = (path: string) => {
+    if (path === "/ai-assistant") {
+      // For AI assistant route, only match exact path
+      return location.pathname === "/ai-assistant";
+    }
     if (path === "/reports") {
-      // For reports route, only match exact path, not reports-builder
+      // For reports route, only match exact path
       return location.pathname === "/reports";
     }
     return location.pathname.startsWith(path);
   };
 
   const navItems = [{
-    to: "/reports",
+    to: "/ai-assistant",
     label: "AI Assistant",
     icon: Brain
   }, {
@@ -157,7 +160,7 @@ const Layout = () => {
     label: "Connections",
     icon: Link2
   }, {
-    to: "/reports-builder",
+    to: "/reports",
     label: "Report Builder",
     icon: BarChart3
   }, {
