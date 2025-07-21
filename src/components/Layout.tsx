@@ -277,20 +277,20 @@ const Layout = () => {
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <div className="flex items-center gap-4 foldable:gap-2 p-3 foldable:p-2 bg-glass-bg/30 rounded-xl border border-glass-border hover:border-primary/30 transition-all duration-300 group cursor-pointer">
-                  <div className="text-right foldable-portrait:hidden">
-                    <p className="text-sm foldable:text-xs font-semibold text-white group-hover:text-primary transition-colors">
+                <div className="flex items-center gap-2 md:gap-4 p-2 md:p-3 bg-glass-bg/30 rounded-xl border border-glass-border hover:border-primary/30 transition-all duration-300 group cursor-pointer">
+                  <div className="text-right hidden md:block">
+                    <p className="text-sm font-semibold text-white group-hover:text-primary transition-colors">
                       {userProfile.display_name || "User"}
                     </p>
-                    <p className="text-xs foldable:text-[10px] text-taxops-gray-light">{userProfile.email}</p>
+                    <p className="text-xs text-taxops-gray-light">{userProfile.email}</p>
                   </div>
                   <div className="relative">
-                    <div className="w-10 h-10 foldable:w-8 foldable:h-8 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center">
-                      <User className="w-5 h-5 foldable:w-4 foldable:h-4 text-white" />
+                    <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center">
+                      <User className="w-4 h-4 md:w-5 md:h-5 text-white" />
                     </div>
-                    <div className="absolute -bottom-1 -right-1 w-3 h-3 foldable:w-2 foldable:h-2 bg-taxops-success rounded-full border-2 border-background" />
+                    <div className="absolute -bottom-1 -right-1 w-2 h-2 md:w-3 md:h-3 bg-taxops-success rounded-full border-2 border-background" />
                   </div>
-                  <ChevronDown className="w-4 h-4 foldable:w-3 foldable:h-3 foldable-portrait:hidden text-taxops-gray-light group-hover:text-white transition-colors" />
+                  <ChevronDown className="w-3 h-3 md:w-4 md:h-4 text-taxops-gray-light group-hover:text-white transition-colors hidden md:block" />
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 bg-card border-border">
