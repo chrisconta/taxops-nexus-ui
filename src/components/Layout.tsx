@@ -1,3 +1,4 @@
+
 import { NavLink, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
 import { Users, Link2, FileText, Settings, Bot, Sparkles, Bell, User, LogOut, ChevronDown, Brain, Zap, Menu, X, BarChart3, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -134,6 +135,15 @@ const Layout = () => {
     }
   };
 
+  // Helper function to check if a route is active
+  const isRouteActive = (path: string) => {
+    if (path === "/reports") {
+      // For reports route, only match exact path, not reports-builder
+      return location.pathname === "/reports";
+    }
+    return location.pathname.startsWith(path);
+  };
+
   const navItems = [{
     to: "/reports",
     label: "AI Assistant",
@@ -198,29 +208,29 @@ const Layout = () => {
           }`}>
             {navItems.map(item => {
             const Icon = item.icon;
-            return <NavLink key={item.to} to={item.to} className={({
-              isActive
-            }) => `group relative flex items-center transition-all duration-300 overflow-hidden border border-transparent rounded-xl text-sm font-semibold ${
-              isSidebarCollapsed 
-                ? 'justify-center p-3 w-12 h-12' 
-                : 'gap-4 px-6 py-4'
-            } ${isActive ? "bg-gradient-to-r from-primary/20 to-primary/10 text-primary border-primary/30 shadow-glow" : "text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 hover:border-glass-border"}`}>
-                  {({
-                isActive
-              }) => <>
-                      {/* Glow effect overlay */}
-                      <div className={`absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 transition-opacity duration-300 ${isActive ? 'opacity-100' : 'group-hover:opacity-100'}`} />
-                      
-                      <Icon className={`relative z-10 transition-all duration-300 ${
-                        isSidebarCollapsed ? 'w-5 h-5' : 'w-5 h-5 foldable:w-4 foldable:h-4'
-                      } ${isActive ? "text-primary" : "group-hover:scale-110"}`} />
-                      {!isSidebarCollapsed && <span className="relative z-10">{item.label}</span>}
-                      
-                      {/* Active indicator */}
-                      {isActive && !isSidebarCollapsed && <div className="absolute right-4 w-2 h-2 bg-primary rounded-full animate-glow-pulse" />}
-                      {isActive && isSidebarCollapsed && <div className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full animate-glow-pulse" />}
-                    </>}
-                </NavLink>;
+            const isActive = isRouteActive(item.to);
+            
+            return <Link 
+              key={item.to} 
+              to={item.to} 
+              className={`group relative flex items-center transition-all duration-300 overflow-hidden border border-transparent rounded-xl text-sm font-semibold ${
+                isSidebarCollapsed 
+                  ? 'justify-center p-3 w-12 h-12' 
+                  : 'gap-4 px-6 py-4'
+              } ${isActive ? "bg-gradient-to-r from-primary/20 to-primary/10 text-primary border-primary/30 shadow-glow" : "text-taxops-gray-light hover:text-white hover:bg-glass-bg/50 hover:border-glass-border"}`}
+            >
+              {/* Glow effect overlay */}
+              <div className={`absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 transition-opacity duration-300 ${isActive ? 'opacity-100' : 'group-hover:opacity-100'}`} />
+              
+              <Icon className={`relative z-10 transition-all duration-300 ${
+                isSidebarCollapsed ? 'w-5 h-5' : 'w-5 h-5 foldable:w-4 foldable:h-4'
+              } ${isActive ? "text-primary" : "group-hover:scale-110"}`} />
+              {!isSidebarCollapsed && <span className="relative z-10">{item.label}</span>}
+              
+              {/* Active indicator */}
+              {isActive && !isSidebarCollapsed && <div className="absolute right-4 w-2 h-2 bg-primary rounded-full animate-glow-pulse" />}
+              {isActive && isSidebarCollapsed && <div className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full animate-glow-pulse" />}
+            </Link>;
           })}
           </div>
         </nav>
