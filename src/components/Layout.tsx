@@ -266,9 +266,9 @@ const Layout = () => {
               {isSidebarCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
             </Button>
             
-            <div className="flex flex-col">
-              <h1 className="text-xl foldable:text-lg foldable-portrait:text-base font-bold text-white">{getPageTitle()}</h1>
-              <p className="text-sm foldable:text-xs foldable-portrait:hidden text-taxops-gray-light">{getPageDescription()}</p>
+            <div className="flex flex-col min-w-0 flex-1">
+              <h1 className="text-lg md:text-xl font-bold text-white truncate">{getPageTitle()}</h1>
+              <p className="text-xs md:text-sm text-taxops-gray-light truncate hidden sm:block">{getPageDescription()}</p>
             </div>
           </div>
           
