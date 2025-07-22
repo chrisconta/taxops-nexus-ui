@@ -16,7 +16,7 @@ export const ChatLayout: React.FC = () => {
   }, [searchParams, loadConversation]);
 
   return (
-    <div className="h-full w-full flex flex-col bg-background overflow-hidden max-w-full">
+    <div className="w-full flex flex-col bg-background overflow-hidden max-w-full h-[calc(100vh-var(--header-height))]">
       <div className="flex-1 min-h-0 w-full overflow-hidden max-w-full">
         <div className="h-full w-full max-w-full overflow-hidden">
           <ChatWindow />
