@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
 /* Responsive media queries for 8.2" foldable screens */
 @media (min-width: 480px) and (max-width: 820px) and (orientation: portrait) {
   /* Foldable portrait mode optimizations */
@@ -87,6 +93,9 @@ All colors MUST be HSL.
     --transition-glow: box-shadow 0.3s ease-in-out, border-color 0.3s ease-in-out;
     --transition-lift: transform 0.2s ease-out, box-shadow 0.2s ease-out;
 
+    /* Height of the fixed header */
+    --header-height: 5rem;
+
     --sidebar-background: 0 0% 98%;
 
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -102,6 +111,12 @@ All colors MUST be HSL.
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  @media (max-width: 820px) {
+    :root {
+      --header-height: 4rem;
+    }
   }
 
   .dark {
