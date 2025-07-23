@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, X, Function } from 'lucide-react';
+import { Check, X, Calculator } from 'lucide-react';
 import { useSpreadsheetStore } from '@/stores/useSpreadsheetStore';
 
 export const FormulaBar: React.FC = () => {
@@ -80,7 +80,7 @@ export const FormulaBar: React.FC = () => {
           {selectedCell || 'A1'}
         </Badge>
         {isFormula && (
-          <Function className="h-4 w-4 text-primary" />
+          <Calculator className="h-4 w-4 text-primary" />
         )}
       </div>
 
