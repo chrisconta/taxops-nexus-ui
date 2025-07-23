@@ -213,7 +213,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({ className }) =
     return (
       <div
         key={`row-${row}`}
-        className="bg-muted border-r border-b border-border flex items-center justify-center text-xs font-medium text-muted-foreground"
+        className="bg-muted border-r border-b border-border flex items-center justify-start pl-2 text-xs font-medium text-muted-foreground"
         style={{ width: HEADER_WIDTH, height: cellHeight }}
       >
         {rowLabel}
