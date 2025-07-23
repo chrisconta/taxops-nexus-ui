@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { useSpreadsheetStore } from '@/stores/useSpreadsheetStore';
@@ -260,7 +259,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({ className }) =
           {Array.from({ length: frozenCols }, (_, col) => renderColumnHeader(col))}
         </div>
         
-        {/* Frozen row headers */}
+        {/* Frozen row headers - only render for frozen rows */}
         <div className="absolute top-0 left-0 z-20 flex flex-col" style={{ marginTop: HEADER_HEIGHT }}>
           {Array.from({ length: frozenRows }, (_, row) => renderRowHeader(row))}
         </div>
@@ -275,16 +274,19 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({ className }) =
         </div>
         
         {/* Scrollable area */}
-        <div className="relative" style={{ marginTop: HEADER_HEIGHT + frozenRows * DEFAULT_CELL_HEIGHT, marginLeft: HEADER_WIDTH + frozenCols * DEFAULT_CELL_WIDTH }}>
-          {/* Column headers */}
-          <div className="sticky top-0 z-10 flex bg-background">
+        <div className="relative" style={{ 
+          marginTop: HEADER_HEIGHT + frozenRows * DEFAULT_CELL_HEIGHT, 
+          marginLeft: HEADER_WIDTH 
+        }}>
+          {/* Scrollable column headers */}
+          <div className="sticky top-0 z-10 flex bg-background" style={{ marginLeft: frozenCols * DEFAULT_CELL_WIDTH }}>
             {Array.from({ length: visibleCols }, (_, col) => renderColumnHeader(col + frozenCols))}
           </div>
           
           {/* Grid content */}
           <div className="flex">
-            {/* Row headers */}
-            <div className="sticky left-0 z-10 bg-background">
+            {/* Scrollable row headers - positioned correctly and starting from frozenRows */}
+            <div className="sticky left-0 z-10 bg-background" style={{ width: frozenCols * DEFAULT_CELL_WIDTH }}>
               {Array.from({ length: visibleRows }, (_, row) => renderRowHeader(row + frozenRows))}
             </div>
             
