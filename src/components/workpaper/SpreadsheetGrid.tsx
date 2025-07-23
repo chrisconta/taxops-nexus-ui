@@ -276,17 +276,17 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({ className }) =
         {/* Scrollable area */}
         <div className="relative" style={{ 
           marginTop: HEADER_HEIGHT + frozenRows * DEFAULT_CELL_HEIGHT, 
-          marginLeft: HEADER_WIDTH 
+          marginLeft: HEADER_WIDTH + frozenCols * DEFAULT_CELL_WIDTH 
         }}>
           {/* Scrollable column headers */}
-          <div className="sticky top-0 z-10 flex bg-background" style={{ marginLeft: frozenCols * DEFAULT_CELL_WIDTH }}>
+          <div className="sticky top-0 z-10 flex bg-background">
             {Array.from({ length: visibleCols }, (_, col) => renderColumnHeader(col + frozenCols))}
           </div>
           
           {/* Grid content */}
           <div className="flex">
-            {/* Scrollable row headers - positioned correctly and starting from frozenRows */}
-            <div className="sticky left-0 z-10 bg-background" style={{ width: frozenCols * DEFAULT_CELL_WIDTH }}>
+            {/* Scrollable row headers - positioned to not overlap with frozen headers */}
+            <div className="sticky left-0 z-10 bg-background" style={{ marginLeft: -frozenCols * DEFAULT_CELL_WIDTH }}>
               {Array.from({ length: visibleRows }, (_, row) => renderRowHeader(row + frozenRows))}
             </div>
             
