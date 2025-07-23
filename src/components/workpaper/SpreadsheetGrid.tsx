@@ -135,7 +135,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({ className }) =
         }
         break;
       default:
-        // Start editing on alphanumeric key press
         if (!isEditing && e.key.length === 1 && e.key.match(/[a-zA-Z0-9=]/)) {
           e.preventDefault();
           startEditing(selectedCell, e.key);
@@ -273,6 +272,17 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({ className }) =
           ))}
         </div>
         
+        {/* Scrollable row headers - positioned at the left edge below frozen headers */}
+        <div 
+          className="absolute left-0 z-10 bg-background" 
+          style={{ 
+            top: HEADER_HEIGHT + frozenRows * DEFAULT_CELL_HEIGHT,
+            width: HEADER_WIDTH
+          }}
+        >
+          {Array.from({ length: visibleRows }, (_, row) => renderRowHeader(row + frozenRows))}
+        </div>
+        
         {/* Scrollable area */}
         <div className="relative" style={{ 
           marginTop: HEADER_HEIGHT + frozenRows * DEFAULT_CELL_HEIGHT, 
@@ -283,21 +293,13 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({ className }) =
             {Array.from({ length: visibleCols }, (_, col) => renderColumnHeader(col + frozenCols))}
           </div>
           
-          {/* Grid content */}
-          <div className="flex">
-            {/* Scrollable row headers - positioned at the left edge of scrollable area */}
-            <div className="sticky left-0 z-10 bg-background" style={{ width: HEADER_WIDTH }}>
-              {Array.from({ length: visibleRows }, (_, row) => renderRowHeader(row + frozenRows))}
-            </div>
-            
-            {/* Data cells */}
-            <div>
-              {Array.from({ length: visibleRows }, (_, row) => (
-                <div key={`row-${row + frozenRows}`} className="flex">
-                  {Array.from({ length: visibleCols }, (_, col) => renderCell(row + frozenRows, col + frozenCols))}
-                </div>
-              ))}
-            </div>
+          {/* Data cells - no row headers here, just pure data */}
+          <div>
+            {Array.from({ length: visibleRows }, (_, row) => (
+              <div key={`row-${row + frozenRows}`} className="flex">
+                {Array.from({ length: visibleCols }, (_, col) => renderCell(row + frozenRows, col + frozenCols))}
+              </div>
+            ))}
           </div>
         </div>
       </div>
