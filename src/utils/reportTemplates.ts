@@ -1,8 +1,19 @@
 
-import { BarChart3, Table, PieChart, FileText, Wrench } from 'lucide-react';
+import { BarChart3, Table, PieChart, FileText, Wrench, Grid3X3 } from 'lucide-react';
 import { ReportTemplate } from '@/hooks/useReports';
 
 export const reportTemplates: ReportTemplate[] = [
+  {
+    id: 'workpaper',
+    name: 'Workpaper',
+    description: 'Create Excel-style workpapers with formulas, data binding, and multiple sheets',
+    type: 'workpaper',
+    icon: 'Grid3X3',
+    content: {
+      activeView: 'table',
+      components: []
+    }
+  },
   {
     id: 'data-table',
     name: 'Data Table Report',
@@ -86,7 +97,8 @@ export const getTemplateIcon = (iconName: string) => {
     BarChart3,
     PieChart,
     FileText,
-    Wrench
+    Wrench,
+    Grid3X3
   };
   return icons[iconName as keyof typeof icons] || FileText;
 };

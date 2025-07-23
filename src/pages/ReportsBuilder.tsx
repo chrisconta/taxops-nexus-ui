@@ -7,6 +7,7 @@ import { ComponentPalette } from "@/components/reports/ComponentPalette";
 import { ConfigurationPanel } from "@/components/reports/ConfigurationPanel";
 import { ReportStatusBar } from "@/components/reports/ReportStatusBar";
 import { ReportsHome } from "@/components/reports/ReportsHome";
+import { WorkpaperBuilder } from "@/components/workpaper/WorkpaperBuilder";
 import { useReportBuilder } from "@/hooks/useReportBuilder";
 import { useReports, Report } from "@/hooks/useReports";
 
@@ -14,6 +15,7 @@ const ReportsBuilder = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const reportId = searchParams.get('id');
+  const reportType = searchParams.get('type'); // 'workpaper' or 'report'
   
   const { reports, updateReport, createReport } = useReports();
   const {
@@ -87,12 +89,14 @@ const ReportsBuilder = () => {
   const handleCreateReport = async (title: string, type: string, content?: any) => {
     const newReport = await createReport(title, type, content);
     if (newReport) {
-      navigate(`/reports?id=${newReport.id}`);
+      navigate(`/reports?id=${newReport.id}&type=${type}`);
     }
   };
 
   const handleEditReport = (report: Report) => {
-    navigate(`/reports?id=${report.id}`);
+    // Determine if this is a workpaper or regular report
+    const type = report.report_type === 'workpaper' ? 'workpaper' : 'report';
+    navigate(`/reports?id=${report.id}&type=${type}`);
   };
 
   // If no report ID is provided, show the ReportsHome component
@@ -107,7 +111,16 @@ const ReportsBuilder = () => {
     );
   }
 
-  // Show the report builder interface when a report ID is present
+  // If this is a workpaper, show the WorkpaperBuilder
+  if (reportType === 'workpaper') {
+    return (
+      <div className="h-[calc(100vh-120px)] overflow-hidden">
+        <WorkpaperBuilder onBack={handleBack} />
+      </div>
+    );
+  }
+
+  // Show the legacy report builder interface for regular reports
   return (
     <div className="h-[calc(100vh-120px)] overflow-hidden">
       {/* Top Navigation Bar */}
