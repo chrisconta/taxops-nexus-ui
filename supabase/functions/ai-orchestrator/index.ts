@@ -1158,8 +1158,14 @@ serve(async (req) => {
           type = 'actionable';
           state.confirmed = true;
 
-          // update loop tracking with final confirmation message
-          state.lastAssistantMessage = confirmationResult.reply;
+          // SPECIFIC LOGIC FOR download_tax_report WITH "yes"/"Yes" CONFIRMATION
+          if (state.tool === 'download_tax_report' && /^(yes|Yes)$/i.test(message.trim())) {
+            reply = 'ok, i will generate your workpaper';
+            state.lastAssistantMessage = reply;
+          } else {
+            // update loop tracking with final confirmation message
+            state.lastAssistantMessage = confirmationResult.reply;
+          }
           state.repeatedResponseCount = 0;
           
           // Pass conversation_id to the tool
