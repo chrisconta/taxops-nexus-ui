@@ -160,6 +160,36 @@ function detectRepeatedResponse(state: ConversationState, newResponse: string): 
   return false;
 }
 
+// NEW: Detect complete action commands that should skip confirmation
+function detectCompleteActionCommand(message: string, toolName: string): boolean {
+  const normalizedMessage = message.toLowerCase().trim();
+  
+  // For download_tax_report - if message contains both action and company name
+  if (toolName === 'download_tax_report') {
+    const hasAction = /^(generate|create|download|get|build|show|display|prepare)\s+(the\s+)?(tax\s+)?report/i.test(normalizedMessage);
+    const hasCompanyContext = /\b(from|for|of)\s+[\w\s]+/i.test(normalizedMessage) || 
+                             /\b[a-zA-Z]+\s+(inc|llc|corp|company|usa|america)\b/i.test(normalizedMessage);
+    
+    console.log(`[🔍 COMPLETE ACTION] Tool: ${toolName} | HasAction: ${hasAction} | HasCompany: ${hasCompanyContext} | Message: "${normalizedMessage}"`);
+    return hasAction && hasCompanyContext;
+  }
+  
+  // For register_client - if message contains action and client details
+  if (toolName === 'register_client') {
+    const hasAction = /^(register|create|add)\s+(new\s+)?(client|customer)/i.test(normalizedMessage);
+    const hasDetails = /@/.test(normalizedMessage) || /\b\d{2}-\d{7}\b/.test(normalizedMessage); // email or EIN pattern
+    
+    console.log(`[🔍 COMPLETE ACTION] Tool: ${toolName} | HasAction: ${hasAction} | HasDetails: ${hasDetails}`);
+    return hasAction && hasDetails;
+  }
+  
+  // For other tools, check for direct action commands
+  const isDirectCommand = /^(generate|create|download|get|build|show|display|prepare|register|add)\s+/i.test(normalizedMessage);
+  
+  console.log(`[🔍 COMPLETE ACTION] Tool: ${toolName} | IsDirectCommand: ${isDirectCommand}`);
+  return isDirectCommand;
+}
+
 // ENHANCED CONFIRMATION CHECK with comprehensive logging
 async function checkConfirmationWithDeepSeek(
   apiKey: string, 
@@ -1009,11 +1039,37 @@ serve(async (req) => {
           console.log(`[🧠 ORCHESTRATOR] Tool extracted: ${extracted.tool}`);
           state.tool = extracted.tool;
           intent = state.tool;
-          reply = extracted.reply || '';
-          state.confirmed = false;
-          state.confirmationAttempts = 0;
+          
+          // Check if this is a complete action command that should skip confirmation
+          const isCompleteActionCommand = detectCompleteActionCommand(message, extracted.tool);
+          
+          if (isCompleteActionCommand) {
+            console.log(`[🧠 ORCHESTRATOR] Complete action command detected for ${extracted.tool}, skipping confirmation`);
+            state.confirmed = true;
+            state.confirmationAttempts = 0;
+            type = 'actionable';
+            
+            // Generate action-oriented response instead of confirmation request
+            if (extracted.tool === 'download_tax_report') {
+              reply = 'I have prepared your tax report. Processing now...';
+            } else if (extracted.tool === 'register_client') {
+              reply = 'I have registered the client. Processing now...';
+            } else if (extracted.tool === 'create_connection') {
+              reply = 'I have created the connection. Processing now...';
+            } else if (extracted.tool === 'build_dashboard') {
+              reply = 'I have built the dashboard. Processing now...';
+            } else {
+              reply = `I have executed ${extracted.tool.replace('_', ' ')}. Processing now...`;
+            }
+            
+            params = { conversation_id: conversation_id };
+          } else {
+            reply = extracted.reply || '';
+            state.confirmed = false;
+            state.confirmationAttempts = 0;
+          }
 
-          // Reset loop detection tracking with new confirmation message
+          // Reset loop detection tracking with new message
           state.lastAssistantMessage = reply;
           state.repeatedResponseCount = 0;
           
@@ -1023,7 +1079,7 @@ serve(async (req) => {
             state.toolChain.push(state.tool);
           }
           
-          console.log(`[🧠 ORCHESTRATOR] Tool selected: ${intent} | Tool chain: ${JSON.stringify(state.toolChain)}`);
+          console.log(`[🧠 ORCHESTRATOR] Tool selected: ${intent} | Confirmed: ${state.confirmed} | Tool chain: ${JSON.stringify(state.toolChain)}`);
         } else {
           // Default to ai-chat if no tool was identified
           state.tool = 'ai-chat';
