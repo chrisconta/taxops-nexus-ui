@@ -66,6 +66,23 @@ Let's configure your dashboard:`,
         ]
       };
 
+    case 'download_tax_report':
+      return {
+        initialMessage: `I'll help you download tax reports that have been uploaded to your account. You can search by report ID, tax year, or filename.
+
+Let me find your tax report:`,
+        followUpQuestions: [
+          "Which tax report would you like to download?",
+          "Do you have a specific tax year in mind? (e.g., 2023)",
+          "Do you remember part of the filename?"
+        ],
+        requiredParameters: [
+          { name: 'reportId', type: 'string', description: 'Specific tax report ID', required: false },
+          { name: 'taxYear', type: 'string', description: 'Tax year (e.g., 2023)', required: false },
+          { name: 'fileName', type: 'string', description: 'Part of the filename to search for', required: false }
+        ]
+      };
+
     default:
       return {
         initialMessage: `I'll help you execute the ${tool.name} tool. ${tool.description}

@@ -629,6 +629,45 @@ export type Database = {
         }
         Relationships: []
       }
+      tax_reports: {
+        Row: {
+          created_at: string
+          description: string | null
+          file_name: string
+          file_size: number
+          id: string
+          original_filename: string
+          storage_path: string
+          tax_year: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          file_name: string
+          file_size: number
+          id?: string
+          original_filename: string
+          storage_path: string
+          tax_year?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          file_size?: number
+          id?: string
+          original_filename?: string
+          storage_path?: string
+          tax_year?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tool_conversations: {
         Row: {
           conversation_id: string

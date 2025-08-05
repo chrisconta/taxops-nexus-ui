@@ -69,11 +69,28 @@ export const buildDashboardSchema = {
   additionalProperties: false,
 } as const;
 
+export interface DownloadTaxReportParams {
+  reportId?: string;
+  taxYear?: string;
+  fileName?: string;
+}
+
+export const downloadTaxReportSchema = {
+  type: "object",
+  properties: {
+    reportId: { type: "string", pattern: "^[a-f0-9\\-]{36}$" },
+    taxYear: { type: "string", pattern: "^20\\d{2}$" },
+    fileName: { type: "string", minLength: 1 },
+  },
+  additionalProperties: false,
+} as const;
+
 /** Registry mapping tool names to their schemas */
 export const toolRegistry = {
   register_client: registerClientSchema,
   create_connection: createConnectionSchema,
   build_dashboard: buildDashboardSchema,
+  download_tax_report: downloadTaxReportSchema,
   build_workflow: {
     type: "object",
     properties: {

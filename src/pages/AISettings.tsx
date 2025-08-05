@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useChatLogger } from '@/hooks/useChatLogger';
+import { TaxReportManager } from "@/components/TaxReportManager";
 import { RefreshCw, Trash2, Search, Play, Square, AlertCircle, Eye, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 interface OrchestratorState {
@@ -286,8 +287,9 @@ Do not provide explanations, just YES or NO.`;
       </div>
 
       <Tabs defaultValue="configuration" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          <TabsTrigger value="tax-reports">Tax Reports</TabsTrigger>
           <TabsTrigger value="api-logs">API Logs</TabsTrigger>
           <TabsTrigger value="chat-logs">Chat Logs</TabsTrigger>
           <TabsTrigger value="chat-history">Chat History</TabsTrigger>
@@ -315,6 +317,10 @@ Do not provide explanations, just YES or NO.`;
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="tax-reports">
+          <TaxReportManager />
         </TabsContent>
 
         <TabsContent value="api-logs">

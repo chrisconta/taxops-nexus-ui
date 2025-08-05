@@ -15,6 +15,7 @@ const SYSTEM_TOOLS = {
   'register-client': 'tool-register-client',
   'create-connection': 'tool-create-connection', 
   'build-dashboard': 'tool-build-dashboard',
+  'download-tax-report': 'download-tax-report',
   'ai-chat': 'ai-chat'
 };
 
