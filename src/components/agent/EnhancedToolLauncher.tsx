@@ -1,10 +1,12 @@
 
 import React, { useState } from "react";
-import { ChevronDown, Wrench, User, Database, BarChart3, Settings, Cpu } from "lucide-react";
+import { ChevronDown, Wrench, User, Database, BarChart3, Settings, Cpu, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useAllTools } from "@/hooks/useAllTools";
+import { executeTool } from "@/api/agent";
+import { toast } from "sonner";
 
 interface EnhancedToolLauncherProps {
   onToolInitiate: (toolType: 'system' | 'workflow', toolData: any) => void;
@@ -34,6 +36,27 @@ export const EnhancedToolLauncher: React.FC<EnhancedToolLauncherProps> = ({
   const handleToolSelect = (toolType: 'system' | 'workflow', toolData: any) => {
     onToolInitiate(toolType, toolData);
     setIsOpen(false);
+  };
+
+  const handleTaxReportDownload = async () => {
+    try {
+      setIsOpen(false);
+      toast.success("Downloading tax report...");
+      
+      const result = await executeTool({
+        toolName: "download_tax_report",
+        params: {}
+      });
+      
+      if (result.success) {
+        toast.success("Tax report download initiated successfully!");
+      } else {
+        toast.error("Failed to download tax report");
+      }
+    } catch (error: any) {
+      console.error('Tax report download error:', error);
+      toast.error(`Failed to download tax report: ${error.message}`);
+    }
   };
 
   const totalTools = systemTools.length + workflowTools.length;
@@ -105,8 +128,34 @@ export const EnhancedToolLauncher: React.FC<EnhancedToolLauncherProps> = ({
                 </>
               )}
 
-              {/* Separator if both sections exist */}
-              {systemTools.length > 0 && workflowTools.length > 0 && <DropdownMenuSeparator />}
+              {/* Tax Report Download Section */}
+              {systemTools.length > 0 && <DropdownMenuSeparator />}
+              
+              <DropdownMenuLabel className="flex items-center gap-2">
+                <Download className="w-4 h-4 text-primary" />
+                Reports
+              </DropdownMenuLabel>
+              
+              <DropdownMenuItem
+                onClick={handleTaxReportDownload}
+                className="cursor-pointer hover:bg-accent p-3"
+              >
+                <div className="flex items-start gap-3 w-full">
+                  <Download className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium">Download Tax Report</div>
+                    <div className="text-sm text-muted-foreground">
+                      Download available tax workpaper reports
+                    </div>
+                    <Badge variant="outline" className="text-xs mt-1">
+                      Tax Documents
+                    </Badge>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+
+              {/* Separator if workflow tools exist */}
+              {workflowTools.length > 0 && <DropdownMenuSeparator />}
 
               {/* Custom Workflow Tools Section */}
               {workflowTools.length > 0 && (
