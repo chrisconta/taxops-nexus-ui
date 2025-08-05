@@ -100,6 +100,44 @@ confirmation prompts are triggered automatically and can be accepted by replying
 the orchestrator via `supabase.functions.invoke('ai-orchestrator')`, and the
 orchestrator handles tool selection, switch requests and dispatching.
 
+## Data Flow
+
+`useChatStore` maintains the conversation by storing `Message` objects and
+calling Supabase edge functions:
+
+- `ai-orchestrator` sends new messages and returns agent replies.
+- `get-conversation-messages` loads prior conversation history.
+
+When an agent reply is actionable, the flow continues:
+
+1. `usePlan` requests a plan from the `ai-planner` edge function.
+2. `executePlan` runs the returned plan through `agent-tool-execute`.
+3. `useClientRegistrationStore` progressively gathers any client data required
+   for execution.
+4. `useChatLogger` records messages, edge-function calls, and results for the
+   session.
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant CS as useChatStore
+  participant AO as ai-orchestrator
+  participant PL as usePlan/ai-planner
+  participant EX as executePlan/agent-tool-execute
+  participant CR as useClientRegistrationStore
+  participant LG as useChatLogger
+
+  U->>CS: type message
+  CS->>AO: invoke ai-orchestrator
+  AO-->>CS: agent reply
+  CS->>LG: log message
+  CS->>CR: collect client data (if needed)
+  CS->>PL: actionable intent
+  PL->>EX: plan generated
+  EX-->>CS: result message
+  CS->>LG: log result
+```
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/dc37e217-b8f8-40fe-aca2-6f138dd1ae04) and click on Share -> Publish.
