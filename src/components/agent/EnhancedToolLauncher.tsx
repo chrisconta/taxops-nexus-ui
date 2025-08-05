@@ -41,7 +41,7 @@ export const EnhancedToolLauncher: React.FC<EnhancedToolLauncherProps> = ({
   const handleTaxReportDownload = async () => {
     try {
       setIsOpen(false);
-      toast.success("Downloading tax report...");
+      toast.success("Preparing tax report download...");
       
       const result = await executeTool({
         toolName: "download_tax_report",
@@ -50,10 +50,19 @@ export const EnhancedToolLauncher: React.FC<EnhancedToolLauncherProps> = ({
         }
       });
       
-      if (result.success) {
-        toast.success("Tax report download initiated successfully!");
+      if (result.success && (result.result as any)?.report?.download_url) {
+        const report = (result.result as any).report;
+        // Create a temporary link to download the file
+        const link = document.createElement('a');
+        link.href = report.download_url;
+        link.download = report.filename || 'tax_report.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast.success(`Tax report "${report.filename}" downloaded successfully!`);
       } else {
-        toast.error("Failed to download tax report");
+        toast.error("Failed to get download URL for tax report");
       }
     } catch (error: any) {
       console.error('Tax report download error:', error);

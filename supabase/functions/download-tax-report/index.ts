@@ -32,7 +32,10 @@ serve(async (req) => {
       throw new Error('Authentication failed');
     }
 
-    const { reportId, taxYear, fileName } = await req.json();
+    const body = await req.json();
+    const { reportId, taxYear, fileName } = body || {};
+
+    console.log('Download tax report called with params:', { reportId, taxYear, fileName });
 
     // Query tax reports based on the provided criteria
     let query = supabase
@@ -48,6 +51,7 @@ serve(async (req) => {
       // Search in both original_filename and description fields (case-insensitive)
       query = query.or(`original_filename.ilike.%${fileName}%,description.ilike.%${fileName}%`);
     }
+    // If no specific criteria provided, get the most recent report
 
     const { data: reports, error: queryError } = await query.order('created_at', { ascending: false }).limit(1);
 
