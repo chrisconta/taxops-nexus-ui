@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAllTools } from "@/hooks/useAllTools";
 import { executeTool } from "@/api/agent";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface EnhancedToolLauncherProps {
   onToolInitiate: (toolType: 'system' | 'workflow', toolData: any) => void;
@@ -43,27 +44,40 @@ export const EnhancedToolLauncher: React.FC<EnhancedToolLauncherProps> = ({
       setIsOpen(false);
       toast.success("Preparing tax report download...");
       
-      const result = await executeTool({
-        toolName: "download_tax_report",
-        params: {
-          taxYear: new Date().getFullYear().toString()
-        }
-      });
-      
-      if (result.success && (result.result as any)?.report?.download_url) {
-        const report = (result.result as any).report;
-        // Create a temporary link to download the file
-        const link = document.createElement('a');
-        link.href = report.download_url;
-        link.download = report.filename || 'tax_report.pdf';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        toast.success(`Tax report "${report.filename}" downloaded successfully!`);
-      } else {
-        toast.error("Failed to get download URL for tax report");
+      // Fetch the latest tax report directly from the database
+      const { data: reports, error } = await supabase
+        .from('tax_reports')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      if (!reports || reports.length === 0) {
+        toast.error("No tax reports found");
+        return;
       }
+
+      const report = reports[0];
+
+      // Download the file directly from storage
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('tax-reports')
+        .download(report.storage_path);
+
+      if (downloadError) throw downloadError;
+
+      // Create download link
+      const url = URL.createObjectURL(fileData);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = report.original_filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Tax report "${report.original_filename}" downloaded successfully!`);
     } catch (error: any) {
       console.error('Tax report download error:', error);
       toast.error(`Failed to download tax report: ${error.message}`);
