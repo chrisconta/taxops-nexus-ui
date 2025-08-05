@@ -315,8 +315,8 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
   const toolPatterns = {
     'register_client': /(?:register[_\s]client|client[_\s]registration|register.*client)/i,
     'create_connection': /(?:create[_\s]connection|connection|connect|linking)/i,
-    'build_dashboard': /(?:build[_\s]dashboard|dashboard|report|analytics)/i,
     'download_tax_report': /(?:download[_\s]?tax[_\s]?report|tax[_\s]?report|get[_\s]?tax|generate[_\s]?tax|tax[_\s]?document)/i,
+    'build_dashboard': /(?:build[_\s]dashboard|dashboard|analytics)(?![_\s]?tax)/i,
     'ai-chat': /(?:ai[_\s]chat|general|conversation|chat|question)/i
   };
   
@@ -366,7 +366,7 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
     console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Found download_tax_report via fallback`);
     return { tool: 'download_tax_report', reply };
   }
-  if (lowerText.includes('dashboard') || (lowerText.includes('report') && !lowerText.includes('tax'))) {
+  if (lowerText.includes('dashboard') || (lowerText.includes('report') && !lowerText.includes('tax') && !lowerText.includes('generate'))) {
     const reply = text.length > 20 ? text : toolMessages.build_dashboard;
     console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Found build_dashboard via fallback`);
     return { tool: 'build_dashboard', reply };
@@ -384,13 +384,20 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
 export function detectToolSwitch(message: string, currentTool?: string): string | undefined {
   const { tool } = extractToolFromResponse(message);
   const normalizedDetected = normalizeToolName(tool);
+  const normalizedCurrent = normalizeToolName(currentTool);
+  
+  // Don't detect a switch if the detected tool is the same as current
+  if (normalizedDetected === normalizedCurrent) {
+    console.log(`[🔍 DETECT TOOL SWITCH] User message aligns with current tool: ${currentTool}`);
+    return undefined;
+  }
+  
   if (
     normalizedDetected === 'ai_chat' &&
     !/\b(chat|switch|cancel|exit)\b/i.test(message)
   ) {
     return undefined;
   }
-  const normalizedCurrent = normalizeToolName(currentTool);
 
   if (tool && normalizedDetected && normalizedDetected !== normalizedCurrent) {
     console.log(`[🔍 DETECT TOOL SWITCH] Detected request to switch from ${currentTool} to ${tool}`);
