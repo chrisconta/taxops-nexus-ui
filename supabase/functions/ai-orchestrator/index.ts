@@ -110,10 +110,14 @@ const normalizeToolName = (tool?: string | null) =>
 function checkSimpleConfirmation(message: string): { isConfirmed: boolean; isRejection: boolean } {
   const normalizedMessage = message.toLowerCase().trim();
   
-  // Strong confirmation patterns
+  // Strong confirmation patterns - Updated to handle confirmations with additional context
   const confirmationPatterns = [
     /^(yes|yeah|yep|yup|sure|okay|ok|alright|correct|right|absolutely|definitely|proceed|go ahead|do it|let's do it|sounds good)$/i,
     /^(yes[.,!]?|yeah[.,!]?|sure[.,!]?|ok[.,!]?)$/i,
+    /^yes,?\s+/i, // NEW: "yes, generate the tax report..." 
+    /^sure,?\s+/i, // NEW: "sure, download for..."
+    /^okay,?\s+/i, // NEW: "okay, get the report..."
+    /^(generate|create|download|get|build|show|display)\s+(the\s+)?(tax\s+)?report/i, // NEW: Direct action commands
     /^i want to/i,
     /please (do|proceed|go ahead)/i,
     /let[''']?s (do|proceed|start)/i
@@ -192,7 +196,13 @@ The user previously selected the tool "${toolName}".
 
 Based on the conversation history, is the user confirming they want to proceed with this specific tool?
 
-Look for confirmation words like: yes, okay, sure, go ahead, proceed, do it.
+Look for confirmation words like: yes, okay, sure, go ahead, proceed, do it, generate, create, download.
+
+IMPORTANT: The user may confirm AND provide additional context in the same message. For example:
+- "yes, generate the tax report from contaayuda usa inc" = YES (confirmation + context)
+- "yes, download the report for that company" = YES (confirmation + context)  
+- "generate the report!!!" = YES (direct action command)
+- "get the tax report from contaayuda" = YES (direct action command)
 
 Conversation History:
 ${conversationHistory.slice(-5).map(m => `${m.role}: ${m.content}`).join('\n')}
@@ -260,9 +270,10 @@ Do not provide explanations, just YES or NO.`;
   } catch (error) {
     console.error(`[🧠 DEEPSEEK-ERROR] ${requestId} | Exception:`, error);
     
-    // Enhanced fallback logic with better pattern matching
+    // Enhanced fallback logic with better pattern matching for confirmations with context
     const fallbackConfirmation = simpleCheck.isConfirmed || 
       /^(yes|yeah|yep|sure|okay|ok)\b/i.test(latestMessage) ||
+      /^(generate|create|download|get|build)\s+(the\s+)?(tax\s+)?report/i.test(latestMessage) ||
       /what.*need|how.*start|tell me|let's do|sounds good/i.test(latestMessage);
     
     console.log(`[🧠 DEEPSEEK-FALLBACK] ${requestId} | Fallback confirmation result: ${fallbackConfirmation}`);
