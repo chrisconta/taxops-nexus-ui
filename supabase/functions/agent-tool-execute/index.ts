@@ -58,6 +58,16 @@ const toolRegistry = {
     required: ["clientId", "metrics", "timeframe"],
     additionalProperties: false,
   },
+  download_tax_report: {
+    type: "object",
+    properties: {
+      fileName: { type: "string", minLength: 1, maxLength: 255 },
+      taxYear: { type: "integer", minimum: 2000, maximum: 2099 },
+      reportId: { type: "string", minLength: 1, maxLength: 100 },
+    },
+    required: [],
+    additionalProperties: false,
+  },
 } as const;
 
 type ToolName = keyof typeof toolRegistry;
@@ -188,17 +198,32 @@ async function extractParametersWithDeepSeek(
         '- "Set up ERP connection for ABC Corp" → Need clientId and credentials';
       break;
       
-    case 'build_dashboard':
-      instruction = 
-        'You are helping extract dashboard parameters from a conversation. ' +
-        'You need: clientId (UUID), metrics (array: revenue/expenses/taxLiability), timeframe (start/end dates). ' +
-        'Look through the conversation for client and dashboard requirements.';
-      
-      examples = 
-        'Examples:\n' +
-        '- "Build dashboard for client 123e4567-e89b-12d3-a456-426614174000 showing revenue and expenses for 2024" → {"clientId": "123e4567-e89b-12d3-a456-426614174000", "metrics": ["revenue", "expenses"], "timeframe": {"start": "2024-01-01", "end": "2024-12-31"}}\n' +
-        '- "Create a report for ABC Corp" → Need clientId, metrics, and timeframe';
-      break;
+      case 'build_dashboard':
+        instruction = 
+          'You are helping extract dashboard parameters from a conversation. ' +
+          'You need: clientId (UUID), metrics (array: revenue/expenses/taxLiability), timeframe (start/end dates). ' +
+          'Look through the conversation for client and dashboard requirements.';
+        
+        examples = 
+          'Examples:\n' +
+          '- "Build dashboard for client 123e4567-e89b-12d3-a456-426614174000 showing revenue and expenses for 2024" → {"clientId": "123e4567-e89b-12d3-a456-426614174000", "metrics": ["revenue", "expenses"], "timeframe": {"start": "2024-01-01", "end": "2024-12-31"}}\n' +
+          '- "Create a report for ABC Corp" → Need clientId, metrics, and timeframe';
+        break;
+        
+      case 'download_tax_report':
+        instruction = 
+          'You are helping extract tax report download parameters from a conversation. ' +
+          'You can extract: fileName (optional), taxYear (optional integer), reportId (optional). ' +
+          'Look for company names mentioned - they can be used as fileName. ' +
+          'All parameters are optional - the system can search with partial information.';
+        
+        examples = 
+          'Examples:\n' +
+          '- "Download tax report for ABC Company" → {"fileName": "ABC Company"}\n' +
+          '- "Get 2023 tax report for XYZ Corp" → {"fileName": "XYZ Corp", "taxYear": 2023}\n' +
+          '- "Download report for contaayuda usa inc" → {"fileName": "contaayuda usa inc"}\n' +
+          '- "Get tax report ID 12345" → {"reportId": "12345"}';
+        break;
   }
   
   const fullInstruction = `${instruction}\n\n${examples}\n\n` +
@@ -418,6 +443,44 @@ async function buildDashboard(params: any, supabase: any, userId: string) {
   };
 }
 
+async function downloadTaxReport(params: any, supabase: any, userId: string) {
+  console.log('Running download_tax_report with params:', params);
+  
+  try {
+    // Call the existing download-tax-report edge function
+    const { data, error } = await supabase.functions.invoke('download-tax-report', {
+      body: {
+        fileName: params.fileName,
+        taxYear: params.taxYear,
+        reportId: params.reportId
+      }
+    });
+
+    if (error) {
+      console.error('Error from download-tax-report function:', error);
+      throw new Error(`Failed to download tax report: ${error.message}`);
+    }
+
+    if (!data || !data.success) {
+      console.error('No data returned or unsuccessful:', data);
+      throw new Error('Tax report not found or download failed');
+    }
+
+    console.log('Successfully retrieved download URL');
+    return {
+      success: true,
+      downloadUrl: data.downloadUrl,
+      fileName: data.fileName || params.fileName,
+      fileSize: data.fileSize,
+      description: data.description,
+      message: `Tax report ready for download: ${data.fileName || 'tax-report.pdf'}`
+    };
+  } catch (error: any) {
+    console.error('Tax report download error:', error);
+    throw new Error(`Tax report download failed: ${error.message}`);
+  }
+}
+
 async function executeToolRunner(toolName: ToolName, params: any, supabase: any, userId: string) {
   switch (toolName) {
     case "register_client":
@@ -426,6 +489,8 @@ async function executeToolRunner(toolName: ToolName, params: any, supabase: any,
       return await createConnection(params, supabase);
     case "build_dashboard":
       return await buildDashboard(params, supabase, userId);
+    case "download_tax_report":
+      return await downloadTaxReport(params, supabase, userId);
     default:
       throw new Error(`Unsupported tool: ${toolName}`);
   }
