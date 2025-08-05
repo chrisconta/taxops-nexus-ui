@@ -13,9 +13,10 @@ async function analyzeUserIntent(message: string, apiKey: string, conversationHi
   
   const instruction = 
     'You are analyzing if the user wants to switch from general chat to a specific tool. ' +
-    'Available tools: register_client, create_connection, build_dashboard. ' +
+    'Available tools: register_client, create_connection, build_dashboard, download_tax_report. ' +
+    'Tool descriptions: register_client (register new clients), create_connection (connect to external services), build_dashboard (create reports/visualizations), download_tax_report (download tax reports and documents). ' +
     'Respond in JSON as {"needs_tool_switch": true|false, "suggested_tool": "<tool_name>", "reasoning": "<explanation>"}. ' +
-    'Only suggest tool switch if the user clearly wants to perform a specific business task.';
+    'Only suggest tool switch if the user clearly wants to perform a specific business task. For tax reports, look for phrases like "tax report", "download tax", "get tax report", "generate tax report", or company names with tax context.';
 
   const messages = [
     { role: 'system', content: instruction },

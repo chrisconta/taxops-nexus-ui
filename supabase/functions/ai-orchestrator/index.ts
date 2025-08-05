@@ -98,6 +98,7 @@ const toolConfirmationMessages = {
   'register_client': "Do you want me to help you register a client? I'll collect their business information like name, email, and EIN to get them set up in the system.",
   'create_connection': "Should I help you create a connection? I'll guide you through connecting to external services like banks or financial institutions.",
   'build_dashboard': "Do you want me to build a dashboard for you? I'll help you create data visualizations and reports based on your requirements.",
+  'download_tax_report': "Should I help you download a tax report? I can find and download tax documents based on company name, tax year, or report ID.",
   'ai-chat': "I'm here to help with general questions and conversations. What would you like to discuss?"
 };
 
@@ -285,6 +286,7 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
     'register_client': toolConfirmationMessages.register_client,
     'create_connection': toolConfirmationMessages.create_connection,
     'build_dashboard': toolConfirmationMessages.build_dashboard,
+    'download_tax_report': toolConfirmationMessages.download_tax_report,
     'ai-chat': toolConfirmationMessages['ai-chat']
   };
   
@@ -293,6 +295,7 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
     'register_client': /^register[_\s]?client$/i,
     'create_connection': /^create[_\s]?connection$/i,
     'build_dashboard': /^build[_\s]?dashboard$/i,
+    'download_tax_report': /^download[_\s]?tax[_\s]?report$/i,
     'ai-chat': /^ai[_\s]?chat$/i
   };
   
@@ -313,6 +316,7 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
     'register_client': /(?:register[_\s]client|client[_\s]registration|register.*client)/i,
     'create_connection': /(?:create[_\s]connection|connection|connect|linking)/i,
     'build_dashboard': /(?:build[_\s]dashboard|dashboard|report|analytics)/i,
+    'download_tax_report': /(?:download[_\s]?tax[_\s]?report|tax[_\s]?report|get[_\s]?tax|generate[_\s]?tax|tax[_\s]?document)/i,
     'ai-chat': /(?:ai[_\s]chat|general|conversation|chat|question)/i
   };
   
@@ -357,7 +361,12 @@ export function extractToolFromResponse(text: string): { tool?: string; reply?: 
     console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Found create_connection via fallback`);
     return { tool: 'create_connection', reply };
   }
-  if (lowerText.includes('dashboard') || lowerText.includes('report')) {
+  if (lowerText.includes('tax') && (lowerText.includes('report') || lowerText.includes('download') || lowerText.includes('generate'))) {
+    const reply = text.length > 20 ? text : toolMessages.download_tax_report;
+    console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Found download_tax_report via fallback`);
+    return { tool: 'download_tax_report', reply };
+  }
+  if (lowerText.includes('dashboard') || (lowerText.includes('report') && !lowerText.includes('tax'))) {
     const reply = text.length > 20 ? text : toolMessages.build_dashboard;
     console.log(`[🧠 TOOL-EXTRACTION] ${requestId} | Found build_dashboard via fallback`);
     return { tool: 'build_dashboard', reply };
@@ -933,13 +942,15 @@ serve(async (req) => {
         '- register_client: Register a new client (needs name, email, ein)\n' +
         '- create_connection: Create a connection for a client (needs clientId, connectionType, credentials)\n' +
         '- build_dashboard: Build a dashboard for a client (needs clientId, metrics, timeframe)\n' +
+        '- download_tax_report: Download tax reports and documents (searches by company name, tax year, or report ID)\n' +
         '- ai-chat: Handle general conversations and questions that don\'t fit other tools\n' +
         'CRITICAL RULES:\n' +
         '1. If user wants to "create a new client", "register a client", or provides client details (name, email, EIN), use "register_client"\n' +
         '2. If user mentions connecting to external services, use "create_connection"\n' +
-        '3. If user wants to build reports or dashboards, use "build_dashboard"\n' +
-        '4. For general questions or unclear intent, use "ai-chat"\n' +
-        'RESPONSE FORMAT: Respond with ONLY the tool name (e.g., "register_client", "ai-chat") OR provide a user-friendly message if clarification is needed. ' +
+        '3. If user wants to build reports or dashboards (not tax-related), use "build_dashboard"\n' +
+        '4. If user mentions "tax report", "download tax", "generate tax report", "get tax report", or company names with tax context, use "download_tax_report"\n' +
+        '5. For general questions or unclear intent, use "ai-chat"\n' +
+        'RESPONSE FORMAT: Respond with ONLY the tool name (e.g., "register_client", "download_tax_report", "ai-chat") OR provide a user-friendly message if clarification is needed. ' +
         'DO NOT include both tool name and message together. The tool name will be processed separately from the user message.';
 
       try {
