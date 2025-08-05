@@ -229,7 +229,7 @@ export const WorkflowChatPanel: React.FC<WorkflowChatPanelProps> = ({
 
       {/* Chat Container - Fixed Height */}
       <div className="flex-1 min-h-0 p-4">
-        <div className="h-[37rem] bg-transparent rounded-lg shadow-sm flex flex-col">
+        <div className="h-[32rem] bg-transparent rounded-lg shadow-sm flex flex-col">
           <ScrollArea className="h-full p-4" ref={scrollRef}>
             <div className="space-y-4">
               {messages.map((message) => (
@@ -303,7 +303,7 @@ export const WorkflowChatPanel: React.FC<WorkflowChatPanelProps> = ({
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t mt-12">
+      <div className="p-4 border-t -mb-10">
         <div className="flex gap-2">
           <Input
             value={input}
