@@ -45,7 +45,8 @@ serve(async (req) => {
     } else if (taxYear) {
       query = query.eq('tax_year', parseInt(taxYear));
     } else if (fileName) {
-      query = query.ilike('original_filename', `%${fileName}%`);
+      // Search in both original_filename and description fields (case-insensitive)
+      query = query.or(`original_filename.ilike.%${fileName}%,description.ilike.%${fileName}%`);
     }
 
     const { data: reports, error: queryError } = await query.order('created_at', { ascending: false }).limit(1);

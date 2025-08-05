@@ -215,13 +215,17 @@ async function extractParametersWithDeepSeek(
           'You are helping extract tax report download parameters from a conversation. ' +
           'You can extract: fileName (optional), taxYear (optional integer), reportId (optional). ' +
           'Look for company names mentioned - they can be used as fileName. ' +
+          'Company names may appear in phrases like "tax report for [company]", "report from [company]", or "generate report for [company]". ' +
+          'Extract the company name as fileName even if mentioned with other words. ' +
           'All parameters are optional - the system can search with partial information.';
         
         examples = 
           'Examples:\n' +
           '- "Download tax report for ABC Company" → {"fileName": "ABC Company"}\n' +
+          '- "Generate tax report for contaayuda usa inc" → {"fileName": "contaayuda usa inc"}\n' +
+          '- "Get tax report from CONTAAYUDA USA INC" → {"fileName": "CONTAAYUDA USA INC"}\n' +
           '- "Get 2023 tax report for XYZ Corp" → {"fileName": "XYZ Corp", "taxYear": 2023}\n' +
-          '- "Download report for contaayuda usa inc" → {"fileName": "contaayuda usa inc"}\n' +
+          '- "yes, contaayuda usa inc" → {"fileName": "contaayuda usa inc"}\n' +
           '- "Get tax report ID 12345" → {"reportId": "12345"}';
         break;
   }
