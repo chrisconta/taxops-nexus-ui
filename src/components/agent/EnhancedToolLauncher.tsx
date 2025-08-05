@@ -45,7 +45,9 @@ export const EnhancedToolLauncher: React.FC<EnhancedToolLauncherProps> = ({
       
       const result = await executeTool({
         toolName: "download_tax_report",
-        params: {}
+        params: {
+          taxYear: new Date().getFullYear().toString()
+        }
       });
       
       if (result.success) {
