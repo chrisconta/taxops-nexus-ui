@@ -74,6 +74,22 @@ Run the linter to check code quality:
 npm run lint
 ```
 
+## Pages Overview
+
+- `AISettings.tsx` – Manage AI configuration, API logs, and conversation debugging.
+- `Analytics.tsx` – Build dashboards with customizable data widgets.
+- `Auth.tsx` – Sign up or sign in users via email and password.
+- `ClientNew.tsx` – Create new client records through a simple form.
+- `ClientDetail.tsx` – View and manage a client's details, connections, and sync status.
+- `Clients.tsx` – List clients with search, metrics, and navigation to detail pages.
+- `ConnectionSetup.tsx` – Configure integrations, upload data, and monitor sync jobs.
+- `Connections.tsx` – Browse available integrations and their connection statuses.
+- `Index.tsx` – Placeholder landing page welcoming users to the app.
+- `ProfileSettings.tsx` – Update user profile information and subscription status.
+- `ToolBuilder.tsx` – Graphically design and execute workflow-based tools.
+- `ReportsBuilder.tsx` – Build and edit reports or workpapers using a component canvas.
+- `NotFound.tsx` – Basic 404 page for unmatched routes.
+
 ## Tool switching & confirmations
 
 The `ai-orchestrator` function decides which tool to run based on the
