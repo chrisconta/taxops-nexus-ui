@@ -1,58 +1,17 @@
-# Welcome to your Lovable project
+# TaxOps Nexus UI
 
-## Project info
+TaxOps Nexus UI is a React + Vite application for managing tax operations workflows, client onboarding, integrations, analytics, and AI-assisted reporting inside a unified workspace.
 
-**URL**: https://lovable.dev/projects/dc37e217-b8f8-40fe-aca2-6f138dd1ae04
+## Project overview
 
-## How can I edit this code?
+This repository contains the front-end for the TaxOps Nexus experience. It provides:
 
-There are several ways of editing your application.
+- Client onboarding, profile management, and authentication flows.
+- Integration setup and monitoring for data connections.
+- Dashboard analytics, reporting, and workpaper tooling.
+- AI-assisted tool and report builders for operational efficiency.
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/dc37e217-b8f8-40fe-aca2-6f138dd1ae04) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
+## Tech stack
 
 - Vite
 - TypeScript
@@ -62,19 +21,31 @@ This project is built with:
 
 ## Development setup
 
-Install dependencies using npm:
+Install dependencies:
 
 ```sh
 npm install
 ```
 
-Run the linter to check code quality:
+Start the development server:
+
+```sh
+npm run dev
+```
+
+Run the linter:
 
 ```sh
 npm run lint
 ```
 
-## Pages Overview
+Build for production:
+
+```sh
+npm run build
+```
+
+## Pages overview
 
 - `AISettings.tsx` – Manage AI configuration, API logs, and conversation debugging.
 - `Analytics.tsx` – Build dashboards with customizable data widgets.
@@ -84,7 +55,7 @@ npm run lint
 - `Clients.tsx` – List clients with search, metrics, and navigation to detail pages.
 - `ConnectionSetup.tsx` – Configure integrations, upload data, and monitor sync jobs.
 - `Connections.tsx` – Browse available integrations and their connection statuses.
-- `Index.tsx` – Placeholder landing page welcoming users to the app.
+- `Index.tsx` – Landing page welcoming users to the app.
 - `ProfileSettings.tsx` – Update user profile information and subscription status.
 - `ToolBuilder.tsx` – Graphically design and execute workflow-based tools.
 - `ReportsBuilder.tsx` – Build and edit reports or workpapers using a component canvas.
@@ -92,18 +63,11 @@ npm run lint
 
 ## Tool switching & confirmations
 
-The `ai-orchestrator` function decides which tool to run based on the
-conversation history. When the user message suggests a different tool than the
-current one, the orchestrator asks for confirmation before switching. These
-confirmation prompts are triggered automatically and can be accepted by replying
-"yes" or declined with "no". The frontend simply sends the user's messages to
-the orchestrator via `supabase.functions.invoke('ai-orchestrator')`, and the
-orchestrator handles tool selection, switch requests and dispatching.
+The `ai-orchestrator` function decides which tool to run based on the conversation history. When the user message suggests a different tool than the current one, the orchestrator asks for confirmation before switching. These confirmation prompts are triggered automatically and can be accepted by replying "yes" or declined with "no". The frontend sends the user's messages to the orchestrator via `supabase.functions.invoke('ai-orchestrator')`, and the orchestrator handles tool selection, switch requests and dispatching.
 
-## Data Flow
+## Data flow
 
-`useChatStore` maintains the conversation by storing `Message` objects and
-calling Supabase edge functions:
+`useChatStore` maintains the conversation by storing `Message` objects and calling Supabase edge functions:
 
 - `ai-orchestrator` sends new messages and returns agent replies.
 - `get-conversation-messages` loads prior conversation history.
@@ -112,10 +76,8 @@ When an agent reply is actionable, the flow continues:
 
 1. `usePlan` requests a plan from the `ai-planner` edge function.
 2. `executePlan` runs the returned plan through `agent-tool-execute`.
-3. `useClientRegistrationStore` progressively gathers any client data required
-   for execution.
-4. `useChatLogger` records messages, edge-function calls, and results for the
-   session.
+3. `useClientRegistrationStore` progressively gathers any client data required for execution.
+4. `useChatLogger` records messages, edge-function calls, and results for the session.
 
 ```mermaid
 sequenceDiagram
@@ -138,14 +100,6 @@ sequenceDiagram
   CS->>LG: log result
 ```
 
-## How can I deploy this project?
+## License
 
-Simply open [Lovable](https://lovable.dev/projects/dc37e217-b8f8-40fe-aca2-6f138dd1ae04) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This project is open source under the MIT License. See [LICENSE](LICENSE).
